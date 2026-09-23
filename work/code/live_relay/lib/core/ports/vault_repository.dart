@@ -1,0 +1,81 @@
+import '../domain/entities.dart';
+
+abstract interface class VaultRepository {
+  Future<List<LifeCard>> listCards({
+    String query = '',
+    CardKind? kind,
+    CardStatus? status,
+  });
+
+  Future<LifeCard?> getCard(String id);
+
+  Future<List<CardRevision>> cardHistory(String cardId);
+
+  Future<LifeCard> createCard(
+    CardDraft draft, {
+    SourceKind sourceKind = SourceKind.ownerInput,
+    String sourceLabel = '本人输入',
+  });
+
+  Future<LifeCard> updateCard(
+    String id,
+    CardDraft draft, {
+    String changeNote = '更新卡片',
+  });
+
+  Future<LifeCard> confirmCard(String id);
+
+  Future<List<LifeCard>> splitCard(String id, List<CardDraft> parts);
+
+  Future<LifeCard> combineCards(String title, List<String> memberIds);
+
+  Future<List<CardRelation>> relationsForCard(String cardId);
+
+  Future<void> trashCard(String id);
+
+  Future<List<VaultBlob>> listBlobs();
+
+  Future<LifeCard> registerBlob(VaultBlob blob);
+
+  Future<void> updateBlobOcr(String id, String text);
+
+  Future<LifeCard> saveOcrResult(String blobId, OcrResult result);
+
+  Future<void> saveSensitiveMarks(String blobId, List<SensitiveMark> marks);
+
+  Future<List<LifeCard>> saveAiSuggestions(
+    String blobId,
+    List<CardDraft> drafts, {
+    required String providerLabel,
+  });
+
+  Future<List<CredentialEntry>> listCredentials({String query = ''});
+
+  Future<CredentialEntry> saveCredential(CredentialDraft draft, {String? id});
+
+  Future<int> importCredentials(List<CredentialDraft> drafts);
+
+  Future<List<CredentialRevision>> credentialHistory(String id);
+
+  Future<void> trashCredential(String id);
+
+  Future<void> purgeCredential(String id);
+
+  Future<ReleasePolicy> getReleasePolicy(String recordType, String recordId);
+
+  Future<List<ReleasePolicy>> listReleasePolicies();
+
+  Future<void> saveReleasePolicy(ReleasePolicy policy);
+
+  Future<LifeState> currentLifeState();
+
+  Future<List<LifeStateEvent>> lifeStateHistory();
+
+  Future<void> transitionLifeState(LifeState to, {required String reason});
+
+  Future<void> resetLifeStateSimulation({required String reason});
+
+  Future<VaultInsights> insights();
+
+  Future<void> close();
+}
