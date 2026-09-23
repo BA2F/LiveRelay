@@ -1,0 +1,44 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "LiveRelay 当前代码架构与关键流程",
+    "locale": "zh-CN",
+    "quality_profile": "showcase",
+    "repository": {
+      "url": "https://github.com/BA2F/LiveRelay",
+      "revision": "0efa4b0d36845c74c8971b6449e9ff7ca42ffca7"
+    },
+    "views": [
+      {"id": "main", "label": "主调用路径", "focus": ["ui", "controller", "repository", "database"], "note": "页面经 AppController 调用内部端口，结构化数据由 SQLCipher 持久化。"},
+      {"id": "unlock", "label": "解锁与本地存储", "focus": ["controller", "keys", "repository", "database", "blobs"], "note": "主密钥解锁后打开数据库，原件单独加密，备份使用认证容器。"},
+      {"id": "capture", "label": "采集与云 AI", "focus": ["ui", "controller", "ocr", "privacy", "cloud_ai", "repository"], "note": "图片 OCR 结果先脱敏；云端只接收脱敏文本，返回内容在本地校验回填。"}
+    ]
+  },
+  "components": [
+    {"id": "ui", "type": "frontend", "label": "Flutter 页面", "sublabel": "Gate / Capture / Cards / Handoff", "pos": [50, 360], "size": [200, 70], "sources": [{"path": "work/code/live_relay/lib/presentation/app.dart", "line": 10}, {"path": "work/code/live_relay/lib/presentation/pages/home_shell.dart"}]},
+    {"id": "controller", "type": "backend", "label": "AppController", "sublabel": "会话与用例编排", "pos": [340, 360], "size": [200, 70], "sources": [{"path": "work/code/live_relay/lib/application/app_controller.dart", "line": 32}]},
+    {"id": "repository", "type": "backend", "label": "VaultRepository", "sublabel": "内部端口 / 修订与审计", "pos": [630, 360], "size": [200, 70], "sources": [{"path": "work/code/live_relay/lib/core/ports/vault_repository.dart"}, {"path": "work/code/live_relay/lib/infrastructure/persistence/sqlite_vault_repository.dart"}]},
+    {"id": "database", "type": "database", "label": "Drift + SQLCipher", "sublabel": "vault.sqlite / schema v4", "pos": [920, 360], "size": [200, 70], "sources": [{"path": "work/code/live_relay/lib/infrastructure/persistence/app_database.dart", "line": 180}]},
+    {"id": "keys", "type": "security", "label": "Vault 密钥管理", "sublabel": "Argon2id / Android 指纹槽", "pos": [340, 80], "size": [200, 70], "sources": [{"path": "work/code/live_relay/lib/core/security/vault_key_manager.dart", "line": 31}, {"path": "work/code/live_relay/lib/infrastructure/security/android_biometric_key_store.dart"}]},
+    {"id": "ocr", "type": "backend", "label": "Google ML Kit OCR", "sublabel": "图片识别候选", "pos": [50, 640], "size": [200, 70], "sources": [{"path": "work/code/live_relay/lib/infrastructure/ocr/google_mlkit_ocr_provider.dart"}, {"path": "work/code/live_relay/lib/application/app_controller.dart", "line": 469}]},
+    {"id": "blobs", "type": "database", "label": "加密原件 Blob", "sublabel": "AES-256-GCM / v1", "pos": [340, 640], "size": [200, 70], "sources": [{"path": "work/code/live_relay/lib/infrastructure/blob/encrypted_blob_store.dart", "line": 18}, {"path": "work/code/live_relay/lib/application/app_controller.dart", "line": 427}]},
+    {"id": "privacy", "type": "security", "label": "AI Privacy Core", "sublabel": "脱敏 / 校验 / 本地回填", "pos": [630, 640], "size": [200, 70], "sources": [{"path": "work/code/live_relay/lib/core/ai/ai_privacy.dart"}, {"path": "work/code/live_relay/lib/application/app_controller.dart", "line": 506}]},
+    {"id": "cloud_ai", "type": "external", "label": "云 AI Provider", "sublabel": "OpenAI-compatible HTTPS", "pos": [950, 640], "size": [200, 70], "sources": [{"path": "work/code/live_relay/lib/infrastructure/ai/openai_compatible_provider.dart", "line": 17}]}
+  ],
+  "connections": [
+    {"id": "ui-controller", "from": "ui", "to": "controller", "label": "用户操作", "variant": "emphasis"},
+    {"id": "controller-repository", "from": "controller", "to": "repository", "label": "异步用例", "variant": "emphasis"},
+    {"id": "repository-database", "from": "repository", "to": "database", "label": "Drift 读写", "variant": "emphasis"},
+    {"id": "controller-keys", "from": "controller", "to": "keys", "label": "解锁主密钥", "variant": "security"},
+    {"id": "controller-ocr", "from": "controller", "to": "ocr", "label": "图片 bytes", "variant": "default"},
+    {"id": "controller-blobs", "from": "controller", "to": "blobs", "label": "原件加密读写", "variant": "security", "labelAt": [365, 490]},
+    {"id": "controller-privacy", "from": "controller", "to": "privacy", "label": "OCR 文本本地脱敏/回填", "variant": "security", "fromSide": "bottom", "toSide": "top"},
+    {"id": "privacy-cloud", "from": "privacy", "to": "cloud_ai", "label": "仅脱敏文本 HTTPS", "variant": "security"}
+  ],
+  "cards": [
+    {"dot": "cyan", "title": "实现形态", "items": ["单个 Flutter package；逻辑模块尚未拆为独立 package", "内部端口可替换，尚未冻结为对外公共契约"]},
+    {"dot": "emerald", "title": "数据与恢复", "items": ["卡片、凭据、修订、策略和状态写入 SQLCipher", "原件采用独立 AES-GCM Blob；.lvault 恢复先 staging 验证"]},
+    {"dot": "amber", "title": "当前边界", "items": ["生命周期与执行人视图仍为本地演示", "云 AI 真实服务联调、Android 生物识别真机验证仍待完成"]}
+  ]
+}
