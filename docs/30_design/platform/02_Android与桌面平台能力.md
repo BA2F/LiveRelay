@@ -1,31 +1,31 @@
 # Android 与桌面平台能力
 
-> 状态：讨论中  
-> 版本：0.4  
-> 最后更新：2026-09-06  
+> 状态：已确认  
+> 版本：0.5  
+> 最后更新：2026-09-23  
 > 依赖文档：platform/00_应用实现架构总览.md
 
 
-## 统一能力方向
+## 当前统一边界
 
-Android/Desktop 通过统一平台能力边界提供：
+MVP 只为确实需要替换的能力定义端口：
 
-- Keystore；
-- Biometric；
-- Camera；
-- File Picker；
-- 文件系统；
-- 网络访问。
+- `BiometricKeyStore`：生物识别保护的 VMK 保存/读取；
+- `OcrProvider`：图像 bytes → OCRResult；
+- `AiProvider`：脱敏文本 → Provider 响应。
+
+Camera、File Picker、录音、播放和文件系统当前封装在表现层/基础设施层，不为了假想统一提前抽象成公共端口。
 
 ## Android 重点
 
-- Camera；
-- Keystore；
-- Biometric；
-- Secure Screen；
-- 自动锁定。
+- Camera/相册和录像：`image_picker`；
+- 录音：`record`；
+- 生物识别和 Android Keystore：`local_auth` + `flutter_secure_storage` biometric options；
+- 文件导入导出：`file_picker`；
+- 音视频回看：`just_audio` + `video_player`；
+- 中文 OCR：Google ML Kit。
 
-成熟插件优先。
+Secure Screen、后台自动锁定和剪贴板自动清理尚未实现，不能计入当前 Android 安全能力。
 
 ## Desktop 重点
 
@@ -46,9 +46,9 @@ Android/Desktop 通过统一平台能力边界提供：
 
 ## 当前开放问题
 
-- 平台能力最小接口；
-- Android 与 Desktop 哪些能力真正需要统一；
-- Secure Screen/KeyStore 等功能的插件选型；
+- 实体 Android 设备上的强生物识别、权限和厂商 ROM 行为；
+- Secure Screen、生命周期自动锁定和剪贴板清理策略；
+- Android 与 Desktop 哪些 UI/媒体能力经过实践后值得统一；
 - Desktop 的安全存储实现。
 
 ## 历史来源

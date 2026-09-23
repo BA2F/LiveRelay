@@ -1,8 +1,8 @@
 # LiveRelay AI Agent 工作规则
 
 > 状态：当前有效  
-> 版本：0.3  
-> 最后更新：2026-09-06  
+> 版本：0.4  
+> 最后更新：2026-09-23  
 > 依赖文档：无
 
 
@@ -12,7 +12,7 @@
 
 ## 当前项目状态
 
-LiveRelay 仍处于设计期。目录存在不代表内容已经成熟；`40_modules/` 和 `50_interfaces/` 当前只保存规划总览，没有冻结模块详细设计或公共契约。
+LiveRelay 已完成首个可运行的 Flutter/Android MVP，源码位于 `work/code/live_relay/`。当前进入实现收敛与真机验证阶段；MVP 内部端口已经落地，但尚未冻结为跨 package 或对外公共契约。`40_modules/` 和 `50_interfaces/` 记录当前实现映射，不代表模块已经拆成独立 package。
 
 ## 执行环境
 
