@@ -1,70 +1,65 @@
-# LiveRelay MVP（留灯）
+# LiveRelay Flutter/Android 应用
 
-LiveRelay 是一个 local-first 的人生信息连续性工具。当前 MVP 优先 Android，核心领域、仓储端口和 Provider 端口不依赖 Android UI，为后续桌面端保留替换边界。
+应用源码入口。产品用途、安装包和操作入门见 [仓库 README](../../../README.md)。
 
-## 已有能力
+## 环境
 
-- Argon2id 主密码派生、AES-256-GCM VMK 封装、SQLCipher 整库加密；
-- 中文随机词组口令与拼音解锁，Android Keystore 指纹密钥槽；
-- 轻量记录的加密“先保存”和本人确认保存、待整理入口、独立搜索和类型/状态筛选；
-- 卡片原位编辑、不可覆盖的修订历史、拆分/组合、完整来源片段及原件链接、回收/恢复；
-- 密码库的显示/复制/历史/回收/彻底删除，Edge 原生 CSV 导入；
-- 照片、录音、录像的导入或现场采集，AES-GCM 原件 Blob 与安全回看；全部原件搜索/筛选、查看与手工整理；
-- 端侧中文 OCR（文本、bbox、置信度、顺序），结果只生成待确认草稿；
-- AI Privacy：行级 Account/Secret/Money/Note 人工标记、本地 Tokenization、单次授权、OpenAI-compatible Provider、Schema/Token 校验与本地复原；
-- 交接准备总览、全部六级授权的精确输出预览、默认遮挡密码和独立本机状态模拟；
-- 完整性认证的 `.lvault` 加密备份、成功导出记录、首次使用/锁定时恢复和恢复前核对；
-- 中文界面与 AI 外发原文/发送文本对照，320dp 小屏、200% 字体和系统深色主题。
+- Flutter stable，Dart 版本符合 `pubspec.yaml`（当前约束 `^3.13.2`）；依赖锁定于 `pubspec.lock`。
+- Android SDK、Java 17+；Android 最低 API 24。最近可运行工具链和验证结果见 [质量记录](../../../docs/60_quality/00_测试与验证策略.md)。
+- Agent 开发任务使用 [AGENTS.md](../../../AGENTS.md)指定的 Linux 工作区。
 
-## 分层
+## 运行
 
-```text
-presentation/       Material 3 UI 与原子组件
-application/        用例编排、会话密钥生命周期
-core/domain/        卡片、原件、交接、敏感标记模型
-core/ports/         Vault / OCR / AI / Biometric 端口
-core/security/      中文口令与 Vault 密钥管理
-infrastructure/     SQLCipher、Blob、OCR、AI、备份、平台适配器
-```
-
-## 本地开发
+从仓库根目录进入应用目录：
 
 ```bash
-cd /home/tahzun/Development/Projects/LiveRelay/work/code/live_relay
+cd work/code/live_relay
 flutter pub get
+flutter devices
+flutter run -d <device-id>
+```
+
+Drift 生成文件已纳入源码。修改数据库表定义后重新生成：
+
+```bash
 dart run build_runner build
+```
+
+Debug 使用 `app.liverelay.live_relay.verification`，与 Release 的 `app.liverelay.live_relay` 分属独立 Android 数据沙箱。测试安装不覆盖正式资料库；不同包之间不会自动共享资料或指纹槽。
+
+## 检查与测试
+
+```bash
 flutter analyze
 flutter test
-flutter run -d emulator-5554
+flutter drive --driver=test_driver/ux_driver.dart --target=integration_test/ux_flow_test.dart -d <android-device-id>
 ```
 
-Android 需 API 24+。数据库必须检测到 SQLCipher，不会静默降级成明文 SQLite。
+`test/` 包含领域、安全、加密仓储/备份、Provider 边界和 Widget 行为测试。`integration_test/ux_flow_test.dart` 在独立临时资料库中使用真实 SQLCipher、Blob 和 Android ML Kit；离线 AI Provider 记录实际外发文本，验证单次授权，不使用真实 API Key。该测试生成虚构资料，Driver 将运行截图写入 `work/paper/uiux-review-2026-10-01/implementation-screenshots/`。
 
-## 最近验证
+不要将原用户资料库或真实个人资料作为回归输入。真实服务和实体硬件的验收需单独记录，不用离线测试代替。
 
-2026-10-02 的验证结果：
-
-- `flutter analyze` 无问题，`flutter test` 38 项全部通过；
-- Android 16 模拟器完整 UI 集成回归通过，真实 SQLCipher/Blob/端侧 ML Kit OCR；AI 使用离线测试 Provider，验证实际外发范围及单次授权；
-- 搜索隔离、草稿/修订/来源、撤销/恢复、备份核对与替换、六级授权输出、默认遮挡密码均有行为回归；
-- 明暗主题、320dp/200% 字体及键盘布局、主要操作读屏标签/触控尺寸/对比度的 Widget 验证通过；
-- Release APK 构建及 v2 签名校验通过；验收包仍使用 Debug 证书，仅供内部侧载。
-
-完整范围、截图、命令和限制见 [实施与验证交付](../../paper/uiux-review-2026-10-01/实施与验证交付.md)。2026-09-23 已有数据库 v1 → v4、图片/相机/录音/视频及清理的设备验证记录；本次没有 schema 升级。
-
-Debug 构建使用独立 Android 包名 `app.liverelay.live_relay.verification`，避免测试安装覆盖正式资料库。Release 保持原包名。运行集成回归：
+## 构建
 
 ```bash
-flutter drive --driver=test_driver/ux_driver.dart --target=integration_test/ux_flow_test.dart -d emulator-5554
+flutter build apk --release
 ```
 
-该回归生成虚构资料并保存截图到上述交付目录，不携带示例资料到正式应用。
+产物：`build/app/outputs/flutter-apk/app-release.apk`。Java 不在环境路径时，设置 `JAVA_HOME` 和对应 `PATH` 后构建。本机使用 Android Studio 自带 JBR；它是环境配置，不写入仓库。
 
-## 安全与当前边界
+当前 Release 配置使用内部 Android Debug 证书。正式发布前需配置发布签名并完成安全/真机验收。已发布 APK 的版本、源码提交、证书和校验值见 [发布记录](../../../docs/60_quality/releases/)，流程见 [RELEASING](../../../RELEASING.md)。
 
-- 云 AI 默认未配置、未授权；每次调用都必须由用户查看范围并选择“仅允许本次”。
-- 原图、音视频、Token Map 和其他资料库条目不发给 AI Provider；本人标记的敏感文字先替换为 Token。未标记文字仍会按外发预览发送，需逐次核对；不合法或遗漏/重复/伪造 Token 的返回会被拒绝。
-- 音视频回看期间会生成受控临时文件，退出即删除，启动时再清理已知异常遗留。
-- 当前交接是本地演示流程，不代表现实世界的失能/身故核验、法律效力或远程发放。
-- 音频转写、视频理解、自动填充、真实同步与桌面媒体 Provider 不在当前 MVP 内。
-- 指纹密钥槽已接入和编译，但需在已录入强生物识别的实体 Android 设备上做最终硬件验证。
+## 代码分层
+
+```text
+presentation/       Material 3 页面、对话框和设计组件
+application/        会话、用例编排、搜索投影和实际释放预览
+core/domain/        卡片、凭据、原件、状态和授权模型
+core/ports/         Vault / OCR / AI / Biometric 内部端口
+core/security/      口令派生与主密钥管理
+infrastructure/     SQLCipher、Blob、OCR、AI、备份与平台适配
+```
+
+数据库必须检测到 SQLCipher，不会静默降级为明文 SQLite。当前 schema v4、Header/Blob v1、`.lvault` v1 的演进需保留兼容性与旧格式验证证据。新增信息默认仅本人可见，AI/OCR 结果先保存为草稿，编辑追加同记录的新修订。
+
+端口是同一 Flutter package 内部 API，尚未冻结为跨 package 公共契约。具体职责见 [模块索引](../../../docs/40_modules/00_模块索引.md)和 [接口总览](../../../docs/50_interfaces/00_接口总览.md)。

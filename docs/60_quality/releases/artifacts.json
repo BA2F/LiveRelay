@@ -1,0 +1,68 @@
+{
+  "repository": "https://github.com/BA2F/LiveRelay",
+  "recordedOn": "2026-10-02",
+  "records": [
+    {
+      "tag": "mvp-0.1",
+      "name": "LiveRelay · MVP 0.1 — 首个可运行版本",
+      "url": "https://github.com/BA2F/LiveRelay/releases/tag/mvp-0.1",
+      "publishedAt": "2026-10-02T06:05:00Z",
+      "buildDate": "2026-09-23",
+      "sourceCommit": "4b4032e15c276ec4806b087b1a0f8a832bc488e6",
+      "provenance": "Historical original APK; first committed MVP source baseline; no historical rebuild claimed.",
+      "prerelease": true,
+      "packageName": "app.liverelay.live_relay",
+      "versionName": "1.0.0",
+      "versionCode": 1,
+      "minSdk": 24,
+      "targetSdk": 36,
+      "signatureScheme": "v2",
+      "signingCertificate": "Android Debug",
+      "certificateSha256": "71bf52ae69bf468f2a2257d81a3a6c5e2c1c0a9a91582925a7e7e82714b2e314",
+      "apk": {
+        "fileName": "LiveRelay-MVP0.1-Android.apk",
+        "bytes": 107919086,
+        "sha256": "3cb8c581a01293ef91a07d7e8b9c7d6859b37bcd9ed1f743b6bab883dc31abf1",
+        "downloadUrl": "https://github.com/BA2F/LiveRelay/releases/download/mvp-0.1/LiveRelay-MVP0.1-Android.apk"
+      },
+      "checksumFile": {
+        "fileName": "SHA256SUMS",
+        "sha256": "9b11154c6d25cb2c0810a07267a96f08fad63e06ca1aeeb1063cf608fe446684",
+        "downloadUrl": "https://github.com/BA2F/LiveRelay/releases/download/mvp-0.1/SHA256SUMS"
+      },
+      "verification": "Local APK v2 signature and manifest checked; GitHub uploaded asset size/digest match local originals.",
+      "releaseAttestation": false
+    },
+    {
+      "tag": "mvp-0.2",
+      "name": "LiveRelay · MVP 0.2 — 日常记录与交接准备",
+      "url": "https://github.com/BA2F/LiveRelay/releases/tag/mvp-0.2",
+      "publishedAt": "2026-10-02T06:05:54Z",
+      "buildDate": "2026-10-02",
+      "sourceCommit": "7555e35626caea96fd20e5c99ebff442fd0f16d5",
+      "provenance": "Original locally verified APK; application source matches tagged commit; not rebuilt for publishing.",
+      "prerelease": true,
+      "packageName": "app.liverelay.live_relay",
+      "versionName": "1.0.0",
+      "versionCode": 1,
+      "minSdk": 24,
+      "targetSdk": 36,
+      "signatureScheme": "v2",
+      "signingCertificate": "Android Debug",
+      "certificateSha256": "71bf52ae69bf468f2a2257d81a3a6c5e2c1c0a9a91582925a7e7e82714b2e314",
+      "apk": {
+        "fileName": "LiveRelay-MVP0.2-Android.apk",
+        "bytes": 109721310,
+        "sha256": "0e47bcf233400aaa02239399275e28246b6acf62d1788422209af8c0b6b284bd",
+        "downloadUrl": "https://github.com/BA2F/LiveRelay/releases/download/mvp-0.2/LiveRelay-MVP0.2-Android.apk"
+      },
+      "checksumFile": {
+        "fileName": "SHA256SUMS",
+        "sha256": "0be37b86acaa9351936f1183f53833dc5855d21cff26d4166fe8224896135af0",
+        "downloadUrl": "https://github.com/BA2F/LiveRelay/releases/download/mvp-0.2/SHA256SUMS"
+      },
+      "verification": "Local APK v2 signature and manifest checked; GitHub uploaded asset size/digest match local originals.",
+      "releaseAttestation": false
+    }
+  ]
+}

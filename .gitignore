@@ -72,3 +72,8 @@ macos/.symlinks/
 macos/Flutter/ephemeral/
 linux/flutter/ephemeral/
 windows/flutter/ephemeral/
+
+# 安装包通过 GitHub Releases 分发，本地制品暂存不纳入 Git
+*.apk
+*.aab
+/work/exports/release-artifacts/
