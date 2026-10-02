@@ -58,10 +58,11 @@ class StatusPill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final resolved = color ?? Theme.of(context).colorScheme.secondary;
+    final scheme = Theme.of(context).colorScheme;
+    final resolved = color ?? scheme.onSecondaryContainer;
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: resolved.withValues(alpha: 0.12),
+        color: scheme.secondaryContainer,
         borderRadius: BorderRadius.circular(999),
       ),
       child: Padding(
@@ -183,4 +184,56 @@ class ErrorBanner extends StatelessWidget {
       ),
     );
   }
+}
+
+Future<void> runUiAction(
+  BuildContext context,
+  Future<void> Function() action, {
+  String? success,
+}) async {
+  final messenger = ScaffoldMessenger.of(context);
+  try {
+    await action();
+    if (success != null && messenger.mounted) {
+      messenger.showSnackBar(SnackBar(content: Text(success)));
+    }
+  } on Object catch (error) {
+    if (messenger.mounted) {
+      messenger.showSnackBar(SnackBar(content: Text('操作失败：$error')));
+    }
+  }
+}
+
+/// InputDecorator gives the editable semantics node the same padded touch
+/// area as the visible search surface, including at large system font sizes.
+class SearchField extends StatelessWidget {
+  const SearchField({
+    super.key,
+    required this.controller,
+    required this.hintText,
+    this.leading,
+    this.trailing = const [],
+    this.onChanged,
+    this.onSubmitted,
+  });
+  final TextEditingController controller;
+  final String hintText;
+  final Widget? leading;
+  final List<Widget> trailing;
+  final ValueChanged<String>? onChanged;
+  final ValueChanged<String>? onSubmitted;
+  @override
+  Widget build(BuildContext context) => TextField(
+    controller: controller,
+    keyboardType: TextInputType.text,
+    textInputAction: TextInputAction.search,
+    onChanged: onChanged,
+    onSubmitted: onSubmitted,
+    decoration: InputDecoration(
+      labelText: hintText,
+      prefixIcon: leading,
+      suffixIcon: trailing.isEmpty ? null : trailing.last,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+    ),
+  );
 }

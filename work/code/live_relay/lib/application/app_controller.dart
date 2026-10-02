@@ -1,4 +1,7 @@
 import 'dart:io';
+import 'dart:convert';
+
+import 'package:archive/archive.dart';
 
 import 'package:collection/collection.dart';
 import 'package:file_picker/file_picker.dart';
@@ -67,6 +70,9 @@ class AppController extends ChangeNotifier {
   String? lastError;
 
   List<LifeCard> cards = const [];
+  List<LifeCard> recycledCards = const [];
+  List<CredentialEntry> recycledCredentials = const [];
+  DateTime? lastBackupExport;
   List<VaultBlob> blobs = const [];
   List<CredentialEntry> credentials = const [];
   List<ReleasePolicy> releasePolicies = const [];
@@ -197,7 +203,7 @@ class AppController extends ChangeNotifier {
   Future<void> unlockWithPassword(String password) async {
     await _run(() async {
       final metadata = header ?? await _keyManager.readMetadata();
-      if (metadata == null) throw StateError('Vault 尚未创建');
+      if (metadata == null) throw StateError('加密资料库尚未创建');
       final canonical = metadata.usesChinesePassphrase
           ? _passphraseCodec.canonicalize(
               password,
@@ -230,7 +236,7 @@ class AppController extends ChangeNotifier {
   }
 
   Future<void> setBiometricEnabled(bool enabled) async {
-    if (!isUnlocked) throw StateError('请先解锁 Vault');
+    if (!isUnlocked) throw StateError('请先解锁加密资料库');
     if (enabled) {
       throw UnsupportedError('启用指纹需要重新输入主密码');
     }
@@ -263,11 +269,11 @@ class AppController extends ChangeNotifier {
   }
 
   Future<Uint8List> exportVault(String password) async {
-    if (!isUnlocked) throw StateError('请先解锁 Vault');
+    if (!isUnlocked) throw StateError('请先解锁加密资料库');
     late Uint8List result;
     await _run(() async {
       final metadata = header ?? await _keyManager.readMetadata();
-      if (metadata == null) throw StateError('Vault 尚未创建');
+      if (metadata == null) throw StateError('加密资料库尚未创建');
       final key = await _keyManager.unlock(
         _canonicalizePassword(password, metadata),
       );
@@ -292,11 +298,11 @@ class AppController extends ChangeNotifier {
   }
 
   Future<void> restoreVault(Uint8List bytes, String backupPassword) async {
-    if (!isUnlocked) throw StateError('请先解锁 Vault');
     await _run(() async {
       StagedLifeVault? staged;
       Uint8List? importedKey;
       try {
+        await _vaultDirectory.parent.create(recursive: true);
         staged = await _archiveService.stage(
           archiveBytes: bytes,
           stagingParent: _vaultDirectory.parent,
@@ -327,8 +333,13 @@ class AppController extends ChangeNotifier {
           '${_vaultDirectory.path}.rollback-'
           '${DateTime.now().microsecondsSinceEpoch}',
         );
-        await _vaultDirectory.rename(rollback.path);
+        final hadVault = await _vaultDirectory.exists();
+        var movedOriginal = false;
         try {
+          if (hadVault) {
+            await _vaultDirectory.rename(rollback.path);
+            movedOriginal = true;
+          }
           await staged.directory.rename(_vaultDirectory.path);
           staged = null;
           await _openWithKey(importedKey);
@@ -340,14 +351,26 @@ class AppController extends ChangeNotifier {
           } on Object {
             // Imported headers disable biometrics; stale device slots are never used.
           }
-          await rollback.delete(recursive: true);
+          if (hadVault) {
+            try {
+              await rollback.delete(recursive: true);
+            } on Object {
+              // A cleanup failure must not roll back a completed import.
+              // The remaining rollback is encrypted and outside the active vault.
+            }
+          }
         } on Object {
-          if (await _vaultDirectory.exists()) {
+          await _repository?.close();
+          _repository = null;
+          if ((!hadVault || movedOriginal) && await _vaultDirectory.exists()) {
             await _vaultDirectory.delete(recursive: true);
           }
-          await rollback.rename(_vaultDirectory.path);
+          if (movedOriginal) await rollback.rename(_vaultDirectory.path);
           header = await _keyManager.readMetadata();
-          sessionState = VaultSessionState.locked;
+          sessionState = header == null
+              ? VaultSessionState.needsSetup
+              : VaultSessionState.locked;
+          _clearUnlockedData();
           _clearSessionKey();
           throw const LifeVaultArchiveException('恢复失败；原 Vault 已保留，请重新解锁');
         }
@@ -365,7 +388,17 @@ class AppController extends ChangeNotifier {
     final repository = _repository;
     _repository = null;
     if (repository != null) await repository.close();
+    _clearUnlockedData();
+    sessionState = VaultSessionState.locked;
+    _clearSessionKey();
+    notifyListeners();
+  }
+
+  void _clearUnlockedData() {
     cards = const [];
+    recycledCards = const [];
+    recycledCredentials = const [];
+    lastBackupExport = null;
     blobs = const [];
     credentials = const [];
     releasePolicies = const [];
@@ -378,18 +411,87 @@ class AppController extends ChangeNotifier {
       credentials: 0,
       byKind: {},
     );
-    sessionState = VaultSessionState.locked;
-    _clearSessionKey();
-    notifyListeners();
   }
 
-  Future<void> refresh({String cardQuery = '', String credentialQuery = ''}) {
-    return _run(
-      () => _refreshUnlockedData(
-        cardQuery: cardQuery,
-        credentialQuery: credentialQuery,
-      ),
-    );
+  Future<void> refresh({String cardQuery = '', String credentialQuery = ''}) =>
+      _run(_refreshUnlockedData);
+
+  // Page queries are projections of the complete unlocked snapshot. A refresh,
+  // mutation or handoff preview can never overwrite another page's data.
+  List<LifeCard> findCards(String query, {CardKind? kind, CardStatus? status}) {
+    final needle = query.trim().toLowerCase();
+    return cards
+        .where(
+          (c) =>
+              (kind == null || c.kind == kind) &&
+              (status == null || c.status == status) &&
+              '${c.title} ${c.content} ${c.tags.join(' ')}'
+                  .toLowerCase()
+                  .contains(needle),
+        )
+        .toList();
+  }
+
+  List<CredentialEntry> findCredentials(String query) {
+    final needle = query.trim().toLowerCase();
+    return credentials
+        .where(
+          (c) =>
+              '${c.title} ${c.username} ${c.website} ${c.notes} ${c.tags.join(' ')}'
+                  .toLowerCase()
+                  .contains(needle),
+        )
+        .toList();
+  }
+
+  Future<void> markBackupExported() =>
+      _mutate((r) => r.recordBackupExport(DateTime.now()));
+
+  Future<BackupPreview> inspectBackup(Uint8List bytes, String password) async {
+    late BackupPreview preview;
+    await _run(() async {
+      await _vaultDirectory.parent.create(recursive: true);
+      final staged = await _archiveService.stage(
+        archiveBytes: bytes,
+        stagingParent: _vaultDirectory.parent,
+      );
+      Uint8List? key;
+      AppDatabase? db;
+      try {
+        final manager = VaultKeyManager(staged.directory);
+        final metadata = await manager.readMetadata();
+        if (metadata == null) throw const LifeVaultArchiveException('备份缺少资料库头');
+        key = await manager.unlock(_canonicalizePassword(password, metadata));
+        await _archiveService.verifyAuthentication(
+          staged: staged,
+          masterKey: key,
+        );
+        db = await AppDatabase.openEncrypted(
+          vaultDirectory: staged.directory,
+          masterKey: key,
+        );
+        final r = SqliteVaultRepository(db);
+        final archive = ZipDecoder().decodeBytes(bytes);
+        final container = jsonDecode(
+          utf8.decode(archive.findFile('container.json')!.readBytes()!),
+        ) as Map;
+        preview = BackupPreview(
+          createdAt: DateTime.tryParse('${container['createdAt']}'),
+          cards: (await r.listCards()).length,
+          credentials: (await r.listCredentials()).length,
+          originals: (await r.listBlobs()).length,
+          recycledCards: (await r.listCards(recycled: true)).length,
+          recycledCredentials: (await r.listCredentials(recycled: true)).length,
+        );
+      } finally {
+        await db?.close();
+        if (key != null) _wipe(key);
+        if (await staged.directory.exists()) {
+          await staged.directory.delete(recursive: true);
+        }
+      }
+    });
+    return preview;
   }
 
   Future<void> createCard(
@@ -420,6 +522,17 @@ class AppController extends ChangeNotifier {
 
   Future<void> combineCards(String title, List<String> memberIds) =>
       _mutate((repository) => repository.combineCards(title, memberIds));
+
+  Future<void> restoreCard(String id) => _mutate((r) => r.restoreCard(id));
+  Future<void> restoreCredential(String id) =>
+      _mutate((r) => r.restoreCredential(id));
+  Future<List<LifeCard>> cardsForBlob(String blobId) =>
+      _requireRepository().cardsForBlob(blobId);
+  Future<List<CardSource>> cardSources(String id) =>
+      _requireRepository().cardSources(id);
+  Future<LifeCard?> getCard(String id) => _requireRepository().getCard(id);
+  Future<void> createCardFromOriginal(String blobId, CardDraft draft) =>
+      _mutate((r) => r.createCardFromOriginal(blobId, draft));
 
   Future<void> trashCard(String id) =>
       _mutate((repository) => repository.trashCard(id));
@@ -509,13 +622,13 @@ class AppController extends ChangeNotifier {
       final blob = blobs.firstWhereOrNull((item) => item.id == blobId);
       if (blob == null) throw StateError('原始资料不存在');
       if (!aiSettings.isConfigured) {
-        throw StateError('请先配置 OpenAI-compatible Provider');
+        throw StateError('请先配置 AI 服务');
       }
       await _requireRepository().saveSensitiveMarks(blobId, marks);
       final payload = _aiPrivacy.tokenize(lines: blob.ocrLines, marks: marks);
       final apiKey = await _aiSettingsStore.readApiKey();
       if (apiKey == null || apiKey.isEmpty) {
-        throw StateError('AI Provider API Key 不存在');
+        throw StateError('AI 服务密钥不存在');
       }
       final response = await _aiProvider.organize(
         AiProviderRequest(
@@ -580,9 +693,15 @@ class AppController extends ChangeNotifier {
       _mutate((repository) => repository.purgeCredential(id));
 
   Future<EdgePasswordImportResult> importEdgePasswords(Uint8List bytes) async {
-    final parsed = _edgeImporter.parse(bytes);
-    await _mutate((repository) => repository.importCredentials(parsed.entries));
-    return parsed;
+    try {
+      final parsed = _edgeImporter.parse(bytes);
+      await _mutate(
+        (repository) => repository.importCredentials(parsed.entries),
+      );
+      return parsed;
+    } finally {
+      _wipe(bytes);
+    }
   }
 
   Future<List<CredentialRevision>> credentialHistory(String id) =>
@@ -673,19 +792,18 @@ class AppController extends ChangeNotifier {
         : password;
   }
 
-  Future<void> _refreshUnlockedData({
-    String cardQuery = '',
-    String credentialQuery = '',
-  }) async {
+  Future<void> _refreshUnlockedData() async {
     final repository = _requireRepository();
     final results = await Future.wait<Object>([
-      repository.listCards(query: cardQuery),
+      repository.listCards(),
       repository.listBlobs(),
-      repository.listCredentials(query: credentialQuery),
+      repository.listCredentials(),
       repository.listReleasePolicies(),
       repository.lifeStateHistory(),
       repository.currentLifeState(),
       repository.insights(),
+      repository.listCards(recycled: true),
+      repository.listCredentials(recycled: true),
     ]);
     cards = results[0] as List<LifeCard>;
     blobs = results[1] as List<VaultBlob>;
@@ -694,6 +812,9 @@ class AppController extends ChangeNotifier {
     lifeStateHistory = results[4] as List<LifeStateEvent>;
     lifeState = results[5] as LifeState;
     insights = results[6] as VaultInsights;
+    recycledCards = results[7] as List<LifeCard>;
+    recycledCredentials = results[8] as List<CredentialEntry>;
+    lastBackupExport = await repository.lastBackupExport();
   }
 
   Future<void> _mutate(
@@ -707,13 +828,13 @@ class AppController extends ChangeNotifier {
 
   VaultRepository _requireRepository() {
     final repository = _repository;
-    if (repository == null) throw StateError('Vault 尚未解锁');
+    if (repository == null) throw StateError('加密资料库尚未解锁');
     return repository;
   }
 
   Uint8List _requireSessionKey() {
     final key = _sessionKey;
-    if (key == null) throw StateError('Vault 尚未解锁');
+    if (key == null) throw StateError('加密资料库尚未解锁');
     return key;
   }
 
@@ -729,6 +850,7 @@ class AppController extends ChangeNotifier {
   }
 
   Future<void> _run(Future<void> Function() action) async {
+    if (isBusy) throw StateError('请等待当前操作完成');
     isBusy = true;
     lastError = null;
     notifyListeners();

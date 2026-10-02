@@ -1,0 +1,10 @@
+00:00 +0: loading /home/tahzun/Development/Projects/LiveRelay/work/code/live_relay/test/ux_widget_test.dart
+00:00 +0: unmatched card search never clears recent home data and refresh retains query
+00:00 +1: release secrets are masked initially, explicitly revealed and hidden after 30 seconds
+00:01 +2: 320dp and 200% text: all main pages, gates and keyboard can scroll without overflow (false)
+00:01 +3: policy inspection supports 320dp and 200% text (false)
+00:01 +4: main actions have readable contrast, labels and 48dp tap targets (false)
+00:01 +5: 320dp and 200% text: all main pages, gates and keyboard can scroll without overflow (true)
+00:02 +6: policy inspection supports 320dp and 200% text (true)
+00:02 +7: main actions have readable contrast, labels and 48dp tap targets (true)
+00:02 +8: All tests passed!

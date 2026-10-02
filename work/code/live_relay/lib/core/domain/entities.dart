@@ -322,3 +322,37 @@ class VaultInsights {
     return math.min(1, confirmed / totalCards);
   }
 }
+
+/// A persisted source excerpt; revisions without a source row are represented
+/// by their retained revision text. Blob references never expose file paths.
+class CardSource {
+  const CardSource({
+    required this.label,
+    required this.kind,
+    required this.excerpt,
+    required this.createdAt,
+    this.blobId,
+  });
+  final String label;
+  final SourceKind kind;
+  final String excerpt;
+  final DateTime createdAt;
+  final String? blobId;
+}
+
+class BackupPreview {
+  const BackupPreview({
+    required this.createdAt,
+    required this.cards,
+    required this.credentials,
+    required this.originals,
+    required this.recycledCards,
+    required this.recycledCredentials,
+  });
+  final DateTime? createdAt;
+  final int cards;
+  final int credentials;
+  final int originals;
+  final int recycledCards;
+  final int recycledCredentials;
+}

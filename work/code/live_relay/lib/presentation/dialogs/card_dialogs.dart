@@ -5,21 +5,27 @@ import '../../application/app_controller.dart';
 import '../../core/domain/entities.dart';
 import '../design_system/atoms.dart';
 import '../model_labels.dart';
+import '../../application/release_preview.dart';
+import '../widgets/release_preview_panel.dart';
+import '../pages/originals_page.dart';
 
 Future<void> showCardEditor(
   BuildContext context,
   AppController controller, {
   LifeCard? card,
-  CardStatus initialStatus = CardStatus.confirmed,
+  CardStatus initialStatus = CardStatus.draft,
+  String? sourceBlobId,
+  String? initialContent,
 }) async {
-  await showModalBottomSheet<void>(
-    context: context,
-    isScrollControlled: true,
-    useSafeArea: true,
-    builder: (_) => _CardEditorSheet(
-      controller: controller,
-      card: card,
-      initialStatus: initialStatus,
+  await Navigator.of(context).push<void>(
+    MaterialPageRoute(
+      builder: (_) => _CardEditorSheet(
+        controller: controller,
+        card: card,
+        initialStatus: initialStatus,
+        sourceBlobId: sourceBlobId,
+        initialContent: initialContent,
+      ),
     ),
   );
 }
@@ -29,144 +35,236 @@ class _CardEditorSheet extends StatefulWidget {
     required this.controller,
     required this.card,
     required this.initialStatus,
+    this.sourceBlobId,
+    this.initialContent,
   });
-
   final AppController controller;
   final LifeCard? card;
   final CardStatus initialStatus;
-
+  final String? sourceBlobId;
+  final String? initialContent;
   @override
   State<_CardEditorSheet> createState() => _CardEditorSheetState();
 }
 
 class _CardEditorSheetState extends State<_CardEditorSheet> {
-  late final TextEditingController _title;
-  late final TextEditingController _content;
-  late final TextEditingController _tags;
-  late CardKind _kind;
-  late CardStatus _status;
-
+  late final _title = TextEditingController(text: widget.card?.title);
+  late final _content = TextEditingController(
+    text: widget.card?.content ?? widget.initialContent,
+  );
+  late final _tags = TextEditingController(text: widget.card?.tags.join(', '));
+  late CardKind _kind = widget.card?.kind ?? CardKind.note;
+  bool _dirty = false;
+  bool _allowExit = false;
+  bool _saving = false;
+  String? _error;
   @override
   void initState() {
     super.initState();
-    _title = TextEditingController(text: widget.card?.title);
-    _content = TextEditingController(text: widget.card?.content);
-    _tags = TextEditingController(text: widget.card?.tags.join(', '));
-    _kind = widget.card?.kind ?? CardKind.note;
-    _status = widget.card?.status ?? widget.initialStatus;
+    for (final c in [_title, _content, _tags]) {
+      c.addListener(_changed);
+    }
+    _dirty = widget.initialContent?.isNotEmpty ?? false;
+  }
+
+  void _changed() {
+    if (mounted) setState(() => _dirty = true);
   }
 
   @override
   void dispose() {
-    _title.dispose();
-    _content.dispose();
-    _tags.dispose();
+    for (final c in [_title, _content, _tags]) {
+      c.dispose();
+    }
     super.dispose();
   }
 
-  Future<void> _save() async {
+  Future<void> _save(CardStatus status) async {
+    if (_saving) return;
+    final content = _content.text.trim();
+    if (content.isEmpty) {
+      setState(() => _error = '先写下一点内容。');
+      return;
+    }
+    final firstLine = content.split('\n').first;
+    final title = _title.text.trim().isNotEmpty
+        ? _title.text.trim()
+        : String.fromCharCodes(firstLine.runes.take(28));
     final draft = CardDraft(
-      title: _title.text,
-      content: _content.text,
+      title: title,
+      content: content,
       kind: _kind,
-      status: _status,
+      status: status,
       tags: _tags.text.split(RegExp(r'[,，]')),
     );
+    setState(() {
+      _saving = true;
+      _error = null;
+    });
     try {
-      if (widget.card == null) {
-        await widget.controller.createCard(draft);
+      if (widget.card != null) {
+        await widget.controller.updateCard(
+          widget.card!.id,
+          draft,
+          changeNote: status == CardStatus.confirmed ? '本人修改并确认' : '本人修改，保存待整理',
+        );
+      } else if (widget.sourceBlobId != null) {
+        await widget.controller.createCardFromOriginal(
+          widget.sourceBlobId!,
+          draft,
+        );
       } else {
-        await widget.controller.updateCard(widget.card!.id, draft);
+        await widget.controller.createCard(draft);
       }
-      if (mounted) Navigator.pop(context);
+      if (mounted) {
+        setState(() {
+          _allowExit = true;
+          _saving = false;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              status == CardStatus.confirmed ? '已加密保存，本人已确认' : '已加密保存在本机，进入待整理',
+            ),
+          ),
+        );
+        // PopScope must rebuild before programmatic pop.
+        await Future<void>.delayed(Duration.zero);
+        if (mounted) Navigator.pop(context);
+      }
     } on Object {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(widget.controller.lastError ?? '保存失败')),
-        );
+        setState(() => _error = widget.controller.lastError ?? '保存失败，输入仍保留');
       }
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  Future<void> _leave() async {
+    if (_saving) return;
+    final action = await showDialog<String>(
+      context: context,
+      builder: (c) => AlertDialog(
+        title: const Text('保留还没保存的内容？'),
+        content: const Text('保留会加密保存为待整理内容，之后可以继续编辑。'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(c),
+            child: const Text('继续编辑'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(c, 'discard'),
+            child: const Text('放弃修改'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(c, 'save'),
+            child: const Text('加密保留'),
+          ),
+        ],
+      ),
+    );
+    if (!mounted) return;
+    if (action == 'save') {
+      await _save(CardStatus.draft);
+    }
+    if (action == 'discard') {
+      setState(() {
+        _allowExit = true;
+        _saving = false;
+      });
+      await Future<void>.delayed(Duration.zero);
+      if (mounted) Navigator.pop(context);
     }
   }
 
   @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: EdgeInsets.fromLTRB(
-        20,
-        20,
-        20,
-        MediaQuery.viewInsetsOf(context).bottom + 20,
-      ),
-      child: SingleChildScrollView(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
+  Widget build(BuildContext context) => PopScope<void>(
+    canPop: (!_dirty || _allowExit) && !_saving,
+    onPopInvokedWithResult: (didPop, _) {
+      if (!didPop) _leave();
+    },
+    child: Scaffold(
+      appBar: AppBar(title: Text(widget.card == null ? '记一条' : '编辑这条信息')),
+      body: SafeArea(
+        child: ListView(
+          padding: const EdgeInsets.all(20),
           children: [
-            Text(
-              widget.card == null ? '新建信息卡片' : '编辑卡片',
-              style: Theme.of(context).textTheme.headlineSmall,
-            ),
-            const SizedBox(height: 18),
-            TextField(
-              controller: _title,
-              autofocus: true,
-              decoration: const InputDecoration(labelText: '标题'),
-            ),
-            const SizedBox(height: 12),
             TextField(
               controller: _content,
+              autofocus: true,
               minLines: 4,
-              maxLines: 9,
+              maxLines: 10,
               decoration: const InputDecoration(
-                labelText: '内容',
+                labelText: '想记下什么？',
+                hintText: '例如：备用钥匙在鞋柜第二层。',
                 alignLabelWithHint: true,
               ),
             ),
             const SizedBox(height: 12),
-            DropdownButtonFormField<CardKind>(
-              initialValue: _kind,
-              decoration: const InputDecoration(labelText: '类别'),
-              items: CardKind.values
-                  .where((value) => value != CardKind.bundle)
-                  .map(
-                    (value) => DropdownMenuItem(
-                      value: value,
-                      child: Text(value.label),
-                    ),
-                  )
-                  .toList(),
-              onChanged: (value) => setState(() => _kind = value ?? _kind),
+            Text(
+              widget.card == null
+                  ? '先保存为待整理内容，默认仅本人可见。'
+                  : '保存会生成同一卡片的新修订，旧内容和来源保留。',
             ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: _tags,
-              decoration: const InputDecoration(
-                labelText: '标签',
-                hintText: '用逗号分隔',
-              ),
+            const SizedBox(height: 16),
+            ExpansionTile(
+              title: const Text('补充信息（可选）'),
+              tilePadding: EdgeInsets.zero,
+              childrenPadding: const EdgeInsets.only(bottom: 16),
+              children: [
+                TextField(
+                  controller: _title,
+                  decoration: const InputDecoration(
+                    labelText: '标题',
+                    hintText: '留空时使用内容首行',
+                  ),
+                ),
+                const SizedBox(height: 12),
+                DropdownButtonFormField<CardKind>(
+                  initialValue: _kind,
+                  isExpanded: true,
+                  decoration: const InputDecoration(labelText: '类型'),
+                  items: CardKind.values
+                      .where(
+                        (v) => v != CardKind.bundle || _kind == CardKind.bundle,
+                      )
+                      .map(
+                        (v) => DropdownMenuItem(value: v, child: Text(v.label)),
+                      )
+                      .toList(),
+                  onChanged: _saving
+                      ? null
+                      : (v) => setState(() {
+                          _kind = v ?? _kind;
+                          _dirty = true;
+                        }),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: _tags,
+                  decoration: const InputDecoration(labelText: '标签（逗号分隔）'),
+                ),
+              ],
+            ),
+            if (_error != null) ...[
+              ErrorBanner(_error!),
+              const SizedBox(height: 12),
+            ],
+            FilledButton(
+              onPressed: _saving ? null : () => _save(CardStatus.draft),
+              child: Text(_saving ? '加密保存中…' : '先保存'),
             ),
             const SizedBox(height: 8),
-            SwitchListTile(
-              contentPadding: EdgeInsets.zero,
-              title: const Text('暂存为待确认草稿'),
-              subtitle: const Text('AI 或未整理完成的内容不自动成为事实'),
-              value: _status == CardStatus.draft,
-              onChanged: (value) => setState(
-                () => _status = value ? CardStatus.draft : CardStatus.confirmed,
-              ),
-            ),
-            const SizedBox(height: 12),
-            FilledButton(
-              onPressed: widget.controller.isBusy ? null : _save,
-              child: const Padding(
-                padding: EdgeInsets.symmetric(vertical: 13),
-                child: Text('保存'),
-              ),
+            OutlinedButton(
+              onPressed: _saving ? null : () => _save(CardStatus.confirmed),
+              child: const Text('内容已核对，确认保存'),
             ),
           ],
         ),
       ),
-    );
-  }
+    ),
+  );
 }
 
 Future<void> showCardDetails(
@@ -174,115 +272,271 @@ Future<void> showCardDetails(
   AppController controller,
   LifeCard card,
 ) async {
-  await showModalBottomSheet<void>(
-    context: context,
-    isScrollControlled: true,
-    useSafeArea: true,
-    builder: (sheetContext) => DraggableScrollableSheet(
-      expand: false,
-      initialChildSize: 0.76,
-      minChildSize: 0.5,
-      maxChildSize: 0.96,
-      builder: (context, scrollController) => ListView(
-        controller: scrollController,
-        padding: const EdgeInsets.fromLTRB(20, 8, 20, 28),
-        children: [
-          Center(
-            child: Container(
-              width: 36,
-              height: 4,
-              decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.outlineVariant,
-                borderRadius: BorderRadius.circular(99),
-              ),
+  await Navigator.of(context).push<void>(
+    MaterialPageRoute(
+      builder: (_) =>
+          _CardDetailPage(controller: controller, initialCard: card),
+    ),
+  );
+}
+
+class _CardDetailPage extends StatefulWidget {
+  const _CardDetailPage({required this.controller, required this.initialCard});
+  final AppController controller;
+  final LifeCard initialCard;
+  @override
+  State<_CardDetailPage> createState() => _CardDetailPageState();
+}
+
+class _CardDetailPageState extends State<_CardDetailPage> {
+  late Future<List<CardSource>> _sources = widget.controller.cardSources(
+    widget.initialCard.id,
+  );
+  late Future<List<CardRelation>> _relations = widget.controller.cardRelations(
+    widget.initialCard.id,
+  );
+  String _time(DateTime value) =>
+      DateFormat('yyyy-MM-dd HH:mm').format(value.toLocal());
+  @override
+  Widget build(BuildContext context) => AnimatedBuilder(
+    animation: widget.controller,
+    builder: (context, _) {
+      final controller = widget.controller;
+      final card =
+          [
+            ...controller.cards,
+            ...controller.recycledCards,
+          ].where((c) => c.id == widget.initialCard.id).firstOrNull ??
+          widget.initialCard;
+      return Scaffold(
+        appBar: AppBar(
+          title: const Text('卡片详情'),
+          actions: [
+            PopupMenuButton<String>(
+              tooltip: '更多操作',
+              onSelected: (value) async {
+                if (value == 'history') {
+                  await showCardHistory(context, controller, card);
+                  return;
+                }
+                if (value == 'split') {
+                  if (context.mounted) {
+                    await showSplitCardDialog(context, controller, card);
+                  }
+                  return;
+                }
+                if (value == 'combine') {
+                  if (context.mounted) {
+                    await showCombineCardsDialog(context, controller);
+                  }
+                  return;
+                }
+                if (value == 'trash' && context.mounted) {
+                  final messenger = ScaffoldMessenger.of(context);
+                  await runUiAction(context, () async {
+                    await controller.trashCard(card.id);
+                    if (!context.mounted) return;
+                    Navigator.pop(context);
+                    messenger.showSnackBar(
+                      SnackBar(
+                        content: const Text('已移入回收区，来源和历史保留'),
+                        action: SnackBarAction(
+                          label: '撤销',
+                          onPressed: () async {
+                            try {
+                              await controller.restoreCard(card.id);
+                            } on Object catch (e) {
+                              if (messenger.mounted) {
+                                messenger.showSnackBar(
+                                  SnackBar(content: Text('恢复失败：$e')),
+                                );
+                              }
+                            }
+                          },
+                        ),
+                      ),
+                    );
+                  });
+                }
+              },
+              itemBuilder: (_) => [
+                const PopupMenuItem(value: 'history', child: Text('修订历史')),
+                if (!card.isDeleted) ...[
+                  const PopupMenuItem(value: 'split', child: Text('拆分卡片')),
+                  const PopupMenuItem(value: 'combine', child: Text('创建组合卡片')),
+                  const PopupMenuItem(value: 'trash', child: Text('移入回收区')),
+                ],
+              ],
             ),
-          ),
-          const SizedBox(height: 20),
-          Row(
-            children: [
-              Icon(card.kind.icon),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  card.title,
-                  style: Theme.of(context).textTheme.headlineSmall,
-                ),
-              ),
-              StatusPill(label: card.status.label),
-            ],
-          ),
-          const SizedBox(height: 18),
-          SelectableText(card.content),
-          if (card.tags.isNotEmpty) ...[
-            const SizedBox(height: 18),
+          ],
+        ),
+        body: ListView(
+          padding: const EdgeInsets.all(20),
+          children: [
+            Text(card.title, style: Theme.of(context).textTheme.headlineSmall),
+            const SizedBox(height: 12),
             Wrap(
               spacing: 8,
               runSpacing: 8,
-              children: card.tags.map((tag) => Chip(label: Text(tag))).toList(),
+              children: [
+                StatusPill(label: card.isDeleted ? '在回收区' : card.status.label),
+                StatusPill(label: card.kind.label),
+              ],
             ),
-          ],
-          const SizedBox(height: 18),
-          Text(
-            '第 ${card.revisionNumber} 版 · 更新于 ${DateFormat('yyyy-MM-dd HH:mm').format(card.updatedAt.toLocal())}',
-            style: Theme.of(context).textTheme.bodySmall,
-          ),
-          const SizedBox(height: 20),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              FilledButton.tonalIcon(
-                onPressed: () async {
-                  Navigator.pop(sheetContext);
-                  await showCardEditor(context, controller, card: card);
-                },
-                icon: const Icon(Icons.edit_outlined),
-                label: const Text('编辑'),
-              ),
-              if (card.status == CardStatus.draft)
-                FilledButton.tonalIcon(
-                  onPressed: () async {
-                    await controller.confirmCard(card.id);
-                    if (sheetContext.mounted) Navigator.pop(sheetContext);
-                  },
-                  icon: const Icon(Icons.verified_outlined),
-                  label: const Text('本人确认'),
-                ),
-              OutlinedButton.icon(
-                onPressed: () => showCardHistory(context, controller, card),
-                icon: const Icon(Icons.history),
-                label: const Text('历史'),
-              ),
-              OutlinedButton.icon(
-                onPressed: () => showSplitCardDialog(context, controller, card),
-                icon: const Icon(Icons.call_split),
-                label: const Text('拆分'),
-              ),
-              OutlinedButton.icon(
-                onPressed: () => showReleasePolicyDialog(
-                  context,
-                  controller,
-                  recordType: 'card',
-                  recordId: card.id,
-                  recordTitle: card.title,
-                ),
-                icon: const Icon(Icons.policy_outlined),
-                label: const Text('交接策略'),
+            const SizedBox(height: 20),
+            SelectableText(card.content),
+            if (card.tags.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              Wrap(
+                spacing: 8,
+                children: card.tags.map((t) => Chip(label: Text(t))).toList(),
               ),
             ],
-          ),
-          const SizedBox(height: 24),
-          TextButton.icon(
-            onPressed: () async {
-              await controller.trashCard(card.id);
-              if (sheetContext.mounted) Navigator.pop(sheetContext);
-            },
-            icon: const Icon(Icons.delete_outline),
-            label: const Text('移入回收区（保留历史）'),
-          ),
-        ],
-      ),
-    ),
+            const SizedBox(height: 20),
+            Text('第 ${card.revisionNumber} 版 · 更新于 ${_time(card.updatedAt)}'),
+            Text(
+              card.confirmedAt == null
+                  ? '尚待本人核对'
+                  : '本人确认于 ${_time(card.confirmedAt!)}',
+            ),
+            const SizedBox(height: 16),
+            if (card.isDeleted)
+              FilledButton.icon(
+                icon: const Icon(Icons.restore),
+                label: const Text('恢复这张卡片'),
+                onPressed: controller.isBusy
+                    ? null
+                    : () => runUiAction(
+                        context,
+                        () => controller.restoreCard(card.id),
+                        success: '已恢复，已有授权仍保留',
+                      ),
+              )
+            else ...[
+              FilledButton.icon(
+                icon: const Icon(Icons.edit_outlined),
+                label: const Text('编辑这条信息'),
+                onPressed: controller.isBusy
+                    ? null
+                    : () async {
+                        await showCardEditor(context, controller, card: card);
+                        if (mounted) {
+                          setState(() {
+                            _sources = controller.cardSources(card.id);
+                            _relations = controller.cardRelations(card.id);
+                          });
+                        }
+                      },
+              ),
+              if (card.isDraft)
+                OutlinedButton.icon(
+                  icon: const Icon(Icons.verified_outlined),
+                  label: const Text('本人确认这条内容'),
+                  onPressed: controller.isBusy
+                      ? null
+                      : () => runUiAction(context, () async {
+                          await controller.confirmCard(card.id);
+                          if (mounted) {
+                            setState(() {
+                              _sources = controller.cardSources(card.id);
+                            });
+                          }
+                        }, success: '已确认，历史仍保留'),
+                ),
+              OutlinedButton.icon(
+                icon: const Icon(Icons.policy_outlined),
+                label: const Text('设置并预览交接授权'),
+                onPressed: controller.isBusy
+                    ? null
+                    : () => showReleasePolicyDialog(
+                        context,
+                        controller,
+                        recordType: 'card',
+                        recordId: card.id,
+                        recordTitle: card.title,
+                      ),
+              ),
+            ],
+            const SizedBox(height: 24),
+            Text('这条信息从哪里来', style: Theme.of(context).textTheme.titleLarge),
+            const SizedBox(height: 8),
+            FutureBuilder<List<CardSource>>(
+              future: _sources,
+              builder: (context, snapshot) {
+                if (snapshot.hasError) {
+                  return ErrorBanner('来源读取失败：${snapshot.error}');
+                }
+                if (!snapshot.hasData) return const LinearProgressIndicator();
+                return Column(
+                  children: snapshot.data!
+                      .map(
+                        (source) => ExpansionTile(
+                          tilePadding: EdgeInsets.zero,
+                          title: Text(source.label),
+                          subtitle: Text(_time(source.createdAt)),
+                          children: [
+                            Align(
+                              alignment: Alignment.centerLeft,
+                              child: SelectableText(source.excerpt),
+                            ),
+                            if (source.blobId != null)
+                              ...controller.blobs
+                                  .where((b) => b.id == source.blobId)
+                                  .map(
+                                    (blob) => ListTile(
+                                      contentPadding: EdgeInsets.zero,
+                                      leading: const Icon(Icons.attach_file),
+                                      title: Text(blob.originalName),
+                                      subtitle: const Text('查看原件 / 整理内容'),
+                                      onTap: () => openOriginalWorkspace(
+                                        context,
+                                        controller,
+                                        blob,
+                                      ),
+                                    ),
+                                  ),
+                          ],
+                        ),
+                      )
+                      .toList(),
+                );
+              },
+            ),
+            FutureBuilder<List<CardRelation>>(
+              future: _relations,
+              builder: (context, snapshot) => Column(
+                children: (snapshot.data ?? []).map((relation) {
+                  final relatedId = relation.fromCardId == card.id
+                      ? relation.toCardId
+                      : relation.fromCardId;
+                  return ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: const Icon(Icons.link),
+                    title: Text(
+                      relation.kind == RelationKind.splitFrom
+                          ? '查看拆分前身 / 后续卡片'
+                          : '查看组合 / 成员卡片',
+                    ),
+                    onTap: () => runUiAction(context, () async {
+                      final related = await controller.getCard(relatedId);
+                      if (related == null) throw StateError('关联卡片不存在');
+                      if (context.mounted) {
+                        await showCardDetails(context, controller, related);
+                      }
+                    }),
+                  );
+                }).toList(),
+              ),
+            ),
+            OutlinedButton.icon(
+              onPressed: () => showCardHistory(context, controller, card),
+              icon: const Icon(Icons.history),
+              label: const Text('查看完整修订历史'),
+            ),
+          ],
+        ),
+      );
+    },
   );
 }
 
@@ -291,40 +545,57 @@ Future<void> showCardHistory(
   AppController controller,
   LifeCard card,
 ) async {
-  final history = await controller.cardHistory(card.id);
-  if (!context.mounted) return;
-  await showDialog<void>(
-    context: context,
-    builder: (context) => AlertDialog(
-      title: Text('${card.title} · 修订历史'),
-      content: SizedBox(
-        width: 520,
-        child: ListView.separated(
-          shrinkWrap: true,
-          itemCount: history.length,
-          separatorBuilder: (_, _) => const Divider(),
-          itemBuilder: (context, index) {
-            final revision = history[index];
-            return ListTile(
-              contentPadding: EdgeInsets.zero,
-              title: Text('v${revision.number} · ${revision.changeNote}'),
-              subtitle: Text(
-                '${revision.content}\n${revision.sourceLabel} · ${DateFormat('yyyy-MM-dd HH:mm').format(revision.createdAt.toLocal())}',
-                maxLines: 4,
-                overflow: TextOverflow.ellipsis,
-              ),
-            );
-          },
+  await runUiAction(context, () async {
+    final history = await controller.cardHistory(card.id);
+    if (!context.mounted) return;
+    await showDialog<void>(
+      context: context,
+      builder: (c) => AlertDialog(
+        title: Text('${card.title} · 修订历史'),
+        content: SizedBox(
+          width: 520,
+          child: SingleChildScrollView(
+            child: Column(
+              children: history
+                  .map(
+                    (revision) => ExpansionTile(
+                      tilePadding: EdgeInsets.zero,
+                      title: Text(
+                        '第 ${revision.number} 版 · ${revision.changeNote}',
+                      ),
+                      subtitle: Text(
+                        '${revision.sourceLabel} · ${DateFormat('yyyy-MM-dd HH:mm').format(revision.createdAt.toLocal())}',
+                      ),
+                      children: [
+                        Align(
+                          alignment: Alignment.centerLeft,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(revision.title),
+                              Text(revision.status.label),
+                              SelectableText(revision.content),
+                              if (revision.tags.isNotEmpty)
+                                Text('标签：${revision.tags.join('、')}'),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  )
+                  .toList(),
+            ),
+          ),
         ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(c),
+            child: const Text('关闭'),
+          ),
+        ],
       ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: const Text('关闭'),
-        ),
-      ],
-    ),
-  );
+    );
+  });
 }
 
 Future<void> showSplitCardDialog(
@@ -418,45 +689,67 @@ Future<void> showReleasePolicyDialog(
     context: context,
     builder: (dialogContext) => StatefulBuilder(
       builder: (context, setState) => AlertDialog(
-        title: Text('交接策略 · $recordTitle'),
-        content: SizedBox(
-          width: 480,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              const Text('默认仅本人可见。下面是对“演示执行人”的明确授权，不代表法律处置权。'),
-              const SizedBox(height: 18),
-              DropdownButtonFormField<VisibilityLevel>(
-                initialValue: incapacitated,
-                decoration: const InputDecoration(labelText: '临时失能时'),
-                items: VisibilityLevel.values
-                    .map(
-                      (level) => DropdownMenuItem(
-                        value: level,
-                        child: Text(level.label),
-                      ),
-                    )
-                    .toList(),
-                onChanged: (value) =>
-                    setState(() => incapacitated = value ?? incapacitated),
-              ),
-              const SizedBox(height: 12),
-              DropdownButtonFormField<VisibilityLevel>(
-                initialValue: deceased,
-                decoration: const InputDecoration(labelText: '身故时'),
-                items: VisibilityLevel.values
-                    .map(
-                      (level) => DropdownMenuItem(
-                        value: level,
-                        child: Text(level.label),
-                      ),
-                    )
-                    .toList(),
-                onChanged: (value) =>
-                    setState(() => deceased = value ?? deceased),
-              ),
-            ],
+        title: Text('交接授权 · $recordTitle'),
+        content: SingleChildScrollView(
+          child: SizedBox(
+            width: 480,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const Text('仅本机模拟 · 演示执行人。默认仅本人可见。选择后可核对实际输出，不会发送给他人。'),
+                const SizedBox(height: 18),
+                DropdownButtonFormField<VisibilityLevel>(
+                  initialValue: incapacitated,
+                  isExpanded: true,
+                  decoration: const InputDecoration(labelText: '临时失能时'),
+                  items: VisibilityLevel.values
+                      .map(
+                        (level) => DropdownMenuItem(
+                          value: level,
+                          child: Text(level.label),
+                        ),
+                      )
+                      .toList(),
+                  onChanged: (value) =>
+                      setState(() => incapacitated = value ?? incapacitated),
+                ),
+                const SizedBox(height: 8),
+                ReleasePreviewPanel(
+                  preview: _policyPreview(
+                    controller,
+                    recordType,
+                    recordId,
+                    incapacitated,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                DropdownButtonFormField<VisibilityLevel>(
+                  initialValue: deceased,
+                  isExpanded: true,
+                  decoration: const InputDecoration(labelText: '身故时'),
+                  items: VisibilityLevel.values
+                      .map(
+                        (level) => DropdownMenuItem(
+                          value: level,
+                          child: Text(level.label),
+                        ),
+                      )
+                      .toList(),
+                  onChanged: (value) =>
+                      setState(() => deceased = value ?? deceased),
+                ),
+                const SizedBox(height: 8),
+                ReleasePreviewPanel(
+                  preview: _policyPreview(
+                    controller,
+                    recordType,
+                    recordId,
+                    deceased,
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
         actions: [
@@ -466,17 +759,19 @@ Future<void> showReleasePolicyDialog(
           ),
           FilledButton(
             onPressed: () async {
-              await controller.saveReleasePolicy(
-                ReleasePolicy(
-                  recordType: recordType,
-                  recordId: recordId,
-                  incapacitated: incapacitated,
-                  deceased: deceased,
-                ),
-              );
-              if (dialogContext.mounted) Navigator.pop(dialogContext);
+              await runUiAction(dialogContext, () async {
+                await controller.saveReleasePolicy(
+                  ReleasePolicy(
+                    recordType: recordType,
+                    recordId: recordId,
+                    incapacitated: incapacitated,
+                    deceased: deceased,
+                  ),
+                );
+                if (dialogContext.mounted) Navigator.pop(dialogContext);
+              }, success: '授权已加密保存');
             },
-            child: const Text('保存策略'),
+            child: const Text('保存授权'),
           ),
         ],
       ),
@@ -564,4 +859,20 @@ Future<void> showCombineCardsDialog(
   );
   await Future<void>.delayed(const Duration(milliseconds: 350));
   title.dispose();
+}
+
+ReleasePreview _policyPreview(
+  AppController controller,
+  String type,
+  String id,
+  VisibilityLevel level,
+) {
+  if (type == 'card') {
+    final card = controller.cards.firstWhere((c) => c.id == id);
+    return ReleasePreview.card(card, level);
+  }
+  return ReleasePreview.credential(
+    controller.credentials.firstWhere((c) => c.id == id),
+    level,
+  );
 }

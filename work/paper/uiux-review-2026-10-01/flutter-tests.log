@@ -1,0 +1,199 @@
+00:00 +0: loading /home/tahzun/Development/Projects/LiveRelay/work/code/live_relay/test/core/chinese_passphrase_test.dart
+00:00 +0: /home/tahzun/Development/Projects/LiveRelay/work/code/live_relay/test/infrastructure/edge_password_csv_importer_test.dart: parses Edge native CSV while preserving secrets exactly
+00:00 +1: /home/tahzun/Development/Projects/LiveRelay/work/code/live_relay/test/infrastructure/edge_password_csv_importer_test.dart: parses Edge native CSV while preserving secrets exactly
+00:00 +2: /home/tahzun/Development/Projects/LiveRelay/work/code/live_relay/test/infrastructure/edge_password_csv_importer_test.dart: parses Edge native CSV while preserving secrets exactly
+00:00 +3: /home/tahzun/Development/Projects/LiveRelay/work/code/live_relay/test/infrastructure/encrypted_database_test.dart: SQLCipher database rejects the wrong key and hides plaintext
+00:00 +4: /home/tahzun/Development/Projects/LiveRelay/work/code/live_relay/test/infrastructure/encrypted_database_test.dart: SQLCipher database rejects the wrong key and hides plaintext
+00:00 +5: /home/tahzun/Development/Projects/LiveRelay/work/code/live_relay/test/infrastructure/encrypted_database_test.dart: SQLCipher database rejects the wrong key and hides plaintext
+00:00 +6: /home/tahzun/Development/Projects/LiveRelay/work/code/live_relay/test/infrastructure/encrypted_database_test.dart: SQLCipher database rejects the wrong key and hides plaintext
+00:00 +7: /home/tahzun/Development/Projects/LiveRelay/work/code/live_relay/test/infrastructure/encrypted_database_test.dart: SQLCipher database rejects the wrong key and hides plaintext
+00:00 +8: /home/tahzun/Development/Projects/LiveRelay/work/code/live_relay/test/infrastructure/encrypted_database_test.dart: SQLCipher database rejects the wrong key and hides plaintext
+00:00 +9: /home/tahzun/Development/Projects/LiveRelay/work/code/live_relay/test/infrastructure/encrypted_database_test.dart: SQLCipher database rejects the wrong key and hides plaintext
+00:00 +10: /home/tahzun/Development/Projects/LiveRelay/work/code/live_relay/test/infrastructure/encrypted_database_test.dart: SQLCipher database rejects the wrong key and hides plaintext
+00:00 +11: /home/tahzun/Development/Projects/LiveRelay/work/code/live_relay/test/infrastructure/encrypted_database_test.dart: SQLCipher database rejects the wrong key and hides plaintext
+00:00 +12: /home/tahzun/Development/Projects/LiveRelay/work/code/live_relay/test/infrastructure/encrypted_database_test.dart: SQLCipher database rejects the wrong key and hides plaintext
+Shell: 2026-10-02 13:26:17.696: ERROR CORE sqlcipher_page_cipher: hmac check failed for pgno=1
+Shell: 2026-10-02 13:26:17.696: ERROR CORE sqlite3Codec: error decrypting page 1 data: 1
+Shell: 2026-10-02 13:26:17.696: ERROR CORE sqlcipher_codec_ctx_set_error: 1 lock=0
+00:00 +13: /home/tahzun/Development/Projects/LiveRelay/work/code/live_relay/test/infrastructure/encrypted_database_test.dart: SQLCipher database rejects the wrong key and hides plaintext
+00:00 +14: /home/tahzun/Development/Projects/LiveRelay/work/code/live_relay/test/infrastructure/life_vault_archive_test.dart: lvault round trip authenticates and restores encrypted data
+00:00 +15: /home/tahzun/Development/Projects/LiveRelay/work/code/live_relay/test/infrastructure/life_vault_archive_test.dart: lvault round trip authenticates and restores encrypted data
+00:00 +16: /home/tahzun/Development/Projects/LiveRelay/work/code/live_relay/test/infrastructure/life_vault_archive_test.dart: lvault round trip authenticates and restores encrypted data
+00:00 +17: /home/tahzun/Development/Projects/LiveRelay/work/code/live_relay/test/infrastructure/life_vault_archive_test.dart: lvault round trip authenticates and restores encrypted data
+00:00 +18: /home/tahzun/Development/Projects/LiveRelay/work/code/live_relay/test/infrastructure/life_vault_archive_test.dart: lvault round trip authenticates and restores encrypted data
+00:00 +19: /home/tahzun/Development/Projects/LiveRelay/work/code/live_relay/test/infrastructure/life_vault_archive_test.dart: lvault round trip authenticates and restores encrypted data
+00:00 +20: /home/tahzun/Development/Projects/LiveRelay/work/code/live_relay/test/infrastructure/life_vault_archive_test.dart: lvault round trip authenticates and restores encrypted data
+00:00 +21: /home/tahzun/Development/Projects/LiveRelay/work/code/live_relay/test/infrastructure/life_vault_archive_test.dart: lvault round trip authenticates and restores encrypted data
+00:00 +22: /home/tahzun/Development/Projects/LiveRelay/work/code/live_relay/test/infrastructure/life_vault_archive_test.dart: lvault round trip authenticates and restores encrypted data
+00:00 +23: /home/tahzun/Development/Projects/LiveRelay/work/code/live_relay/test/infrastructure/life_vault_archive_test.dart: lvault rejects a payload changed without a new manifest
+00:00 +24: /home/tahzun/Development/Projects/LiveRelay/work/code/live_relay/test/widget_test.dart: life card atom renders domain state and accepts taps
+00:00 +25: /home/tahzun/Development/Projects/LiveRelay/work/code/live_relay/test/widget_test.dart: life card atom renders domain state and accepts taps
+00:00 +26: /home/tahzun/Development/Projects/LiveRelay/work/code/live_relay/test/ux_widget_test.dart: unmatched card search never clears recent home data and refresh retains query
+00:01 +27: /home/tahzun/Development/Projects/LiveRelay/work/code/live_relay/test/ux_widget_test.dart: unmatched card search never clears recent home data and refresh retains query
+00:01 +28: /home/tahzun/Development/Projects/LiveRelay/work/code/live_relay/test/ux_widget_test.dart: unmatched card search never clears recent home data and refresh retains query
+00:01 +29: /home/tahzun/Development/Projects/LiveRelay/work/code/live_relay/test/application/ux_controller_test.dart: backup restores onto empty and locked vault, failed auth leaves current data
+00:01 +30: /home/tahzun/Development/Projects/LiveRelay/work/code/live_relay/test/application/ux_controller_test.dart: backup restores onto empty and locked vault, failed auth leaves current data
+WARNING (drift): It looks like you've created the database class AppDatabase multiple times. When these two databases use the same QueryExecutor, race conditions will occur and might corrupt the database.
+Try to follow the advice at https://drift.simonbinder.eu/faq/#using-the-database or, if you know what you're doing, set driftRuntimeOptions.dontWarnAboutMultipleDatabases = true
+Here is the stacktrace from when the database was opened a second time:
+#0      GeneratedDatabase._handleInstantiated (package:drift/src/runtime/api/db_base.dart:96:30)
+#1      GeneratedDatabase._whenConstructed (package:drift/src/runtime/api/db_base.dart:73:12)
+#2      new GeneratedDatabase (package:drift/src/runtime/api/db_base.dart:64:5)
+#3      new _$AppDatabase (package:live_relay/infrastructure/persistence/app_database.g.dart:5394:36)
+#4      new AppDatabase._ (package:live_relay/infrastructure/persistence/app_database.dart)
+#5      AppDatabase.openEncrypted (package:live_relay/infrastructure/persistence/app_database.dart:205:32)
+<asynchronous suspension>
+#6      AppController.inspectBackup.<anonymous closure> (package:live_relay/application/app_controller.dart:469:14)
+<asynchronous suspension>
+#7      AppController._run (package:live_relay/application/app_controller.dart:858:7)
+<asynchronous suspension>
+#8      AppController.inspectBackup (package:live_relay/application/app_controller.dart:452:5)
+<asynchronous suspension>
+#9      main.<anonymous closure> (file:///home/tahzun/Development/Projects/LiveRelay/work/code/live_relay/test/application/ux_controller_test.dart:172:23)
+<asynchronous suspension>
+#10     Declarer.test.<anonymous closure>.<anonymous closure> (package:test_api/src/backend/declarer.dart:253:15)
+<asynchronous suspension>
+#11     Declarer.test.<anonymous closure> (package:test_api/src/backend/declarer.dart:250:11)
+<asynchronous suspension>
+#12     Invoker._waitForOutstandingCallbacks.<anonymous closure> (package:test_api/src/backend/invoker.dart:318:9)
+<asynchronous suspension>
+This warning will only appear on debug builds.
+WARNING (drift): It looks like you've created the database class AppDatabase multiple times. When these two databases use the same QueryExecutor, race conditions will occur and might corrupt the database.
+Try to follow the advice at https://drift.simonbinder.eu/faq/#using-the-database or, if you know what you're doing, set driftRuntimeOptions.dontWarnAboutMultipleDatabases = true
+Here is the stacktrace from when the database was opened a second time:
+#0      GeneratedDatabase._handleInstantiated (package:drift/src/runtime/api/db_base.dart:96:30)
+#1      GeneratedDatabase._whenConstructed (package:drift/src/runtime/api/db_base.dart:73:12)
+#2      new GeneratedDatabase (package:drift/src/runtime/api/db_base.dart:64:5)
+#3      new _$AppDatabase (package:live_relay/infrastructure/persistence/app_database.g.dart:5394:36)
+#4      new AppDatabase._ (package:live_relay/infrastructure/persistence/app_database.dart)
+#5      AppDatabase.openEncrypted (package:live_relay/infrastructure/persistence/app_database.dart:205:32)
+<asynchronous suspension>
+#6      AppController.restoreVault.<anonymous closure> (package:live_relay/application/app_controller.dart:323:30)
+<asynchronous suspension>
+#7      AppController._run (package:live_relay/application/app_controller.dart:858:7)
+<asynchronous suspension>
+#8      AppController.restoreVault (package:live_relay/application/app_controller.dart:301:5)
+<asynchronous suspension>
+#9      main.<anonymous closure> (file:///home/tahzun/Development/Projects/LiveRelay/work/code/live_relay/test/application/ux_controller_test.dart:176:7)
+<asynchronous suspension>
+#10     Declarer.test.<anonymous closure>.<anonymous closure> (package:test_api/src/backend/declarer.dart:253:15)
+<asynchronous suspension>
+#11     Declarer.test.<anonymous closure> (package:test_api/src/backend/declarer.dart:250:11)
+<asynchronous suspension>
+#12     Invoker._waitForOutstandingCallbacks.<anonymous closure> (package:test_api/src/backend/invoker.dart:318:9)
+<asynchronous suspension>
+This warning will only appear on debug builds.
+WARNING (drift): It looks like you've created the database class AppDatabase multiple times. When these two databases use the same QueryExecutor, race conditions will occur and might corrupt the database.
+Try to follow the advice at https://drift.simonbinder.eu/faq/#using-the-database or, if you know what you're doing, set driftRuntimeOptions.dontWarnAboutMultipleDatabases = true
+Here is the stacktrace from when the database was opened a second time:
+#0      GeneratedDatabase._handleInstantiated (package:drift/src/runtime/api/db_base.dart:96:30)
+#1      GeneratedDatabase._whenConstructed (package:drift/src/runtime/api/db_base.dart:73:12)
+#2      new GeneratedDatabase (package:drift/src/runtime/api/db_base.dart:64:5)
+#3      new _$AppDatabase (package:live_relay/infrastructure/persistence/app_database.g.dart:5394:36)
+#4      new AppDatabase._ (package:live_relay/infrastructure/persistence/app_database.dart)
+#5      AppDatabase.openEncrypted (package:live_relay/infrastructure/persistence/app_database.dart:205:32)
+<asynchronous suspension>
+#6      AppController._openWithKey (package:live_relay/application/app_controller.dart:778:22)
+<asynchronous suspension>
+#7      AppController.restoreVault.<anonymous closure> (package:live_relay/application/app_controller.dart:345:11)
+<asynchronous suspension>
+#8      AppController._run (package:live_relay/application/app_controller.dart:858:7)
+<asynchronous suspension>
+#9      AppController.restoreVault (package:live_relay/application/app_controller.dart:301:5)
+<asynchronous suspension>
+#10     main.<anonymous closure> (file:///home/tahzun/Development/Projects/LiveRelay/work/code/live_relay/test/application/ux_controller_test.dart:176:7)
+<asynchronous suspension>
+#11     Declarer.test.<anonymous closure>.<anonymous closure> (package:test_api/src/backend/declarer.dart:253:15)
+<asynchronous suspension>
+#12     Declarer.test.<anonymous closure> (package:test_api/src/backend/declarer.dart:250:11)
+<asynchronous suspension>
+#13     Invoker._waitForOutstandingCallbacks.<anonymous closure> (package:test_api/src/backend/invoker.dart:318:9)
+<asynchronous suspension>
+This warning will only appear on debug builds.
+WARNING (drift): It looks like you've created the database class AppDatabase multiple times. When these two databases use the same QueryExecutor, race conditions will occur and might corrupt the database.
+Try to follow the advice at https://drift.simonbinder.eu/faq/#using-the-database or, if you know what you're doing, set driftRuntimeOptions.dontWarnAboutMultipleDatabases = true
+Here is the stacktrace from when the database was opened a second time:
+#0      GeneratedDatabase._handleInstantiated (package:drift/src/runtime/api/db_base.dart:96:30)
+#1      GeneratedDatabase._whenConstructed (package:drift/src/runtime/api/db_base.dart:73:12)
+#2      new GeneratedDatabase (package:drift/src/runtime/api/db_base.dart:64:5)
+#3      new _$AppDatabase (package:live_relay/infrastructure/persistence/app_database.g.dart:5394:36)
+#4      new AppDatabase._ (package:live_relay/infrastructure/persistence/app_database.dart)
+#5      AppDatabase.openEncrypted (package:live_relay/infrastructure/persistence/app_database.dart:205:32)
+<asynchronous suspension>
+#6      AppController._openWithKey (package:live_relay/application/app_controller.dart:778:22)
+<asynchronous suspension>
+#7      AppController.unlockWithPassword.<anonymous closure> (package:live_relay/application/app_controller.dart:215:9)
+<asynchronous suspension>
+#8      AppController._run (package:live_relay/application/app_controller.dart:858:7)
+<asynchronous suspension>
+#9      AppController.unlockWithPassword (package:live_relay/application/app_controller.dart:204:5)
+<asynchronous suspension>
+#10     main.<anonymous closure> (file:///home/tahzun/Development/Projects/LiveRelay/work/code/live_relay/test/application/ux_controller_test.dart:188:7)
+<asynchronous suspension>
+#11     Declarer.test.<anonymous closure>.<anonymous closure> (package:test_api/src/backend/declarer.dart:253:15)
+<asynchronous suspension>
+#12     Declarer.test.<anonymous closure> (package:test_api/src/backend/declarer.dart:250:11)
+<asynchronous suspension>
+#13     Invoker._waitForOutstandingCallbacks.<anonymous closure> (package:test_api/src/backend/invoker.dart:318:9)
+<asynchronous suspension>
+This warning will only appear on debug builds.
+WARNING (drift): It looks like you've created the database class AppDatabase multiple times. When these two databases use the same QueryExecutor, race conditions will occur and might corrupt the database.
+Try to follow the advice at https://drift.simonbinder.eu/faq/#using-the-database or, if you know what you're doing, set driftRuntimeOptions.dontWarnAboutMultipleDatabases = true
+Here is the stacktrace from when the database was opened a second time:
+#0      GeneratedDatabase._handleInstantiated (package:drift/src/runtime/api/db_base.dart:96:30)
+#1      GeneratedDatabase._whenConstructed (package:drift/src/runtime/api/db_base.dart:73:12)
+#2      new GeneratedDatabase (package:drift/src/runtime/api/db_base.dart:64:5)
+#3      new _$AppDatabase (package:live_relay/infrastructure/persistence/app_database.g.dart:5394:36)
+#4      new AppDatabase._ (package:live_relay/infrastructure/persistence/app_database.dart)
+#5      AppDatabase.openEncrypted (package:live_relay/infrastructure/persistence/app_database.dart:205:32)
+<asynchronous suspension>
+#6      AppController.restoreVault.<anonymous closure> (package:live_relay/application/app_controller.dart:323:30)
+<asynchronous suspension>
+#7      AppController._run (package:live_relay/application/app_controller.dart:858:7)
+<asynchronous suspension>
+#8      AppController.restoreVault (package:live_relay/application/app_controller.dart:301:5)
+<asynchronous suspension>
+#9      main.<anonymous closure> (file:///home/tahzun/Development/Projects/LiveRelay/work/code/live_relay/test/application/ux_controller_test.dart:191:7)
+<asynchronous suspension>
+#10     Declarer.test.<anonymous closure>.<anonymous closure> (package:test_api/src/backend/declarer.dart:253:15)
+<asynchronous suspension>
+#11     Declarer.test.<anonymous closure> (package:test_api/src/backend/declarer.dart:250:11)
+<asynchronous suspension>
+#12     Invoker._waitForOutstandingCallbacks.<anonymous closure> (package:test_api/src/backend/invoker.dart:318:9)
+<asynchronous suspension>
+This warning will only appear on debug builds.
+WARNING (drift): It looks like you've created the database class AppDatabase multiple times. When these two databases use the same QueryExecutor, race conditions will occur and might corrupt the database.
+Try to follow the advice at https://drift.simonbinder.eu/faq/#using-the-database or, if you know what you're doing, set driftRuntimeOptions.dontWarnAboutMultipleDatabases = true
+Here is the stacktrace from when the database was opened a second time:
+#0      GeneratedDatabase._handleInstantiated (package:drift/src/runtime/api/db_base.dart:96:30)
+#1      GeneratedDatabase._whenConstructed (package:drift/src/runtime/api/db_base.dart:73:12)
+#2      new GeneratedDatabase (package:drift/src/runtime/api/db_base.dart:64:5)
+#3      new _$AppDatabase (package:live_relay/infrastructure/persistence/app_database.g.dart:5394:36)
+#4      new AppDatabase._ (package:live_relay/infrastructure/persistence/app_database.dart)
+#5      AppDatabase.openEncrypted (package:live_relay/infrastructure/persistence/app_database.dart:205:32)
+<asynchronous suspension>
+#6      AppController._openWithKey (package:live_relay/application/app_controller.dart:778:22)
+<asynchronous suspension>
+#7      AppController.restoreVault.<anonymous closure> (package:live_relay/application/app_controller.dart:345:11)
+<asynchronous suspension>
+#8      AppController._run (package:live_relay/application/app_controller.dart:858:7)
+<asynchronous suspension>
+#9      AppController.restoreVault (package:live_relay/application/app_controller.dart:301:5)
+<asynchronous suspension>
+#10     main.<anonymous closure> (file:///home/tahzun/Development/Projects/LiveRelay/work/code/live_relay/test/application/ux_controller_test.dart:191:7)
+<asynchronous suspension>
+#11     Declarer.test.<anonymous closure>.<anonymous closure> (package:test_api/src/backend/declarer.dart:253:15)
+<asynchronous suspension>
+#12     Declarer.test.<anonymous closure> (package:test_api/src/backend/declarer.dart:250:11)
+<asynchronous suspension>
+#13     Invoker._waitForOutstandingCallbacks.<anonymous closure> (package:test_api/src/backend/invoker.dart:318:9)
+<asynchronous suspension>
+This warning will only appear on debug builds.
+00:02 +31: /home/tahzun/Development/Projects/LiveRelay/work/code/live_relay/test/ux_widget_test.dart: 320dp and 200% text: all main pages, gates and keyboard can scroll without overflow (false)
+00:02 +32: /home/tahzun/Development/Projects/LiveRelay/work/code/live_relay/test/application/ux_controller_test.dart: all release levels preserve exact legacy output
+00:02 +33: /home/tahzun/Development/Projects/LiveRelay/work/code/live_relay/test/ux_widget_test.dart: policy inspection supports 320dp and 200% text (false)
+00:02 +34: /home/tahzun/Development/Projects/LiveRelay/work/code/live_relay/test/ux_widget_test.dart: main actions have readable contrast, labels and 48dp tap targets (false)
+00:02 +35: /home/tahzun/Development/Projects/LiveRelay/work/code/live_relay/test/ux_widget_test.dart: 320dp and 200% text: all main pages, gates and keyboard can scroll without overflow (true)
+00:02 +36: /home/tahzun/Development/Projects/LiveRelay/work/code/live_relay/test/ux_widget_test.dart: policy inspection supports 320dp and 200% text (true)
+00:03 +37: /home/tahzun/Development/Projects/LiveRelay/work/code/live_relay/test/ux_widget_test.dart: main actions have readable contrast, labels and 48dp tap targets (true)
+00:03 +38: All tests passed!

@@ -1,6 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:provider/provider.dart';
+import 'package:intl/intl.dart';
+
+import '../dialogs/backup_dialogs.dart';
+import '../dialogs/ai_settings_dialog.dart';
+import 'recycle_page.dart';
 
 import '../../application/app_controller.dart';
 import '../dialogs/card_dialogs.dart';
@@ -19,7 +24,7 @@ class HomeShell extends StatefulWidget {
 class _HomeShellState extends State<HomeShell> {
   int _index = 0;
 
-  static const _titles = ['记录', '卡片', '密码库', '交接'];
+  static const _titles = ['记录', '卡片', '密码库', '交接准备'];
 
   @override
   Widget build(BuildContext context) {
@@ -40,11 +45,13 @@ class _HomeShellState extends State<HomeShell> {
             ),
           IconButton(
             tooltip: '设置',
-            onPressed: () => _showSettings(context, controller),
+            onPressed: controller.isBusy
+                ? null
+                : () => _showSettings(context, controller),
             icon: const Icon(Icons.settings_outlined),
           ),
           IconButton(
-            tooltip: '锁定 Vault',
+            tooltip: '锁定加密资料库',
             onPressed: controller.isBusy ? null : controller.lock,
             icon: const Icon(Icons.lock_outline),
           ),
@@ -52,14 +59,14 @@ class _HomeShellState extends State<HomeShell> {
       ),
       body: IndexedStack(
         index: _index,
-        children: const [
-          CapturePage(),
-          CardsPage(),
-          PasswordsPage(),
-          HandoffPage(),
+        children: [
+          const CapturePage(),
+          const CardsPage(),
+          PasswordsPage(active: _index == 2),
+          const HandoffPage(),
         ],
       ),
-      floatingActionButton: _index == 0 || _index == 1
+      floatingActionButton: _index == 1
           ? FloatingActionButton.extended(
               onPressed: controller.isBusy
                   ? null
@@ -114,17 +121,14 @@ class _HomeShellState extends State<HomeShell> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Text(
-                'Vault 设置',
-                style: Theme.of(context).textTheme.headlineSmall,
-              ),
+              Text('资料库设置', style: Theme.of(context).textTheme.headlineSmall),
               const SizedBox(height: 12),
               ListTile(
                 contentPadding: EdgeInsets.zero,
                 leading: const Icon(Icons.enhanced_encryption_outlined),
                 title: const Text('整库加密'),
-                subtitle: const Text('SQLCipher · Argon2id · AES-256-GCM 密钥封装'),
-                trailing: const Icon(Icons.verified, color: Colors.green),
+                subtitle: const Text('信息已加密保存在本机，默认仅本人可见'),
+                trailing: const Icon(Icons.lock_outline),
               ),
               if (controller.biometricAvailable)
                 SwitchListTile(
@@ -155,28 +159,20 @@ class _HomeShellState extends State<HomeShell> {
                   },
                 ),
               const Divider(),
-              ListTile(
-                contentPadding: EdgeInsets.zero,
-                leading: const Icon(Icons.auto_awesome_outlined),
-                title: const Text('可选云 AI Provider'),
-                subtitle: Text(
-                  controller.aiSettings.isConfigured
-                      ? '${controller.aiSettings.model} · 默认不上传，每次单独授权'
-                      : '未配置；手动整理不受影响',
-                ),
-                onTap: () async {
-                  Navigator.pop(sheetContext);
-                  await showDialog<void>(
-                    context: context,
-                    builder: (_) => _AiSettingsDialog(controller: controller),
-                  );
-                },
+              Text('备份状态', style: Theme.of(context).textTheme.titleMedium),
+              const SizedBox(height: 8),
+              Text(
+                controller.lastBackupExport == null
+                    ? '尚无成功导出记录'
+                    : '上次成功导出：${DateFormat('yyyy-MM-dd HH:mm').format(controller.lastBackupExport!.toLocal())}',
               ),
+              const Text('本机保存不等于设备外备份。导出记录只表示文件已保存；请另存到设备外，并验证能恢复。'),
+              const SizedBox(height: 8),
               const Divider(),
               ListTile(
                 contentPadding: EdgeInsets.zero,
                 leading: const Icon(Icons.archive_outlined),
-                title: const Text('导出加密 .lvault'),
+                title: const Text('导出加密备份'),
                 subtitle: const Text('再次验证主密码，导出完整性认证的单体备份'),
                 onTap: () async {
                   Navigator.pop(sheetContext);
@@ -189,12 +185,53 @@ class _HomeShellState extends State<HomeShell> {
                   Icons.settings_backup_restore,
                   color: Theme.of(context).colorScheme.error,
                 ),
-                title: const Text('从 .lvault 恢复'),
-                subtitle: const Text('验证成功后替换当前 Vault，失败时保留原库'),
+                title: const Text('从加密备份恢复'),
+                subtitle: const Text('验证成功后替换当前加密资料库，失败时保留原库'),
                 onTap: () async {
                   Navigator.pop(sheetContext);
-                  await _restoreVault(context, controller);
+                  await restoreFromBackup(context, controller);
                 },
+              ),
+              const Divider(),
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(Icons.restore_from_trash_outlined),
+                title: Text(
+                  '回收区 · ${controller.recycledCards.length + controller.recycledCredentials.length} 条',
+                ),
+                subtitle: const Text('查看并恢复已删除的卡片与密码，历史仍保留'),
+                onTap: () {
+                  Navigator.pop(sheetContext);
+                  Navigator.of(context).push<void>(
+                    MaterialPageRoute(builder: (_) => const RecyclePage()),
+                  );
+                },
+              ),
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(Icons.auto_awesome_outlined),
+                title: const Text('可选 AI 服务'),
+                subtitle: Text(
+                  controller.aiSettings.isConfigured
+                      ? '${controller.aiSettings.model} · 默认不上传，每次单独授权'
+                      : '未配置；手动整理不受影响',
+                ),
+                onTap: () async {
+                  Navigator.pop(sheetContext);
+                  await showDialog<void>(
+                    context: context,
+                    builder: (_) => AiSettingsDialog(controller: controller),
+                  );
+                },
+              ),
+              const ExpansionTile(
+                tilePadding: EdgeInsets.zero,
+                title: Text('安全技术详情'),
+                children: [
+                  Text(
+                    'SQLCipher 整库加密 · Argon2id 口令派生 · AES-256-GCM 密钥和原件保护。主密码用于解封随机主密钥；备份清单有完整性认证。',
+                  ),
+                ],
               ),
               const Divider(),
               FilledButton.tonalIcon(
@@ -216,7 +253,7 @@ class _HomeShellState extends State<HomeShell> {
     return showDialog<String>(
       context: context,
       builder: (_) =>
-          const _PasswordPromptDialog(title: '再次验证主密码', actionLabel: '验证'),
+          const PasswordPromptDialog(title: '再次验证主密码', actionLabel: '验证'),
     );
   }
 
@@ -241,9 +278,11 @@ class _HomeShellState extends State<HomeShell> {
           allowedExtensions: const ['lvault'],
           dialogTitle: '导出 LiveRelay 加密备份',
         );
+        if (saved != null) await controller.markBackupExported();
         if (saved != null && context.mounted) {
-          ScaffoldMessenger.of(context)
-              .showSnackBar(const SnackBar(content: Text('加密 .lvault 已导出')));
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(const SnackBar(content: Text('加密备份已导出；请另存到设备外并验证恢复')));
         }
       } finally {
         bytes.fillRange(0, bytes.length, 0);
@@ -255,236 +294,5 @@ class _HomeShellState extends State<HomeShell> {
         ).showSnackBar(SnackBar(content: Text(controller.lastError ?? '导出失败')));
       }
     }
-  }
-
-  Future<void> _restoreVault(
-    BuildContext context,
-    AppController controller,
-  ) async {
-    final picked = await FilePicker.pickFile(
-      dialogTitle: '选择 LiveRelay 加密备份',
-      type: FileType.custom,
-      allowedExtensions: const ['lvault'],
-    );
-    if (picked == null) return;
-    if (!context.mounted) {
-      await FilePicker.clearTemporaryFiles();
-      return;
-    }
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        icon: const Icon(Icons.settings_backup_restore),
-        title: const Text('恢复并替换当前 Vault？'),
-        content: const Text(
-          '应用会先校验格式、密码、完整性和数据库，再原子替换当前 Vault。'
-          '恢复成功后当前数据将由备份内容取代。',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext, false),
-            child: const Text('取消'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(dialogContext, true),
-            child: const Text('继续恢复'),
-          ),
-        ],
-      ),
-    );
-    if (confirmed != true || !context.mounted) return;
-    final password = await showDialog<String>(
-      context: context,
-      builder: (_) =>
-          const _PasswordPromptDialog(title: '输入备份的主密码', actionLabel: '验证并恢复'),
-    );
-    if (password == null || !context.mounted) return;
-    final bytes = await picked.readAsBytes();
-    try {
-      await controller.restoreVault(bytes, password);
-      if (context.mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(const SnackBar(content: Text('Vault 已从加密备份恢复')));
-      }
-    } on Object {
-      if (context.mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(controller.lastError ?? '恢复失败')));
-      }
-    } finally {
-      bytes.fillRange(0, bytes.length, 0);
-      try {
-        await FilePicker.clearTemporaryFiles();
-      } on Object {
-        // Cleanup is retried on next app start on unsupported implementations.
-      }
-    }
-  }
-}
-
-class _AiSettingsDialog extends StatefulWidget {
-  const _AiSettingsDialog({required this.controller});
-
-  final AppController controller;
-
-  @override
-  State<_AiSettingsDialog> createState() => _AiSettingsDialogState();
-}
-
-class _AiSettingsDialogState extends State<_AiSettingsDialog> {
-  late final _endpoint = TextEditingController(
-    text: widget.controller.aiSettings.endpoint.isEmpty
-        ? 'https://api.openai.com/v1/chat/completions'
-        : widget.controller.aiSettings.endpoint,
-  );
-  late final _model = TextEditingController(
-    text: widget.controller.aiSettings.model,
-  );
-  final _apiKey = TextEditingController();
-  bool _busy = false;
-  bool _showKey = false;
-  String? _error;
-
-  @override
-  void dispose() {
-    _endpoint.dispose();
-    _model.dispose();
-    _apiKey.dispose();
-    super.dispose();
-  }
-
-  Future<void> _save() async {
-    setState(() {
-      _busy = true;
-      _error = null;
-    });
-    try {
-      await widget.controller.saveAiSettings(
-        endpoint: _endpoint.text,
-        model: _model.text,
-        apiKey: _apiKey.text.isEmpty ? null : _apiKey.text,
-      );
-      if (mounted) Navigator.pop(context);
-    } on Object {
-      if (mounted) {
-        setState(() => _error = widget.controller.lastError ?? '保存失败');
-      }
-    } finally {
-      _apiKey.clear();
-      if (mounted) setState(() => _busy = false);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) => AlertDialog(
-    icon: const Icon(Icons.auto_awesome_outlined),
-    title: const Text('OpenAI-compatible Provider'),
-    content: SingleChildScrollView(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Text('默认关闭。配置不代表授权；每次外发前仍会展示范围并要求单次确认。'),
-          const SizedBox(height: 16),
-          TextField(
-            controller: _endpoint,
-            enabled: !_busy,
-            keyboardType: TextInputType.url,
-            decoration: const InputDecoration(
-              labelText: 'HTTPS Chat Completions Endpoint',
-            ),
-          ),
-          const SizedBox(height: 12),
-          TextField(
-            controller: _model,
-            enabled: !_busy,
-            decoration: const InputDecoration(labelText: '模型名称'),
-          ),
-          const SizedBox(height: 12),
-          TextField(
-            controller: _apiKey,
-            enabled: !_busy,
-            obscureText: !_showKey,
-            decoration: InputDecoration(
-              labelText: widget.controller.aiSettings.hasApiKey
-                  ? 'API Key（留空则保留原值）'
-                  : 'API Key',
-              suffixIcon: IconButton(
-                onPressed: () => setState(() => _showKey = !_showKey),
-                icon: Icon(_showKey ? Icons.visibility_off : Icons.visibility),
-              ),
-            ),
-          ),
-          if (_error != null) ...[
-            const SizedBox(height: 12),
-            Text(
-              _error!,
-              style: TextStyle(color: Theme.of(context).colorScheme.error),
-            ),
-          ],
-        ],
-      ),
-    ),
-    actions: [
-      if (widget.controller.aiSettings.isConfigured)
-        TextButton(
-          onPressed: _busy
-              ? null
-              : () async {
-                  await widget.controller.clearAiSettings();
-                  if (context.mounted) Navigator.pop(context);
-                },
-          child: const Text('清除配置'),
-        ),
-      TextButton(
-        onPressed: _busy ? null : () => Navigator.pop(context),
-        child: const Text('取消'),
-      ),
-      FilledButton(onPressed: _busy ? null : _save, child: const Text('安全保存')),
-    ],
-  );
-}
-
-class _PasswordPromptDialog extends StatefulWidget {
-  const _PasswordPromptDialog({required this.title, required this.actionLabel});
-
-  final String title;
-  final String actionLabel;
-
-  @override
-  State<_PasswordPromptDialog> createState() => _PasswordPromptDialogState();
-}
-
-class _PasswordPromptDialogState extends State<_PasswordPromptDialog> {
-  final _text = TextEditingController();
-
-  @override
-  void dispose() {
-    _text.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AlertDialog(
-      title: Text(widget.title),
-      content: TextField(
-        controller: _text,
-        obscureText: true,
-        autofocus: true,
-        onSubmitted: (_) => Navigator.pop(context, _text.text),
-        decoration: const InputDecoration(labelText: '主密码或中文词组'),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: const Text('取消'),
-        ),
-        FilledButton(
-          onPressed: () => Navigator.pop(context, _text.text),
-          child: Text(widget.actionLabel),
-        ),
-      ],
-    );
   }
 }

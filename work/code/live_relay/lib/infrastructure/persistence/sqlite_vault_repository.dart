@@ -23,10 +23,22 @@ class SqliteVaultRepository implements VaultRepository {
     String query = '',
     CardKind? kind,
     CardStatus? status,
+    bool recycled = false,
   }) async {
     final statement = database.select(database.cards)
-      ..where((table) => table.deletedAt.isNull())
-      ..orderBy([(table) => OrderingTerm.desc(table.updatedAt)]);
+      ..where(
+        (table) =>
+            recycled ? table.deletedAt.isNotNull() : table.deletedAt.isNull(),
+      )
+      ..orderBy([
+        (table) => OrderingTerm.desc(table.updatedAt),
+        (_) => OrderingTerm(
+          expression: const CustomExpression<int>(
+            "(SELECT MAX(id) FROM audit_events WHERE entity_type='card' AND entity_id=life_cards.id)",
+          ),
+          mode: OrderingMode.desc,
+        ),
+      ]);
     if (query.trim().isNotEmpty) {
       final pattern = '%${query.trim()}%';
       statement.where(
@@ -162,11 +174,7 @@ class SqliteVaultRepository implements VaultRepository {
           status: Value(draft.status.name),
           tagsJson: Value(jsonEncode(tags)),
           updatedAt: Value(now),
-          confirmedAt: Value(
-            draft.status == CardStatus.confirmed
-                ? (existing.confirmedAt ?? now)
-                : null,
-          ),
+          confirmedAt: Value(draft.status == CardStatus.confirmed ? now : null),
           revisionNumber: Value(revision),
         ),
       );
@@ -337,6 +345,106 @@ class SqliteVaultRepository implements VaultRepository {
   }
 
   @override
+  Future<void> restoreCard(String id) => database.transaction(() async {
+    final changed =
+        await (database.update(
+          database.cards,
+        )..where((t) => t.id.equals(id) & t.deletedAt.isNotNull())).write(
+          CardsCompanion(deletedAt: const Value(null), updatedAt: Value(_now)),
+        );
+    if (changed == 0) throw StateError('回收区中没有这张卡片');
+    await _audit('restore', 'card', id, '恢复卡片，保留内容、来源、历史和已有授权');
+  });
+
+  @override
+  Future<List<CardSource>> cardSources(String id) async {
+    final rows =
+        await (database.select(database.cardRevisions)
+              ..where((t) => t.cardId.equals(id))
+              ..orderBy([(t) => OrderingTerm.desc(t.number)]))
+            .get();
+    final result = <CardSource>[];
+    final seen = <String>{};
+    for (final revision in rows) {
+      final source = revision.sourceId == null
+          ? null
+          : await (database.select(
+              database.sources,
+            )..where((t) => t.id.equals(revision.sourceId!))).getSingleOrNull();
+      if (!seen.add(source?.id ?? 'revision-${revision.id}')) continue;
+      result.add(
+        CardSource(
+          label: source?.label ?? revision.sourceLabel,
+          kind: SourceKind.values.byName(source?.kind ?? revision.sourceKind),
+          excerpt: source?.textExcerpt ?? revision.content,
+          createdAt: source?.createdAt ?? revision.createdAt,
+          blobId: source?.blobId,
+        ),
+      );
+    }
+    return result;
+  }
+
+  @override
+  Future<List<LifeCard>> cardsForBlob(String blobId) async {
+    final rows = await database
+        .customSelect(
+          'SELECT DISTINCT life_cards.* FROM life_cards '
+          'JOIN card_revisions ON card_revisions.card_id = life_cards.id '
+          'JOIN sources ON sources.id = card_revisions.source_id '
+          'WHERE sources.blob_id = ? AND life_cards.deleted_at IS NULL '
+          'ORDER BY life_cards.updated_at DESC',
+          variables: [Variable<String>(blobId)],
+          readsFrom: {database.cards, database.cardRevisions, database.sources},
+        )
+        .get();
+    return rows
+        .map((row) => _cardFromRow(database.cards.map(row.data)))
+        .toList();
+  }
+
+  @override
+  Future<LifeCard> createCardFromOriginal(String blobId, CardDraft draft) =>
+      database.transaction(() async {
+        final blob = await (database.select(
+          database.encryptedBlobs,
+        )..where((t) => t.id.equals(blobId))).getSingleOrNull();
+        if (blob == null) throw StateError('原件不存在');
+        return _insertCard(
+          draft,
+          sourceKind: SourceKind.ownerInput,
+          sourceLabel: '本人整理 · ${blob.originalName}',
+          blobId: blobId,
+        );
+      });
+
+  @override
+  Future<DateTime?> lastBackupExport() async {
+    final row =
+        await (database.select(database.auditEvents)
+              ..where((t) => t.action.equals('backup-export'))
+              ..orderBy([(t) => OrderingTerm.desc(t.occurredAt)])
+              ..limit(1))
+            .getSingleOrNull();
+    return row?.occurredAt;
+  }
+
+  @override
+  Future<void> recordBackupExport(DateTime time) async {
+    await database
+        .into(database.auditEvents)
+        .insert(
+          AuditEventsCompanion.insert(
+            action: 'backup-export',
+            entityType: 'vault',
+            entityId: 'local',
+            description: '文件选择器报告加密备份导出成功；设备外副本未核验',
+            occurredAt: time.toUtc(),
+          ),
+        );
+  }
+
+  @override
   Future<List<VaultBlob>> listBlobs() async {
     final rows = await (database.select(
       database.encryptedBlobs,
@@ -494,7 +602,13 @@ class SqliteVaultRepository implements VaultRepository {
       for (final draft in drafts) {
         cards.add(
           await _insertCard(
-            draft,
+            CardDraft(
+              title: draft.title,
+              content: draft.content,
+              kind: draft.kind,
+              tags: draft.tags,
+              status: CardStatus.draft,
+            ),
             sourceKind: SourceKind.aiGenerated,
             sourceLabel: providerLabel,
             blobId: blobId,
@@ -512,10 +626,24 @@ class SqliteVaultRepository implements VaultRepository {
   }
 
   @override
-  Future<List<CredentialEntry>> listCredentials({String query = ''}) async {
+  Future<List<CredentialEntry>> listCredentials({
+    String query = '',
+    bool recycled = false,
+  }) async {
     final statement = database.select(database.credentials)
-      ..where((table) => table.deletedAt.isNull())
-      ..orderBy([(table) => OrderingTerm.desc(table.updatedAt)]);
+      ..where(
+        (table) =>
+            recycled ? table.deletedAt.isNotNull() : table.deletedAt.isNull(),
+      )
+      ..orderBy([
+        (table) => OrderingTerm.desc(table.updatedAt),
+        (_) => OrderingTerm(
+          expression: const CustomExpression<int>(
+            "(SELECT MAX(id) FROM audit_events WHERE entity_type='credential' AND entity_id=credentials.id)",
+          ),
+          mode: OrderingMode.desc,
+        ),
+      ]);
     if (query.trim().isNotEmpty) {
       final pattern = '%${query.trim()}%';
       statement.where(
@@ -655,6 +783,21 @@ class SqliteVaultRepository implements VaultRepository {
     if (changed == 0) throw StateError('密码条目不存在');
     await _audit('trash', 'credential', id, '普通删除，历史 Secret 仍加密保留');
   }
+
+  @override
+  Future<void> restoreCredential(String id) => database.transaction(() async {
+    final changed =
+        await (database.update(
+          database.credentials,
+        )..where((t) => t.id.equals(id) & t.deletedAt.isNotNull())).write(
+          CredentialsCompanion(
+            deletedAt: const Value(null),
+            updatedAt: Value(_now),
+          ),
+        );
+    if (changed == 0) throw StateError('回收区中没有这条密码');
+    await _audit('restore', 'credential', id, '恢复密码条目及历史，已有授权仍保留');
+  });
 
   @override
   Future<void> purgeCredential(String id) async {

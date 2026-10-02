@@ -5,6 +5,7 @@ abstract interface class VaultRepository {
     String query = '',
     CardKind? kind,
     CardStatus? status,
+    bool recycled = false,
   });
 
   Future<LifeCard?> getCard(String id);
@@ -32,6 +33,12 @@ abstract interface class VaultRepository {
   Future<List<CardRelation>> relationsForCard(String cardId);
 
   Future<void> trashCard(String id);
+  Future<void> restoreCard(String id);
+  Future<List<CardSource>> cardSources(String id);
+  Future<List<LifeCard>> cardsForBlob(String blobId);
+  Future<LifeCard> createCardFromOriginal(String blobId, CardDraft draft);
+  Future<DateTime?> lastBackupExport();
+  Future<void> recordBackupExport(DateTime time);
 
   Future<List<VaultBlob>> listBlobs();
 
@@ -49,7 +56,10 @@ abstract interface class VaultRepository {
     required String providerLabel,
   });
 
-  Future<List<CredentialEntry>> listCredentials({String query = ''});
+  Future<List<CredentialEntry>> listCredentials({
+    String query = '',
+    bool recycled = false,
+  });
 
   Future<CredentialEntry> saveCredential(CredentialDraft draft, {String? id});
 
@@ -58,6 +68,7 @@ abstract interface class VaultRepository {
   Future<List<CredentialRevision>> credentialHistory(String id);
 
   Future<void> trashCredential(String id);
+  Future<void> restoreCredential(String id);
 
   Future<void> purgeCredential(String id);
 

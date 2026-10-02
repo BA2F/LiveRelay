@@ -13,9 +13,9 @@ import '../../application/app_controller.dart';
 import '../../core/domain/entities.dart';
 import '../design_system/atoms.dart';
 import '../dialogs/card_dialogs.dart';
-import '../dialogs/ai_privacy_dialogs.dart';
-import '../dialogs/media_viewer.dart';
 import '../widgets/life_card_tile.dart';
+import 'cards_page.dart';
+import 'originals_page.dart';
 
 class CapturePage extends StatelessWidget {
   const CapturePage({super.key});
@@ -25,210 +25,76 @@ class CapturePage extends StatelessWidget {
     final controller = context.watch<AppController>();
     final recent = controller.cards.take(5).toList();
     return RefreshIndicator(
-      onRefresh: controller.refresh,
+      onRefresh: () => runUiAction(context, controller.refresh),
       child: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 104),
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
         children: [
+          Text('先记下来', style: Theme.of(context).textTheme.headlineSmall),
+          const SizedBox(height: 6),
+          Text(recent.isEmpty ? '例如：备用钥匙放在哪里。重要的事，之后再慢慢整理。' : '重要的事，之后再慢慢整理。'),
+          const SizedBox(height: 16),
+          FilledButton.icon(
+            onPressed: controller.isBusy
+                ? null
+                : () => showCardEditor(context, controller),
+            icon: const Icon(Icons.add),
+            label: const Text('记一条'),
+          ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              OutlinedButton.icon(
+                onPressed: controller.isBusy
+                    ? null
+                    : () => _captureCamera(
+                        context,
+                        controller,
+                        BlobMediaKind.image,
+                      ),
+                icon: const Icon(Icons.photo_camera_outlined),
+                label: const Text('拍照'),
+              ),
+              OutlinedButton.icon(
+                onPressed: controller.isBusy
+                    ? null
+                    : () => _recordAudio(context, controller),
+                icon: const Icon(Icons.mic_outlined),
+                label: const Text('录音'),
+              ),
+              OutlinedButton.icon(
+                onPressed: controller.isBusy
+                    ? null
+                    : () => _showMore(context, controller),
+                icon: const Icon(Icons.more_horiz),
+                label: const Text('更多'),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
           Card(
-            color: Theme.of(context).colorScheme.primaryContainer,
-            child: Padding(
-              padding: const EdgeInsets.all(20),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Icon(
-                    Icons.lightbulb_rounded,
-                    color: Theme.of(context).colorScheme.onPrimaryContainer,
+            child: ListTile(
+              leading: const Icon(Icons.fact_check_outlined),
+              title: Text('待整理 · ${controller.insights.drafts} 条'),
+              subtitle: const Text('核对草稿、补充信息，再由本人确认'),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => Navigator.of(context).push<void>(
+                MaterialPageRoute(
+                  builder: (_) => Scaffold(
+                    appBar: AppBar(title: const Text('待整理')),
+                    body: const CardsPage(initialStatus: CardStatus.draft),
                   ),
-                  const SizedBox(height: 12),
-                  Text(
-                    '先留下，再慢慢整理',
-                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                      color: Theme.of(context).colorScheme.onPrimaryContainer,
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    '手动输入会保留为本人来源。还没确认的内容可以先存草稿。',
-                    style: TextStyle(
-                      color: Theme.of(context).colorScheme.onPrimaryContainer,
-                    ),
-                  ),
-                  const SizedBox(height: 18),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: [
-                      FilledButton.icon(
-                        onPressed: () => showCardEditor(context, controller),
-                        icon: const Icon(Icons.add),
-                        label: const Text('写一条记录'),
-                      ),
-                      FilledButton.tonalIcon(
-                        onPressed: controller.isBusy
-                            ? null
-                            : () => _pickOriginal(
-                                context,
-                                controller,
-                                BlobMediaKind.image,
-                              ),
-                        icon: const Icon(Icons.add_photo_alternate_outlined),
-                        label: const Text('导入照片'),
-                      ),
-                      FilledButton.tonalIcon(
-                        onPressed: controller.isBusy
-                            ? null
-                            : () => _pickOriginal(
-                                context,
-                                controller,
-                                BlobMediaKind.audio,
-                              ),
-                        icon: const Icon(Icons.audio_file_outlined),
-                        label: const Text('导入录音'),
-                      ),
-                      FilledButton.tonalIcon(
-                        onPressed: controller.isBusy
-                            ? null
-                            : () => _pickOriginal(
-                                context,
-                                controller,
-                                BlobMediaKind.video,
-                              ),
-                        icon: const Icon(Icons.video_file_outlined),
-                        label: const Text('导入录像'),
-                      ),
-                      OutlinedButton.icon(
-                        onPressed: controller.isBusy
-                            ? null
-                            : () => _captureCamera(
-                                context,
-                                controller,
-                                BlobMediaKind.image,
-                              ),
-                        icon: const Icon(Icons.photo_camera_outlined),
-                        label: const Text('拍照'),
-                      ),
-                      OutlinedButton.icon(
-                        onPressed: controller.isBusy
-                            ? null
-                            : () => _captureCamera(
-                                context,
-                                controller,
-                                BlobMediaKind.video,
-                              ),
-                        icon: const Icon(Icons.videocam_outlined),
-                        label: const Text('录像'),
-                      ),
-                      OutlinedButton.icon(
-                        onPressed: controller.isBusy
-                            ? null
-                            : () => _recordAudio(context, controller),
-                        icon: const Icon(Icons.mic_outlined),
-                        label: const Text('录音'),
-                      ),
-                    ],
-                  ),
-                ],
+                ),
               ),
             ),
           ),
           const SizedBox(height: 24),
-          if (controller.blobs.isNotEmpty) ...[
-            PageSection(
-              title: '加密原始资料',
-              subtitle: '${controller.blobs.length} 个文件；磁盘只保存随机 ID 密文',
-              child: Column(
-                children: [
-                  for (final blob in controller.blobs.take(4))
-                    ListTile(
-                      onTap: () =>
-                          showEncryptedOriginal(context, controller, blob),
-                      contentPadding: EdgeInsets.zero,
-                      leading: Icon(_iconFor(blob.mediaKind)),
-                      title: Text(
-                        blob.originalName,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      subtitle: Text(
-                        '${blob.mimeType} · ${_readableBytes(blob.byteLength)}'
-                        '${blob.ocrText == null ? '' : ' · OCR 已完成'}',
-                      ),
-                      trailing: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          if (blob.mediaKind == BlobMediaKind.image)
-                            IconButton(
-                              tooltip: '本地 OCR',
-                              onPressed: controller.isBusy
-                                  ? null
-                                  : () => _runOcr(context, controller, blob),
-                              icon: Icon(
-                                blob.ocrText == null
-                                    ? Icons.document_scanner_outlined
-                                    : Icons.fact_check_outlined,
-                              ),
-                            ),
-                          if (blob.ocrText != null)
-                            IconButton(
-                              tooltip: 'AI Privacy 标记与整理',
-                              onPressed: controller.isBusy
-                                  ? null
-                                  : () => showAiPrivacyWorkspace(
-                                      context,
-                                      controller,
-                                      blob,
-                                    ),
-                              icon: Icon(
-                                blob.sensitiveMarks.isEmpty
-                                    ? Icons.privacy_tip_outlined
-                                    : Icons.privacy_tip,
-                              ),
-                            ),
-                          const Icon(Icons.lock_outline),
-                        ],
-                      ),
-                    ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 24),
-          ],
-          PageSection(
-            title: '整理概览',
-            subtitle: '只做确定性统计，不让 AI 冒充事实',
-            child: Row(
-              children: [
-                Expanded(
-                  child: MetricTile(
-                    label: '全部卡片',
-                    value: '${controller.insights.totalCards}',
-                    icon: Icons.view_agenda_outlined,
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: MetricTile(
-                    label: '待确认',
-                    value: '${controller.insights.drafts}',
-                    icon: Icons.fact_check_outlined,
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: MetricTile(
-                    label: '密码条目',
-                    value: '${controller.insights.credentials}',
-                    icon: Icons.key_outlined,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 24),
+          if (controller.lastError != null) ErrorBanner(controller.lastError!),
           PageSection(
             title: '最近记录',
-            subtitle: '正式卡片与待确认草稿按最近修改排序',
+            subtitle: '已加密保存在本机 · 按最近修改排序',
             child: recent.isEmpty
                 ? const EmptyState(
                     icon: Icons.inbox_outlined,
@@ -248,21 +114,60 @@ class CapturePage extends StatelessWidget {
                     ],
                   ),
           ),
-          if (controller.insights.stale > 0) ...[
-            const SizedBox(height: 16),
+          const SizedBox(height: 12),
+          OutlinedButton.icon(
+            onPressed: () => Navigator.of(context).push<void>(
+              MaterialPageRoute(builder: (_) => const OriginalsPage()),
+            ),
+            icon: const Icon(Icons.folder_open),
+            label: Text('全部原件 · ${controller.blobs.length} 个'),
+          ),
+          if (controller.insights.stale > 0)
             ListTile(
-              tileColor: Theme.of(context).colorScheme.tertiaryContainer,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
-              ),
               leading: const Icon(Icons.update),
               title: Text('${controller.insights.stale} 张卡片超过半年未确认'),
-              subtitle: const Text('“最近”不是可信度，旧来源不会被自动覆盖。'),
+              subtitle: const Text('打开卡片核对，旧来源和历史会保留。'),
             ),
-          ],
         ],
       ),
     );
+  }
+
+  Future<void> _showMore(BuildContext context, AppController controller) async {
+    final action = await showModalBottomSheet<String>(
+      context: context,
+      useSafeArea: true,
+      showDragHandle: true,
+      builder: (c) => SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            for (final item in [
+              ('image', '导入照片', Icons.add_photo_alternate_outlined),
+              ('audio', '导入录音', Icons.audio_file_outlined),
+              ('video', '导入录像', Icons.video_file_outlined),
+              ('camera', '现场录像', Icons.videocam_outlined),
+            ])
+              ListTile(
+                leading: Icon(item.$3),
+                title: Text(item.$2),
+                onTap: () => Navigator.pop(c, item.$1),
+              ),
+          ],
+        ),
+      ),
+    );
+    if (!context.mounted) return;
+    switch (action) {
+      case 'image':
+        await _pickOriginal(context, controller, BlobMediaKind.image);
+      case 'audio':
+        await _pickOriginal(context, controller, BlobMediaKind.audio);
+      case 'video':
+        await _pickOriginal(context, controller, BlobMediaKind.video);
+      case 'camera':
+        await _captureCamera(context, controller, BlobMediaKind.video);
+    }
   }
 
   Future<void> _pickOriginal(
@@ -302,27 +207,6 @@ class CapturePage extends StatelessWidget {
       } on Object {
         // Unsupported on a few desktop implementations. Mobile picker cache
         // cleanup is best-effort here and repeated on the next app start.
-      }
-    }
-  }
-
-  Future<void> _runOcr(
-    BuildContext context,
-    AppController controller,
-    VaultBlob blob,
-  ) async {
-    try {
-      await controller.runOcr(blob.id);
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('本地 OCR 已生成待确认草稿，可继续编辑或拆分')),
-        );
-      }
-    } on Object {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(controller.lastError ?? 'OCR 失败')),
-        );
       }
     }
   }
@@ -438,20 +322,6 @@ class CapturePage extends StatelessWidget {
           BlobMediaKind.document ||
           BlobMediaKind.other => 'application/octet-stream',
         };
-  }
-
-  IconData _iconFor(BlobMediaKind kind) => switch (kind) {
-    BlobMediaKind.image => Icons.image_outlined,
-    BlobMediaKind.audio => Icons.audio_file_outlined,
-    BlobMediaKind.video => Icons.video_file_outlined,
-    BlobMediaKind.document => Icons.description_outlined,
-    BlobMediaKind.other => Icons.insert_drive_file_outlined,
-  };
-
-  String _readableBytes(int bytes) {
-    if (bytes < 1024) return '$bytes B';
-    if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} KB';
-    return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
   }
 }
 

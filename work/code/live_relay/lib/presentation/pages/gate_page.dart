@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../application/app_controller.dart';
 import '../../core/security/chinese_passphrase.dart';
 import '../design_system/atoms.dart';
+import '../dialogs/backup_dialogs.dart';
 
 class _GateScaffold extends StatelessWidget {
   const _GateScaffold({required this.title, required this.child});
@@ -73,6 +74,7 @@ class _SetupVaultPageState extends State<SetupVaultPage> {
   final _password = TextEditingController();
   final _confirmation = TextEditingController();
   bool _useGenerator = true;
+  bool _savedPassphrase = false;
   bool _enableBiometric = true;
   bool _obscure = true;
   int _wordCount = 6;
@@ -90,12 +92,18 @@ class _SetupVaultPageState extends State<SetupVaultPage> {
     setState(() {
       _generated = phrase;
       _password.text = phrase.chinese;
-      _confirmation.text = phrase.chinese;
+      _confirmation.clear();
+      _savedPassphrase = false;
     });
   }
 
   Future<void> _submit(AppController controller) async {
-    if (_password.text != _confirmation.text) {
+    if (!_savedPassphrase) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('请先确认已妥善保存口令')));
+      return;
+    }
+    if (!_useGenerator && _password.text != _confirmation.text) {
       ScaffoldMessenger.of(context)
           .showSnackBar(const SnackBar(content: Text('两次输入的主密码不一致')));
       return;
@@ -121,54 +129,73 @@ class _SetupVaultPageState extends State<SetupVaultPage> {
   Widget build(BuildContext context) {
     final controller = context.watch<AppController>();
     return _GateScaffold(
-      title: '创建你的加密 Vault',
+      title: '创建你的加密资料库',
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          SegmentedButton<bool>(
-            segments: const [
-              ButtonSegment(
-                value: true,
-                icon: Icon(Icons.casino_outlined),
-                label: Text('中文词组'),
-              ),
-              ButtonSegment(
-                value: false,
-                icon: Icon(Icons.password),
-                label: Text('自定密码'),
-              ),
-            ],
-            selected: {_useGenerator},
-            onSelectionChanged: controller.isBusy
+          const Text(
+            '记下资料位置、账号、资产或想交代的事。内容加密保存在本机，默认只有本人可见。请定期导出加密备份，设备丢失后可用口令恢复。',
+          ),
+          const SizedBox(height: 12),
+          OutlinedButton.icon(
+            onPressed: controller.isBusy
                 ? null
-                : (selection) => setState(() {
-                    _useGenerator = selection.first;
-                    _generated = null;
-                    _password.clear();
-                    _confirmation.clear();
-                  }),
+                : () => restoreFromBackup(context, controller),
+            icon: const Icon(Icons.settings_backup_restore),
+            label: const Text('已有加密备份？从备份恢复'),
+          ),
+          const SizedBox(height: 16),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              for (final choice in [true, false])
+                ChoiceChip(
+                  label: Text(choice ? '中文词组（推荐）' : '自定密码'),
+                  selected: _useGenerator == choice,
+                  onSelected: controller.isBusy
+                      ? null
+                      : (_) => setState(() {
+                          _useGenerator = choice;
+                          _generated = null;
+                          _password.clear();
+                          _confirmation.clear();
+                          _savedPassphrase = false;
+                        }),
+                ),
+            ],
           ),
           const SizedBox(height: 18),
           if (_useGenerator) ...[
-            Row(
+            const Text('默认使用 6 个随机词组。保存好口令，汉字或拼音均可解锁。'),
+            ExpansionTile(
+              tilePadding: EdgeInsets.zero,
+              title: const Text('高级：口令长度'),
               children: [
-                const Text('词数'),
-                Expanded(
-                  child: Slider(
-                    value: _wordCount.toDouble(),
-                    min: 4,
-                    max: 10,
-                    divisions: 6,
-                    label: '$_wordCount',
-                    onChanged: controller.isBusy
-                        ? null
-                        : (value) => setState(() {
-                            _wordCount = value.round();
-                            _generated = null;
-                          }),
-                  ),
+                Row(
+                  children: [
+                    const Text('词数'),
+                    Expanded(
+                      child: Slider(
+                        value: _wordCount.toDouble(),
+                        min: 4,
+                        max: 10,
+                        divisions: 6,
+                        label: '$_wordCount',
+                        onChanged: controller.isBusy
+                            ? null
+                            : (value) => setState(() {
+                                _wordCount = value.round();
+                                _generated = null;
+                                _password.clear();
+                                _confirmation.clear();
+                                _savedPassphrase = false;
+                              }),
+                      ),
+                    ),
+                    Text('$_wordCount 个'),
+                  ],
                 ),
-                Text('$_wordCount 个'),
               ],
             ),
             OutlinedButton.icon(
@@ -192,7 +219,7 @@ class _SetupVaultPageState extends State<SetupVaultPage> {
                       SelectableText(_generated!.pinyin),
                       const SizedBox(height: 8),
                       Text(
-                        '约 ${_generated!.entropyBits.toStringAsFixed(1)} bit；汉字或拼音均可解锁。请离线保存。',
+                        '请离线妥善保存这组口令。',
                         style: Theme.of(context).textTheme.bodySmall,
                       ),
                     ],
@@ -210,20 +237,31 @@ class _SetupVaultPageState extends State<SetupVaultPage> {
               labelText: _useGenerator ? '中文词组口令' : '主密码',
               prefixIcon: const Icon(Icons.key),
               suffixIcon: IconButton(
+                tooltip: _obscure ? '显示口令' : '遮挡口令',
                 onPressed: () => setState(() => _obscure = !_obscure),
                 icon: Icon(_obscure ? Icons.visibility : Icons.visibility_off),
               ),
             ),
           ),
           const SizedBox(height: 12),
-          TextField(
-            controller: _confirmation,
-            obscureText: _obscure,
-            enabled: !controller.isBusy,
-            decoration: const InputDecoration(
-              labelText: '再次输入',
-              prefixIcon: Icon(Icons.verified_user_outlined),
+          if (!_useGenerator)
+            TextField(
+              controller: _confirmation,
+              obscureText: _obscure,
+              enabled: !controller.isBusy,
+              decoration: const InputDecoration(
+                labelText: '再次输入主密码',
+                prefixIcon: Icon(Icons.verified_user_outlined),
+              ),
             ),
+          CheckboxListTile(
+            contentPadding: EdgeInsets.zero,
+            value: _savedPassphrase,
+            onChanged: controller.isBusy
+                ? null
+                : (value) => setState(() => _savedPassphrase = value ?? false),
+            title: const Text('我已妥善保存口令'),
+            subtitle: const Text('口令无法找回。指纹不能代替换设备时的恢复口令。'),
           ),
           if (controller.biometricAvailable) ...[
             const SizedBox(height: 8),
@@ -233,8 +271,8 @@ class _SetupVaultPageState extends State<SetupVaultPage> {
               onChanged: controller.isBusy
                   ? null
                   : (value) => setState(() => _enableBiometric = value),
-              title: const Text('启用 Android 强生物识别'),
-              subtitle: const Text('主密码仍是恢复 Vault 的必要入口'),
+              title: const Text('启用指纹解锁'),
+              subtitle: const Text('主密码仍是恢复资料库 的必要入口'),
               secondary: const Icon(Icons.fingerprint),
             ),
           ],
@@ -253,12 +291,12 @@ class _SetupVaultPageState extends State<SetupVaultPage> {
                 : const Icon(Icons.lock_outline),
             label: const Padding(
               padding: EdgeInsets.symmetric(vertical: 14),
-              child: Text('创建并进入 Vault'),
+              child: Text('创建并进入资料库'),
             ),
           ),
           const SizedBox(height: 12),
           Text(
-            '结构化数据将存入整页加密的 SQLCipher 数据库。主密码只用于解封随机主密钥。',
+            '创建后即可记录，AI 为可选服务。',
             textAlign: TextAlign.center,
             style: Theme.of(context).textTheme.bodySmall,
           ),
@@ -308,7 +346,7 @@ class _UnlockVaultPageState extends State<UnlockVaultPage> {
         controller.biometricAvailable &&
         (controller.header?.biometricEnabled ?? false);
     return _GateScaffold(
-      title: '解锁你的 Vault',
+      title: '解锁你的加密资料库',
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -324,6 +362,7 @@ class _UnlockVaultPageState extends State<UnlockVaultPage> {
                   : '主密码',
               prefixIcon: const Icon(Icons.key),
               suffixIcon: IconButton(
+                tooltip: _obscure ? '显示口令' : '遮挡口令',
                 onPressed: () => setState(() => _obscure = !_obscure),
                 icon: Icon(_obscure ? Icons.visibility : Icons.visibility_off),
               ),
@@ -346,6 +385,14 @@ class _UnlockVaultPageState extends State<UnlockVaultPage> {
               padding: EdgeInsets.symmetric(vertical: 14),
               child: Text('解锁'),
             ),
+          ),
+          const SizedBox(height: 12),
+          OutlinedButton.icon(
+            onPressed: controller.isBusy
+                ? null
+                : () => restoreFromBackup(context, controller),
+            icon: const Icon(Icons.settings_backup_restore),
+            label: const Text('从加密备份恢复'),
           ),
           if (canUseBiometric) ...[
             const SizedBox(height: 12),

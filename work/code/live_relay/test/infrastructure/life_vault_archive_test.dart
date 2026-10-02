@@ -3,6 +3,8 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:archive/archive.dart';
+import 'package:cryptography/cryptography.dart';
+import 'package:cryptography/dart.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:live_relay/core/domain/entities.dart';
 import 'package:live_relay/core/security/vault_key_manager.dart';
@@ -53,6 +55,18 @@ void main() {
       archiveBytes: bytes,
       stagingParent: temporary,
     );
+    // v1 originally derived the manifest key with an omitted/empty salt.
+    // The Android-compatible zero salt must produce the identical v1 MAC.
+    final legacyKey = await DartHkdf(hmac: DartHmac.sha256(), outputLength: 32)
+        .deriveKey(
+          secretKey: SecretKey(key),
+          info: utf8.encode('LiveRelay/LifeVaultManifest/v1'),
+        );
+    final legacyMac = await DartHmac.sha256().calculateMac(
+      staged.manifestBytes,
+      secretKey: legacyKey,
+    );
+    expect(staged.manifestMac, legacyMac.bytes);
     final restoredKey = await VaultKeyManager(staged.directory)
         .unlock('correct horse battery staple');
     await service.verifyAuthentication(staged: staged, masterKey: restoredKey);

@@ -259,6 +259,9 @@ class LifeVaultArchiveService {
   ) async {
     final macKey = await _hkdf.deriveKey(
       secretKey: SecretKey(masterKey),
+      // RFC 5869's omitted salt is HashLen zero bytes. This is HMAC-equivalent
+      // to the v1 empty salt, but Android's SecretKeySpec rejects an empty key.
+      nonce: List<int>.filled(32, 0),
       info: utf8.encode(_macInfo),
     );
     return _hmac.calculateMac(manifest, secretKey: macKey);

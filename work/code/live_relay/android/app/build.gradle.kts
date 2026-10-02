@@ -31,6 +31,11 @@ android {
     }
 
     buildTypes {
+        debug {
+            // Test builds have a separate Android sandbox and never overwrite
+            // the installed user's production data or secure-storage slots.
+            applicationIdSuffix = ".verification"
+        }
         release {
             // TODO: Add your own signing config for the release build.
             // Signing with the debug keys for now, so `flutter run --release` works.

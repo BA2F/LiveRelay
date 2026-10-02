@@ -32,7 +32,7 @@ extension CardKindPresentation on CardKind {
 
 extension CardStatusPresentation on CardStatus {
   String get label => switch (this) {
-    CardStatus.draft => '待确认',
+    CardStatus.draft => '待整理',
     CardStatus.confirmed => '已确认',
     CardStatus.split => '已拆分',
     CardStatus.archived => '已归档',
@@ -49,17 +49,17 @@ extension LifeStatePresentation on LifeState {
   IconData get icon => switch (this) {
     LifeState.active => Icons.favorite_outline,
     LifeState.incapacitated => Icons.health_and_safety_outlined,
-    LifeState.deceased => Icons.local_fire_department_outlined,
+    LifeState.deceased => Icons.flag_outlined,
   };
 }
 
 extension VisibilityPresentation on VisibilityLevel {
   String get label => switch (this) {
-    VisibilityLevel.hidden => '不释放',
-    VisibilityLevel.existence => '仅存在性',
+    VisibilityLevel.hidden => '保持私密',
+    VisibilityLevel.existence => '只知道有这条信息',
     VisibilityLevel.summary => '基本信息',
     VisibilityLevel.full => '完整内容',
-    VisibilityLevel.secret => '含 Secret',
+    VisibilityLevel.secret => '含密码 / 密钥',
     VisibilityLevel.original => '含原始资料',
   };
 }

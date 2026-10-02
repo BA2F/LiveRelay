@@ -1,0 +1,66 @@
+<style>
+#lr-proposal{color-scheme:light dark;padding:16px 0}
+#lr-proposal .lr-phone{--lr-bg:light-dark(#fffaf5,#211c18);--lr-panel:light-dark(#f6ece3,#302822);--lr-ink:light-dark(#30251d,#f4e9df);--lr-muted:light-dark(#706053,#cab8a8);--lr-line:light-dark(#ddcfc1,#655244);--lr-accent:light-dark(#85420e,#ffc394);--lr-onaccent:light-dark(#ffffff,#351800);--lr-space:18px;max-width:420px;margin:auto;background:var(--lr-bg);color:var(--lr-ink);font:16px/1.6 system-ui,sans-serif;border:1px solid var(--lr-line);border-radius:24px;overflow:hidden}
+#lr-proposal .lr-top{padding:18px 20px 12px;display:flex;justify-content:space-between;gap:12px;align-items:center;border-bottom:1px solid var(--lr-line)}
+#lr-proposal .lr-brand{font-size:20px;font-weight:600}#lr-proposal .lr-caption{font-size:12px;color:var(--lr-muted)}
+#lr-proposal .lr-content{padding:20px;min-height:490px}#lr-proposal h2{font-size:23px;line-height:1.35;margin:0 0 8px;font-weight:600}#lr-proposal h3{font-size:17px;margin:var(--lr-space) 0 8px;font-weight:600}#lr-proposal p{margin:8px 0}#lr-proposal .lr-sub{font-size:14px;color:var(--lr-muted)}
+#lr-proposal button,#lr-proposal select,#lr-proposal textarea{font:inherit;color:var(--lr-ink);background:var(--lr-bg);border:1px solid var(--lr-line);border-radius:12px;padding:10px 12px;min-height:48px;max-width:100%;box-sizing:border-box}
+#lr-proposal button{cursor:pointer}#lr-proposal .lr-primary{background:var(--lr-accent);color:var(--lr-onaccent);border-color:var(--lr-accent)}#lr-proposal .lr-full{width:100%;text-align:left}#lr-proposal .lr-actions{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}#lr-proposal .lr-row{padding:var(--lr-space) 0;border-bottom:1px solid var(--lr-line)}
+#lr-proposal .lr-note{padding:14px;background:var(--lr-panel);border-radius:14px;margin:14px 0}#lr-proposal .lr-status{display:inline-block;font-size:12px;color:var(--lr-muted)}#lr-proposal .lr-link{border:none;background:transparent;color:var(--lr-accent);padding:6px 0;text-align:left}#lr-proposal nav{display:grid;grid-template-columns:repeat(4,1fr);padding:10px 8px;gap:4px;border-top:1px solid var(--lr-line)}#lr-proposal nav button{border:0;border-radius:12px;padding:8px 3px;font-size:14px}#lr-proposal nav button[aria-pressed=true]{background:var(--lr-panel);color:var(--lr-accent);font-weight:600}#lr-proposal textarea{width:100%;min-height:110px;resize:vertical;margin-top:8px}#lr-proposal label{display:block;margin-top:10px}#lr-proposal select{width:100%;margin:6px 0 12px}#lr-proposal summary{min-height:44px;padding:8px 0;cursor:pointer}#lr-proposal [hidden]{display:none!important}#lr-proposal .lr-message{font-size:13px;color:var(--lr-accent);margin-top:10px;overflow-wrap:anywhere}
+</style>
+<div id="lr-proposal" class="viz-dotted-background">
+<article class="lr-phone" aria-label="留灯改造草图">
+<header class="lr-top"><span class="lr-brand">留灯</span><span class="lr-caption">方案草图 · 示例数据</span></header>
+<div class="lr-content">
+<section data-page="record" aria-label="记录">
+<h2>先记下来</h2><p class="lr-sub">重要的事，之后再慢慢整理。</p>
+<button class="lr-primary lr-full" data-action="compose" type="button">＋ 记一条</button>
+<div class="lr-actions"><button data-action="camera" type="button">拍照</button><button data-action="audio" type="button">录音</button><button data-action="more" type="button">更多</button></div>
+<div id="lr-more" class="lr-note" hidden>导入照片 · 导入录音 · 导入录像 · 现场录像<p class="lr-sub">入口位置示意，未连接设备媒体功能。</p></div>
+<div id="lr-compose" hidden><label for="lr-text">想记下什么？</label><textarea id="lr-text" placeholder="例如：备用钥匙在鞋柜第二层。"></textarea><p class="lr-sub">先存为待整理内容，仅本人可见。</p><div class="lr-actions"><button class="lr-primary" data-action="save" type="button">先保存</button><button data-action="cancel" type="button">取消</button></div></div>
+<h3>待整理</h3><button class="lr-full" data-action="review" type="button">房产证照片 <span class="lr-status">· 识别文字待核对 →</span></button>
+<h3>最近记录</h3><div id="lr-recent"><div class="lr-row"><button class="lr-link" data-go="cards" type="button">保单放在书房抽屉 →</button><div class="lr-sub">本人已确认 · 今天 · 仅本人可见</div></div><div class="lr-row">备用钥匙的位置<div class="lr-sub">本人输入 · 昨天 · 仅本人可见</div></div></div>
+<button class="lr-link" data-action="originals" type="button">查看全部原件 →</button>
+</section>
+<section data-page="cards" aria-label="卡片详情" hidden>
+<p class="lr-sub">卡片 / 位置与资料</p><h2>保单放在书房抽屉</h2><p class="lr-status">本人已确认 · 仅本人可见</p><div class="lr-note">纸质保单在书房左侧第二层抽屉，蓝色文件袋里。</div>
+<h3>这条信息从哪里来</h3><p>本人输入 · 今天确认</p><details><summary>查看关联原件</summary><p class="lr-sub">书房文件袋照片.jpg · 示例原件</p><p>原件与当前位置说明一起查看。</p></details><details><summary>查看修订历史</summary><p>今天：移到书房抽屉。</p><p class="lr-sub">旧版本：卧室床头柜。历史内容保留。</p></details><button class="lr-primary lr-full" data-action="edit" type="button">编辑这条信息</button><button class="lr-link" data-go="handoff" type="button">查看交接安排 →</button>
+</section>
+<section data-page="passwords" aria-label="密码库" hidden>
+<h2>密码库</h2><p class="lr-sub">先找到账号，再按需查看密码。</p><div class="lr-row"><p>示例邮箱</p><p class="lr-sub">demo@example.com</p><p id="lr-secret">••••••••••••</p><button data-action="reveal" type="button">显示示例密码</button></div><p class="lr-sub">这里仅演示遮挡交互，不包含真实账号或密码。</p>
+</section>
+<section data-page="handoff" aria-label="交接准备" hidden>
+<h2>交接准备</h2><div class="lr-note">仅本机模拟<p class="lr-sub">当前预览对象：演示执行人。不会发送给他人。</p></div><h3>核对对方能看到的内容</h3><label for="lr-scene">模拟情境</label><select id="lr-scene"><option>临时失能时</option><option>身故时</option></select><label for="lr-level">“保单位置”的可见范围</label><select id="lr-level"><option value="hidden">保持私密</option><option value="existence">只知道有这条信息</option><option value="full">查看完整内容</option></select><div class="lr-note" id="lr-preview" aria-live="polite">对方看不到这条信息。</div><p class="lr-sub">本例展示现有授权层级中的三种。其他层级需逐项明确内容含义。</p>
+</section>
+<p class="lr-message" id="lr-feedback" role="status" aria-live="polite"></p>
+</div>
+<nav aria-label="主要页面"><button type="button" data-go="record" aria-pressed="true">记录</button><button type="button" data-go="cards" aria-pressed="false">卡片</button><button type="button" data-go="passwords" aria-pressed="false">密码库</button><button type="button" data-go="handoff" aria-pressed="false">交接</button></nav>
+</article>
+</div>
+<script>
+(()=>{
+const root=document.getElementById('lr-proposal');
+const feedback=root.querySelector('#lr-feedback');
+let page='record';let timer;
+const remember=()=>{if(window.openai?.setWidgetState)window.openai.setWidgetState({modelContent:{proposal:'保留四导航，优先记录与授权预览'},privateContent:{page}}).catch(()=>{});};
+function go(next,save=true){if(!['record','cards','passwords','handoff'].includes(next))return;page=next;root.querySelectorAll('[data-page]').forEach(p=>p.hidden=p.dataset.page!==next);root.querySelectorAll('nav [data-go]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.go===next)));feedback.textContent='';root.querySelector('#lr-secret').textContent='••••••••••••';root.querySelector('[data-action="reveal"]').textContent='显示示例密码';if(save)remember();}
+root.querySelectorAll('[data-go]').forEach(b=>b.addEventListener('click',()=>go(b.dataset.go)));
+root.querySelectorAll('[data-action]').forEach(b=>b.addEventListener('click',()=>{
+const action=b.dataset.action;feedback.textContent='';
+if(action==='compose'){root.querySelector('#lr-compose').hidden=false;root.querySelector('#lr-text').focus();}
+if(action==='cancel'){root.querySelector('#lr-compose').hidden=true;feedback.textContent='草图中的输入仍保留，可重新打开。';}
+if(action==='save'){const value=root.querySelector('#lr-text').value.trim();if(!value){feedback.textContent='先写下一点内容。';return;}const row=document.createElement('div');row.className='lr-row';row.textContent=value;const hint=document.createElement('div');hint.className='lr-sub';hint.textContent='待整理 · 仅本人可见 · 草图演示';row.append(hint);root.querySelector('#lr-recent').prepend(row);root.querySelector('#lr-compose').hidden=true;root.querySelector('#lr-text').value='';feedback.textContent='已加入当前草图；没有写入真实资料库。';}
+if(action==='more')root.querySelector('#lr-more').hidden=!root.querySelector('#lr-more').hidden;
+if(action==='camera'||action==='audio')feedback.textContent='入口示意：采集后先保存原件，再选择是否整理。';
+if(action==='originals')feedback.textContent='全部原件应可查找，包含较早保存的照片、录音和录像。';
+if(action==='review'){go('cards');feedback.textContent='详情结构示意：核对原件后，再明确执行本人确认。';}
+if(action==='edit'){go('record');root.querySelector('#lr-compose').hidden=false;root.querySelector('#lr-text').value='纸质保单在书房左侧第二层抽屉，蓝色文件袋里。';feedback.textContent='编辑布局示意；真实实现应写入同一卡片的新修订。';}
+if(action==='reveal'){clearTimeout(timer);const secret=root.querySelector('#lr-secret');const show=secret.textContent.startsWith('•');secret.textContent=show?'demo-only-2468':'••••••••••••';b.textContent=show?'立即遮挡':'显示示例密码';if(show)timer=setTimeout(()=>{secret.textContent='••••••••••••';b.textContent='显示示例密码';},30000);}
+}));
+function preview(){const level=root.querySelector('#lr-level').value;root.querySelector('#lr-preview').textContent=level==='hidden'?'对方看不到这条信息。':level==='existence'?'标题：保单放在书房抽屉。正文不可见。':'标题：保单放在书房抽屉。正文：纸质保单在书房左侧第二层抽屉，蓝色文件袋里。';}
+root.querySelector('#lr-level').addEventListener('change',preview);root.querySelector('#lr-scene').addEventListener('change',()=>{root.querySelector('#lr-level').value='hidden';preview();});
+go(window.openai?.widgetState?.privateContent?.page||'record',false);
+window.addEventListener('openai:set_globals',e=>{const p=e.detail?.globals?.widgetState?.privateContent?.page;if(p)go(p,false);});
+if(globalThis.Tweak){const density={spacing:18};const phone=root.querySelector('.lr-phone');const tweak=new Tweak({container:phone,onChange:()=>phone.style.setProperty('--lr-space',density.spacing+'px')});tweak.addSlider(density,'spacing',{label:'内容间距',min:12,max:24,step:2,unit:'px'});}
+})();
+</script>

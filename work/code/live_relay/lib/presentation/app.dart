@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:provider/provider.dart';
 
 import '../application/app_controller.dart';
@@ -13,6 +14,9 @@ class LiveRelayApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: '留灯 LiveRelay',
+      locale: const Locale('zh', 'CN'),
+      supportedLocales: const [Locale('zh', 'CN')],
+      localizationsDelegates: GlobalMaterialLocalizations.delegates,
       debugShowCheckedModeBanner: false,
       theme: LiveRelayTheme.light(),
       darkTheme: LiveRelayTheme.dark(),

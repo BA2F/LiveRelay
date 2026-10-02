@@ -9,9 +9,12 @@ import '../../application/app_controller.dart';
 import '../../core/domain/entities.dart';
 import '../design_system/atoms.dart';
 import '../dialogs/card_dialogs.dart';
+import '../widgets/release_preview_panel.dart';
+import '../../application/release_preview.dart';
 
 class PasswordsPage extends StatefulWidget {
-  const PasswordsPage({super.key});
+  const PasswordsPage({super.key, this.active = true});
+  final bool active;
 
   @override
   State<PasswordsPage> createState() => _PasswordsPageState();
@@ -21,6 +24,18 @@ class _PasswordsPageState extends State<PasswordsPage> {
   final _search = TextEditingController();
   final _revealed = <String>{};
   final _hideTimers = <String, Timer>{};
+
+  @override
+  void didUpdateWidget(PasswordsPage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!widget.active) {
+      _revealed.clear();
+      for (final timer in _hideTimers.values) {
+        timer.cancel();
+      }
+      _hideTimers.clear();
+    }
+  }
 
   @override
   void dispose() {
@@ -62,53 +77,61 @@ class _PasswordsPageState extends State<PasswordsPage> {
   }
 
   Future<void> _importEdgeCsv(AppController controller) async {
-    final picked = await FilePicker.pickFile(
-      dialogTitle: '选择 Microsoft Edge 密码 CSV',
-      type: FileType.custom,
-      allowedExtensions: const ['csv'],
-    );
-    if (picked == null || !mounted) return;
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        icon: const Icon(Icons.warning_amber_rounded),
-        title: const Text('导入明文密码文件？'),
-        content: const Text(
-          'Edge 导出的 CSV 是明文。留灯只读取并写入当前加密 Vault，不保存原 CSV；'
-          '导入后请从原位置安全删除该文件。',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext, false),
-            child: const Text('取消'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(dialogContext, true),
-            child: const Text('确认导入'),
-          ),
-        ],
-      ),
-    );
-    if (confirmed != true || !mounted) return;
     try {
-      final result = await controller.importEdgePasswords(
-        await picked.readAsBytes(),
+      final picked = await FilePicker.pickFile(
+        dialogTitle: '选择 Microsoft Edge 密码 CSV',
+        type: FileType.custom,
+        allowedExtensions: const ['csv'],
       );
-      if (mounted) {
-        final skipped = result.skippedRows == 0
-            ? ''
-            : '，跳过 ${result.skippedRows} 行空记录';
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('已加密导入 ${result.entries.length} 条$skipped')),
+      if (picked == null || !mounted) return;
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          icon: const Icon(Icons.warning_amber_rounded),
+          title: const Text('导入明文密码文件？'),
+          content: const Text(
+            'Edge 导出的 CSV 是明文。留灯只读取并写入当前加密资料库，不保存原 CSV；'
+            '导入后请从原位置安全删除该文件。',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: const Text('取消'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(dialogContext, true),
+              child: const Text('确认导入'),
+            ),
+          ],
+        ),
+      );
+      if (confirmed != true || !mounted) return;
+      try {
+        final result = await controller.importEdgePasswords(
+          await picked.readAsBytes(),
         );
+        if (mounted) {
+          final skipped = result.skippedRows == 0
+              ? ''
+              : '，跳过 ${result.skippedRows} 行空记录';
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('已加密导入 ${result.entries.length} 条$skipped')),
+          );
+        }
+      } on Object catch (error) {
+        if (mounted) {
+          final message = error is FormatException
+              ? error.message
+              : controller.lastError ?? '导入失败';
+          ScaffoldMessenger.of(context)
+              .showSnackBar(SnackBar(content: Text(message)));
+        }
       }
-    } on Object catch (error) {
-      if (mounted) {
-        final message = error is FormatException
-            ? error.message
-            : controller.lastError ?? '导入失败';
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(message)));
+    } finally {
+      try {
+        await FilePicker.clearTemporaryFiles();
+      } on Object {
+        /* retried on start */
       }
     }
   }
@@ -116,136 +139,137 @@ class _PasswordsPageState extends State<PasswordsPage> {
   @override
   Widget build(BuildContext context) {
     final controller = context.watch<AppController>();
-    return Column(
-      children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 10),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
+    final entries = controller.findCredentials(_search.text);
+    return RefreshIndicator(
+      onRefresh: () => runUiAction(context, controller.refresh),
+      child: ListView(
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+        children: [
+          const Text('先找到账号，再按需查看密码。密码默认遮挡。'),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
             children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      '与人生卡片共用同一个加密 Vault',
-                      style: Theme.of(context).textTheme.bodySmall,
-                    ),
-                  ),
-                  IconButton.filledTonal(
-                    tooltip: '导入 Edge CSV',
-                    onPressed: controller.isBusy
-                        ? null
-                        : () => _importEdgeCsv(controller),
-                    icon: const Icon(Icons.upload_file_outlined),
-                  ),
-                  const SizedBox(width: 8),
-                  FilledButton.icon(
-                    onPressed: () => _showCredentialEditor(context, controller),
-                    icon: const Icon(Icons.add),
-                    label: const Text('新建'),
-                  ),
-                ],
+              FilledButton.icon(
+                onPressed: controller.isBusy
+                    ? null
+                    : () => _showCredentialEditor(context, controller),
+                icon: const Icon(Icons.add),
+                label: const Text('添加账号'),
               ),
-              const SizedBox(height: 12),
-              SearchBar(
-                controller: _search,
-                hintText: '搜索名称、账号、网址或备注',
-                leading: const Icon(Icons.search),
-                onSubmitted: (_) =>
-                    controller.refresh(credentialQuery: _search.text),
+              OutlinedButton.icon(
+                onPressed: controller.isBusy
+                    ? null
+                    : () => _importEdgeCsv(controller),
+                icon: const Icon(Icons.upload_file_outlined),
+                label: const Text('导入 Edge CSV'),
               ),
             ],
           ),
-        ),
-        Expanded(
-          child: controller.credentials.isEmpty
-              ? EmptyState(
-                  icon: Icons.key_off_outlined,
-                  title: '密码库还是空的',
-                  message: '条目只在 Vault 解锁后按需显示，Secret 默认遮挡。',
-                  action: FilledButton.tonal(
-                    onPressed: () => _showCredentialEditor(context, controller),
-                    child: const Text('添加第一个条目'),
+          const SizedBox(height: 12),
+          Semantics(
+            label: '搜索账号',
+            child: SearchField(
+              controller: _search,
+              hintText: '搜索名称、账号、网址或备注',
+              leading: const Icon(Icons.search),
+              onChanged: (_) => setState(() {}),
+              trailing: [
+                if (_search.text.isNotEmpty)
+                  IconButton(
+                    tooltip: '清除搜索',
+                    icon: const Icon(Icons.clear),
+                    onPressed: () => setState(_search.clear),
                   ),
-                )
-              : RefreshIndicator(
-                  onRefresh: () =>
-                      controller.refresh(credentialQuery: _search.text),
-                  child: ListView.separated(
-                    padding: const EdgeInsets.fromLTRB(16, 4, 16, 96),
-                    itemCount: controller.credentials.length,
-                    separatorBuilder: (_, _) => const SizedBox(height: 10),
-                    itemBuilder: (context, index) {
-                      final entry = controller.credentials[index];
-                      final visible = _revealed.contains(entry.id);
-                      return Card(
-                        child: InkWell(
-                          borderRadius: BorderRadius.circular(20),
-                          onTap: () => _showCredentialDetails(
-                            context,
-                            controller,
-                            entry,
-                          ),
-                          child: Padding(
-                            padding: const EdgeInsets.all(16),
-                            child: Row(
-                              children: [
-                                const CircleAvatar(child: Icon(Icons.key)),
-                                const SizedBox(width: 14),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        entry.title,
-                                        style: Theme.of(context)
-                                            .textTheme
-                                            .titleMedium,
-                                      ),
-                                      if (entry.username.isNotEmpty)
-                                        Text(
-                                          entry.username,
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                        ),
-                                      const SizedBox(height: 6),
-                                      Text(
-                                        visible ? entry.secret : '••••••••••••',
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: const TextStyle(
-                                          fontFamily: 'monospace',
-                                          letterSpacing: 1.2,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                IconButton(
-                                  tooltip: visible ? '遮挡' : '显示 30 秒',
-                                  onPressed: () => _toggleReveal(entry),
-                                  icon: Icon(
-                                    visible
-                                        ? Icons.visibility_off
-                                        : Icons.visibility,
-                                  ),
-                                ),
-                                IconButton(
-                                  tooltip: '复制密码',
-                                  onPressed: () => _copySecret(entry),
-                                  icon: const Icon(Icons.copy),
-                                ),
-                              ],
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+          if (controller.lastError != null) ErrorBanner(controller.lastError!),
+          if (entries.isEmpty)
+            EmptyState(
+              icon: Icons.key_off_outlined,
+              title: controller.credentials.isEmpty ? '密码库还是空的' : '没有匹配的账号',
+              message: controller.credentials.isEmpty
+                  ? '添加或导入账号，条目会加密保存在本机。'
+                  : '试试其他关键词。',
+              action: controller.credentials.isEmpty
+                  ? FilledButton.tonal(
+                      onPressed: () =>
+                          _showCredentialEditor(context, controller),
+                      child: const Text('添加第一个条目'),
+                    )
+                  : TextButton(
+                      onPressed: () => setState(_search.clear),
+                      child: const Text('清除搜索'),
+                    ),
+            ),
+          for (final entry in entries) ...[
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    InkWell(
+                      onTap: () =>
+                          showCredentialDetails(context, controller, entry),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 8),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            Text(
+                              entry.title,
+                              style: Theme.of(context).textTheme.titleMedium,
                             ),
-                          ),
+                            if (entry.username.isNotEmpty) Text(entry.username),
+                          ],
                         ),
-                      );
-                    },
-                  ),
+                      ),
+                    ),
+                    Text(
+                      _revealed.contains(entry.id)
+                          ? entry.secret
+                          : '••••••••••••',
+                      style: const TextStyle(fontFamily: 'monospace'),
+                    ),
+                    Wrap(
+                      spacing: 8,
+                      children: [
+                        TextButton.icon(
+                          icon: Icon(
+                            _revealed.contains(entry.id)
+                                ? Icons.visibility_off
+                                : Icons.visibility,
+                          ),
+                          label: Text(
+                            _revealed.contains(entry.id) ? '立即遮挡' : '显示 30 秒',
+                          ),
+                          onPressed: () => _toggleReveal(entry),
+                        ),
+                        TextButton.icon(
+                          icon: const Icon(Icons.copy),
+                          label: const Text('复制密码'),
+                          onPressed: () => _copySecret(entry),
+                        ),
+                        TextButton.icon(
+                          icon: const Icon(Icons.more_horiz),
+                          label: const Text('详情'),
+                          onPressed: () =>
+                              showCredentialDetails(context, controller, entry),
+                        ),
+                      ],
+                    ),
+                  ],
                 ),
-        ),
-      ],
+              ),
+            ),
+            const SizedBox(height: 10),
+          ],
+        ],
+      ),
     );
   }
 }
@@ -282,6 +306,7 @@ class _CredentialEditorSheetState extends State<_CredentialEditorSheet> {
   late final TextEditingController _notes;
   late final TextEditingController _tags;
   bool _obscure = true;
+  bool _saving = false;
 
   @override
   void initState() {
@@ -340,6 +365,8 @@ class _CredentialEditorSheetState extends State<_CredentialEditorSheet> {
   }
 
   Future<void> _save() async {
+    if (_saving) return;
+    setState(() => _saving = true);
     try {
       await widget.controller.saveCredential(
         CredentialDraft(
@@ -359,6 +386,8 @@ class _CredentialEditorSheetState extends State<_CredentialEditorSheet> {
           SnackBar(content: Text(widget.controller.lastError ?? '保存失败')),
         );
       }
+    } finally {
+      if (mounted) setState(() => _saving = false);
     }
   }
 
@@ -397,6 +426,7 @@ class _CredentialEditorSheetState extends State<_CredentialEditorSheet> {
               decoration: InputDecoration(
                 labelText: '密码 / PIN / 恢复码',
                 suffixIcon: IconButton(
+                  tooltip: _obscure ? '显示密码' : '遮挡密码',
                   onPressed: () => setState(() => _obscure = !_obscure),
                   icon: Icon(
                     _obscure ? Icons.visibility : Icons.visibility_off,
@@ -429,7 +459,7 @@ class _CredentialEditorSheetState extends State<_CredentialEditorSheet> {
             ),
             const SizedBox(height: 18),
             FilledButton(
-              onPressed: widget.controller.isBusy ? null : _save,
+              onPressed: _saving || widget.controller.isBusy ? null : _save,
               child: const Padding(
                 padding: EdgeInsets.symmetric(vertical: 13),
                 child: Text('加密保存'),
@@ -442,105 +472,125 @@ class _CredentialEditorSheetState extends State<_CredentialEditorSheet> {
   }
 }
 
-Future<void> _showCredentialDetails(
+Future<void> showCredentialDetails(
   BuildContext context,
   AppController controller,
   CredentialEntry entry,
 ) async {
+  final messenger = ScaffoldMessenger.of(context);
   await showModalBottomSheet<void>(
     context: context,
     useSafeArea: true,
     showDragHandle: true,
-    builder: (sheetContext) => Padding(
-      padding: const EdgeInsets.fromLTRB(20, 0, 20, 28),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
+    isScrollControlled: true,
+    builder: (sheetContext) => FractionallySizedBox(
+      heightFactor: 0.9,
+      child: ListView(
+        padding: const EdgeInsets.fromLTRB(20, 0, 20, 28),
         children: [
           Text(entry.title, style: Theme.of(context).textTheme.headlineSmall),
           const SizedBox(height: 8),
           Text(entry.username.isEmpty ? '未填写账号' : entry.username),
-          if (entry.website.isNotEmpty) Text(entry.website),
-          if (entry.notes.isNotEmpty) ...[
-            const SizedBox(height: 10),
-            Text(entry.notes),
+          if (entry.website.isNotEmpty) SelectableText(entry.website),
+          if (entry.notes.isNotEmpty) SelectableText(entry.notes),
+          const SizedBox(height: 16),
+          if (entry.isDeleted)
+            FilledButton.icon(
+              icon: const Icon(Icons.restore),
+              label: const Text('恢复密码条目'),
+              onPressed: () => runUiAction(sheetContext, () async {
+                await controller.restoreCredential(entry.id);
+                if (sheetContext.mounted) Navigator.pop(sheetContext);
+              }, success: '已恢复，原有授权仍保留'),
+            )
+          else ...[
+            FilledButton.icon(
+              icon: const Icon(Icons.edit_outlined),
+              label: const Text('编辑'),
+              onPressed: () async {
+                Navigator.pop(sheetContext);
+                await _showCredentialEditor(context, controller, entry: entry);
+              },
+            ),
+            OutlinedButton.icon(
+              icon: const Icon(Icons.policy_outlined),
+              label: const Text('设置并预览交接授权'),
+              onPressed: () => showReleasePolicyDialog(
+                sheetContext,
+                controller,
+                recordType: 'credential',
+                recordId: entry.id,
+                recordTitle: entry.title,
+              ),
+            ),
           ],
-          const SizedBox(height: 16),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              FilledButton.tonalIcon(
-                onPressed: () async {
-                  Navigator.pop(sheetContext);
-                  await _showCredentialEditor(
-                    context,
-                    controller,
-                    entry: entry,
+          OutlinedButton.icon(
+            icon: const Icon(Icons.history),
+            label: const Text('查看修订历史'),
+            onPressed: () =>
+                _showCredentialHistory(sheetContext, controller, entry),
+          ),
+          if (!entry.isDeleted)
+            TextButton.icon(
+              icon: const Icon(Icons.delete_outline),
+              label: const Text('移入回收区（保留历史）'),
+              onPressed: () => runUiAction(sheetContext, () async {
+                await controller.trashCredential(entry.id);
+                if (sheetContext.mounted) Navigator.pop(sheetContext);
+                if (messenger.mounted) {
+                  messenger.showSnackBar(
+                    SnackBar(
+                      content: const Text('密码已移入回收区'),
+                      action: SnackBarAction(
+                        label: '撤销',
+                        onPressed: () async {
+                          try {
+                            await controller.restoreCredential(entry.id);
+                          } on Object catch (e) {
+                            if (messenger.mounted) {
+                              messenger.showSnackBar(
+                                SnackBar(content: Text('恢复失败：$e')),
+                              );
+                            }
+                          }
+                        },
+                      ),
+                    ),
                   );
-                },
-                icon: const Icon(Icons.edit_outlined),
-                label: const Text('编辑'),
-              ),
-              OutlinedButton.icon(
-                onPressed: () =>
-                    _showCredentialHistory(context, controller, entry),
-                icon: const Icon(Icons.history),
-                label: const Text('历史'),
-              ),
-              OutlinedButton.icon(
-                onPressed: () => showReleasePolicyDialog(
-                  context,
-                  controller,
-                  recordType: 'credential',
-                  recordId: entry.id,
-                  recordTitle: entry.title,
-                ),
-                icon: const Icon(Icons.policy_outlined),
-                label: const Text('交接策略'),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
+                }
+              }),
+            ),
           TextButton.icon(
-            onPressed: () async {
-              await controller.trashCredential(entry.id);
-              if (sheetContext.mounted) Navigator.pop(sheetContext);
-            },
-            icon: const Icon(Icons.delete_outline),
-            label: const Text('普通删除（保留加密历史）'),
-          ),
-          TextButton.icon(
+            icon: const Icon(Icons.delete_forever),
+            label: const Text('永久清除条目与历史密码'),
             style: TextButton.styleFrom(
               foregroundColor: Theme.of(context).colorScheme.error,
             ),
             onPressed: () async {
               final confirmed = await showDialog<bool>(
-                context: context,
-                builder: (dialogContext) => AlertDialog(
+                context: sheetContext,
+                builder: (c) => AlertDialog(
                   title: const Text('永久清除？'),
-                  content: const Text(
-                    '将清除此 Vault 中的当前条目和所有历史 Secret。已经导出的独立备份不受影响。',
-                  ),
+                  content: const Text('清除当前资料库中的条目和所有历史密码，无法恢复。已经导出的独立备份不受影响。'),
                   actions: [
                     TextButton(
-                      onPressed: () => Navigator.pop(dialogContext, false),
+                      onPressed: () => Navigator.pop(c, false),
                       child: const Text('取消'),
                     ),
                     FilledButton(
-                      onPressed: () => Navigator.pop(dialogContext, true),
+                      onPressed: () => Navigator.pop(c, true),
                       child: const Text('永久清除'),
                     ),
                   ],
                 ),
               );
-              if (confirmed ?? false) {
-                await controller.purgeCredential(entry.id);
-                if (sheetContext.mounted) Navigator.pop(sheetContext);
+              if (confirmed == true && sheetContext.mounted) {
+                await runUiAction(sheetContext, () async {
+                  await controller.purgeCredential(entry.id);
+                  if (sheetContext.mounted) Navigator.pop(sheetContext);
+                }, success: '条目与历史密码已清除');
               }
             },
-            icon: const Icon(Icons.delete_forever),
-            label: const Text('永久清除条目与历史 Secret'),
           ),
         ],
       ),
@@ -567,10 +617,23 @@ Future<void> _showCredentialHistory(
           separatorBuilder: (_, _) => const Divider(),
           itemBuilder: (context, index) {
             final revision = history[index];
-            return ListTile(
-              contentPadding: EdgeInsets.zero,
-              title: Text('v${revision.number} · ${revision.changeNote}'),
-              subtitle: Text('${revision.username}\n旧 Secret 默认不显示'),
+            return ExpansionTile(
+              tilePadding: EdgeInsets.zero,
+              title: Text('第 ${revision.number} 版 · ${revision.changeNote}'),
+              children: [
+                Text(revision.title),
+                Text(revision.website),
+                SelectableText(revision.notes),
+                ReleasePreviewPanel(
+                  preview: ReleasePreview(
+                    level: VisibilityLevel.secret,
+                    explanation: '历史密码默认遮挡',
+                    title: revision.title,
+                    body: revision.username,
+                    secret: revision.secret,
+                  ),
+                ),
+              ],
             );
           },
         ),

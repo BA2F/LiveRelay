@@ -13,10 +13,23 @@ class LiveRelayTheme {
     final scheme = ColorScheme.fromSeed(
       seedColor: seed,
       brightness: brightness,
-      dynamicSchemeVariant: DynamicSchemeVariant.fidelity,
+      dynamicSchemeVariant: DynamicSchemeVariant.tonalSpot,
     );
     return ThemeData(
       useMaterial3: true,
+      materialTapTargetSize: MaterialTapTargetSize.padded,
+      filledButtonTheme: FilledButtonThemeData(
+        style: FilledButton.styleFrom(minimumSize: const Size(48, 48)),
+      ),
+      outlinedButtonTheme: OutlinedButtonThemeData(
+        style: OutlinedButton.styleFrom(minimumSize: const Size(48, 48)),
+      ),
+      textButtonTheme: TextButtonThemeData(
+        style: TextButton.styleFrom(minimumSize: const Size(48, 48)),
+      ),
+      iconButtonTheme: IconButtonThemeData(
+        style: IconButton.styleFrom(minimumSize: const Size(48, 48)),
+      ),
       brightness: brightness,
       colorScheme: scheme,
       scaffoldBackgroundColor: scheme.surface,
