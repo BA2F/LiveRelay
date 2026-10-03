@@ -9,7 +9,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
-import 'package:live_relay/application/app_controller.dart';
+import 'package:live_relay/infrastructure/app_composition.dart';
 import 'package:live_relay/core/domain/entities.dart';
 import 'package:live_relay/presentation/app.dart';
 import 'package:live_relay/presentation/dialogs/card_dialogs.dart';
@@ -51,7 +51,13 @@ void main() {
     final settings = TestAiSettings();
     // Real SQLCipher, blob encryption and Android ML Kit; fake AI keeps the
     // verification offline and records exactly what would leave the device.
-    final c = AppController(directory, NoBiometrics(), null, ai, settings);
+    final c = createAppController(
+      directory,
+      NoBiometrics(),
+      null,
+      ai,
+      settings,
+    );
     await c.initialize();
     await tester.pumpWidget(
       ChangeNotifierProvider.value(value: c, child: const LiveRelayApp()),

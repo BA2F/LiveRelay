@@ -4,6 +4,7 @@ import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:live_relay/application/app_controller.dart';
+import 'package:live_relay/infrastructure/app_composition.dart';
 import 'package:live_relay/application/release_preview.dart';
 import 'package:live_relay/core/domain/entities.dart';
 
@@ -16,7 +17,7 @@ void main() {
   late AppController c;
   setUp(() async {
     dir = await Directory.systemTemp.createTemp('liverelay-ux-');
-    c = AppController(
+    c = createAppController(
       dir,
       NoBiometrics(),
       TestOcr(),
@@ -192,7 +193,7 @@ void main() {
     final targetDir = await Directory.systemTemp.createTemp(
       'liverelay-empty-restore-',
     );
-    final target = AppController(
+    final target = createAppController(
       targetDir,
       NoBiometrics(),
       TestOcr(),

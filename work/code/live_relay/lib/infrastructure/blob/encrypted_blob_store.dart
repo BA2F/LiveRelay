@@ -7,6 +7,7 @@ import 'package:path/path.dart' as path;
 import 'package:uuid/uuid.dart';
 
 import '../../core/domain/entities.dart';
+import '../../core/ports/vault_blob_store.dart';
 
 class EncryptedBlobException implements Exception {
   const EncryptedBlobException(this.message);
@@ -19,7 +20,7 @@ class EncryptedBlobException implements Exception {
 
 /// AES-256-GCM encrypted original-file storage. Disk names are random IDs;
 /// original names and hashes live only inside the SQLCipher database.
-class EncryptedBlobStore {
+class EncryptedBlobStore implements VaultBlobStore {
   EncryptedBlobStore({Uuid? uuid}) : _uuid = uuid ?? const Uuid();
 
   static final _magic = Uint8List.fromList(utf8.encode('LRBLB001'));
@@ -30,6 +31,7 @@ class EncryptedBlobStore {
   final _cipher = AesGcm.with256bits();
   final _sha256 = Sha256();
 
+  @override
   Future<VaultBlob> write({
     required Directory vaultDirectory,
     required Uint8List masterKey,
@@ -82,6 +84,7 @@ class EncryptedBlobStore {
     }
   }
 
+  @override
   Future<Uint8List> read({
     required Directory vaultDirectory,
     required Uint8List masterKey,
@@ -121,6 +124,7 @@ class EncryptedBlobStore {
     }
   }
 
+  @override
   Future<void> delete({
     required Directory vaultDirectory,
     required VaultBlob blob,

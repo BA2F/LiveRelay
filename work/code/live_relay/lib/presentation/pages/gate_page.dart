@@ -443,6 +443,10 @@ class _UnlockVaultPageState extends State<UnlockVaultPage> {
               ),
             ),
           ),
+          if (controller.recoveryNotice != null) ...[
+            const SizedBox(height: 12),
+            Text(controller.recoveryNotice!),
+          ],
           if (controller.lastError != null) ...[
             const SizedBox(height: 12),
             ErrorBanner(controller.lastError!),

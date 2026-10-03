@@ -35,6 +35,7 @@ flutter analyze
 flutter test
 flutter drive --driver=test_driver/ux_driver.dart --target=integration_test/ux_flow_test.dart -d <android-device-id>
 flutter test integration_test/formal_foundation_desktop_test.dart -d linux
+flutter test integration_test/restore_recovery_desktop_test.dart -d linux --dart-define=RESTORE_TEST_PROJECT="$PWD"
 ```
 
 `test/` 包含领域、安全、加密仓储/备份、Provider 边界和 Widget 行为测试。`integration_test/ux_flow_test.dart` 在独立临时资料库中使用真实 SQLCipher、Blob 和 Android ML Kit；离线 AI Provider 记录实际外发文本，验证单次授权，不使用真实 API Key。该测试生成虚构资料，Driver 将运行截图写入 `work/paper/uiux-review-2026-10-01/implementation-screenshots/`。
@@ -64,7 +65,7 @@ flutter build windows --release
 presentation/       Material 3 页面、对话框和设计组件
 application/        会话、用例编排、搜索投影和实际释放预览
 core/domain/        卡片、凭据、原件、状态和授权模型
-core/ports/         Vault / OCR / AI / Biometric 内部端口
+core/ports/         Vault / Blob / OCR / AI / Biometric 内部端口
 core/security/      口令派生与主密钥管理
 infrastructure/     SQLCipher、Blob、OCR、AI、备份与平台适配
 ```
@@ -72,3 +73,7 @@ infrastructure/     SQLCipher、Blob、OCR、AI、备份与平台适配
 数据库必须检测到 SQLCipher，不会静默降级为明文 SQLite。当前 schema v4、Header/Blob v1、`.lvault` v1 的演进需保留兼容性与旧格式验证证据。新增信息默认仅本人可见，AI/OCR 结果先保存为草稿，编辑追加同记录的新修订。
 
 端口是同一 Flutter package 内部 API，尚未冻结为跨 package 公共契约。具体职责见 [模块索引](../../../docs/40_modules/00_模块索引.md)和 [接口总览](../../../docs/50_interfaces/00_接口总览.md)。
+
+恢复事务记录、incoming 与 rollback 位于运行库外；未完成恢复启动时保守找回原库，无法安全判断时保留文件并停止创建。Header 暂存／前序文件以 `.tmp` 结尾，不进入 `.lvault`。日常仍支持密码或已启用的生物识别；独立恢复凭证尚待实现，不能把当前日常口令标成恢复钥匙。
+
+应用组装入口为 `infrastructure/app_composition.dart`，由 main 和隔离原生测试调用。`VaultSession` 统一管理会话密钥、数据库与原件访问，`VaultBackupService` 编排认证核对／导出／恢复；控制器保留页面状态和数据投影。新会话测试覆盖密钥副本清理、数据库替换、关闭失败及 dispose；不把界面测试的模拟状态写回真实会话。

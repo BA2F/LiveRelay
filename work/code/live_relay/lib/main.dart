@@ -5,13 +5,13 @@ import 'dart:io';
 
 import 'package:path_provider/path_provider.dart';
 
-import 'application/app_controller.dart';
+import 'infrastructure/app_composition.dart';
 import 'application/app_preferences.dart';
 import 'presentation/app.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  final controller = AppController();
+  final controller = createAppController();
   await controller.initialize();
   File? preferenceFile;
   try {

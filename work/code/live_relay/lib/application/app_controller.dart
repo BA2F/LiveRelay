@@ -1,75 +1,60 @@
-import 'dart:io';
-import 'dart:convert';
-
-import 'package:archive/archive.dart';
+import 'dart:io' show FileSystemException;
 
 import 'package:collection/collection.dart';
-import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
-import 'package:flutter/services.dart';
-import 'package:path/path.dart' as path;
-import 'package:path_provider/path_provider.dart';
+
+import 'vault_session.dart';
+import 'vault_backup_service.dart';
 
 import '../core/ai/ai_privacy.dart';
 import 'card_summary.dart';
 import 'device_capabilities.dart';
 import '../core/domain/entities.dart';
 import '../core/ports/ai_provider.dart';
-import '../core/ports/biometric_key_store.dart';
 import '../core/ports/ocr_provider.dart';
 import '../core/ports/vault_repository.dart';
 import '../core/security/chinese_passphrase.dart';
+import '../infrastructure/backup/life_vault_archive.dart'
+    show LifeVaultArchiveException;
+import '../infrastructure/backup/vault_restore_transaction.dart'
+    show VaultRecoveryException;
 import '../core/security/vault_key_manager.dart';
-import '../infrastructure/backup/life_vault_archive.dart';
 import '../infrastructure/ai/ai_provider_settings_store.dart';
-import '../infrastructure/ai/openai_compatible_provider.dart';
-import '../infrastructure/blob/encrypted_blob_store.dart';
 import '../infrastructure/import/edge_password_csv_importer.dart';
-import '../infrastructure/ocr/google_mlkit_ocr_provider.dart';
-import '../infrastructure/persistence/app_database.dart';
-import '../infrastructure/persistence/sqlite_vault_repository.dart';
-import '../infrastructure/security/android_biometric_key_store.dart';
 
-enum VaultSessionState { loading, needsSetup, locked, unlocked, failure }
+export 'vault_session.dart' show VaultSessionState;
 
 class AppController extends ChangeNotifier {
-  AppController([
-    this._applicationDirectory,
-    BiometricKeyStore? biometricKeyStore,
-    OcrProvider? ocrProvider,
-    AiProvider? aiProvider,
-    AiProviderSettingsStore? aiSettingsStore,
-  ]) : _biometricKeyStore = biometricKeyStore ?? AndroidBiometricKeyStore(),
-       _ocrProvider = ocrProvider ?? GoogleMlKitOcrProvider(),
-       _aiProvider = aiProvider ?? OpenAiCompatibleProvider(),
-       _aiSettingsStore = aiSettingsStore ?? AiProviderSettingsStore();
+  AppController({
+    required this._session,
+    required this._backup,
+    required this._ocrProvider,
+    required this._aiProvider,
+    required this._aiSettingsStore,
+    required this._edgeImporter,
+    required this._prepareEnvironment,
+  });
 
-  final Directory? _applicationDirectory;
-  final BiometricKeyStore _biometricKeyStore;
+  final VaultSession _session;
+  final VaultBackupService _backup;
   final OcrProvider _ocrProvider;
   final AiProvider _aiProvider;
   final AiProviderSettingsStore _aiSettingsStore;
+  final EdgePasswordCsvImporter _edgeImporter;
+  final Future<void> Function() _prepareEnvironment;
   final AiPrivacyProcessor _aiPrivacy = const AiPrivacyProcessor();
-  final LifeVaultArchiveService _archiveService = LifeVaultArchiveService();
-  final EdgePasswordCsvImporter _edgeImporter = const EdgePasswordCsvImporter();
-  final EncryptedBlobStore _blobStore = EncryptedBlobStore();
 
-  late final Directory _vaultDirectory;
-  late final VaultKeyManager _keyManager;
-  late final ChinesePassphraseCodec _passphraseCodec;
-  VaultRepository? _repository;
-  Uint8List? _sessionKey;
-
-  VaultSessionState sessionState = VaultSessionState.loading;
-  VaultHeaderMetadata? header;
+  VaultSessionState get sessionState => _session.state;
+  VaultHeaderMetadata? get header => _session.header;
+  bool get biometricAvailable => _session.biometricAvailable;
   bool isBusy = false;
-  bool biometricAvailable = false;
   AiProviderSettings aiSettings = const AiProviderSettings(
     endpoint: '',
     model: '',
     hasApiKey: false,
   );
   String? lastError;
+  String? get recoveryNotice => _backup.recoveryNotice;
 
   List<LifeCard> cards = const [];
   List<LifeCard> recycledCards = const [];
@@ -117,15 +102,7 @@ class AppController extends ChangeNotifier {
 
   Future<void> initialize() async {
     try {
-      // Android's document picker materializes selected content in the app
-      // cache. It must never survive as an unencrypted second copy.
-      try {
-        await FilePicker.clearTemporaryFiles();
-      } on Object {
-        // Some desktop implementations do not expose cache cleanup. A failed
-        // best-effort cleanup must not make an otherwise healthy Vault unusable.
-      }
-      await _clearKnownPlaintextCache();
+      await _prepareEnvironment();
       try {
         aiSettings = await _aiSettingsStore.read();
       } on Object {
@@ -135,289 +112,78 @@ class AppController extends ChangeNotifier {
           hasApiKey: false,
         );
       }
-      final support =
-          _applicationDirectory ?? await getApplicationSupportDirectory();
-      _vaultDirectory = Directory('${support.path}/live_relay/vault');
-      _keyManager = VaultKeyManager(_vaultDirectory);
-      final wordlist = await rootBundle.loadString(
-        'assets/wordlists/new-default-pinyin.wordlist',
-      );
-      _passphraseCodec = ChinesePassphraseCodec.parse(wordlist);
-      header = await _keyManager.readMetadata();
-      try {
-        biometricAvailable = await _biometricKeyStore.isAvailable();
-      } on Object {
-        biometricAvailable = false;
-      }
-      sessionState = header == null
-          ? VaultSessionState.needsSetup
-          : VaultSessionState.locked;
+      await _session.prepare();
+      await _backup.recover();
+      await _session.inspect();
     } on Object catch (error) {
       lastError = _messageFor(error);
-      sessionState = VaultSessionState.failure;
+      _session.fail();
     }
     notifyListeners();
   }
 
-  Future<void> _clearKnownPlaintextCache() async {
-    try {
-      final cache = await getTemporaryDirectory();
-      if (!await cache.exists()) return;
-      const mediaExtensions = <String>{
-        '.jpg',
-        '.jpeg',
-        '.png',
-        '.webp',
-        '.heic',
-        '.mp3',
-        '.m4a',
-        '.wav',
-        '.aac',
-        '.mp4',
-        '.mov',
-        '.webm',
-      };
-      await for (final entity in cache.list(recursive: true)) {
-        if (entity is! File) continue;
-        final name = path.basename(entity.path).toLowerCase();
-        final isKnownTemporary =
-            name.startsWith('ocr-') ||
-            name.startsWith('recording-') ||
-            name.startsWith('view-') ||
-            mediaExtensions.contains(path.extension(name));
-        if (isKnownTemporary) await entity.delete();
-      }
-    } on Object {
-      // Cache is outside the authenticated Vault. Cleanup is retried on every
-      // start and failure must not turn into data loss or an unlock failure.
-    }
-  }
-
   ChinesePassphrase generatePassphrase({int count = 6}) =>
-      _passphraseCodec.generate(count: count);
+      _session.generatePassphrase(count: count);
 
   Future<void> setupVault({
     required String password,
     required bool usesChinesePassphrase,
     int? wordCount,
     bool enableBiometric = false,
-  }) async {
-    await _run(() async {
-      final canonical = usesChinesePassphrase
-          ? _passphraseCodec.canonicalize(password, wordCount: wordCount ?? 6)
-          : password;
-      final key = await _keyManager.create(
-        canonicalPassword: canonical,
-        passwordKind: usesChinesePassphrase ? 'diceware-cn-v1' : 'custom',
-        wordCount: usesChinesePassphrase ? wordCount : null,
-      );
-      try {
-        await _openWithKey(key);
-        if (enableBiometric && biometricAvailable) {
-          await _biometricKeyStore.saveMasterKey(key);
-          await _keyManager.setBiometricEnabled(true);
-        }
-      } finally {
-        _wipe(key);
-      }
-      header = await _keyManager.readMetadata();
-      sessionState = VaultSessionState.unlocked;
-      await _refreshUnlockedData();
-    });
-  }
+  }) => _run(() async {
+    await _session.setupVault(
+      password: password,
+      usesChinesePassphrase: usesChinesePassphrase,
+      wordCount: wordCount,
+      enableBiometric: enableBiometric,
+    );
+    await _refreshUnlockedData();
+  });
 
-  Future<void> unlockWithPassword(String password) async {
-    await _run(() async {
-      final metadata = header ?? await _keyManager.readMetadata();
-      if (metadata == null) throw StateError('加密资料库尚未创建');
-      final canonical = metadata.usesChinesePassphrase
-          ? _passphraseCodec.canonicalize(
-              password,
-              wordCount: metadata.wordCount ?? 6,
-            )
-          : password;
-      final key = await _keyManager.unlock(canonical);
-      try {
-        await _openWithKey(key);
-      } finally {
-        _wipe(key);
-      }
-      sessionState = VaultSessionState.unlocked;
-      await _refreshUnlockedData();
-    });
-  }
+  Future<void> unlockWithPassword(String password) => _run(() async {
+    await _session.unlockWithPassword(password);
+    await _refreshUnlockedData();
+  });
 
-  Future<void> unlockWithBiometric() async {
-    await _run(() async {
-      final key = await _biometricKeyStore.readMasterKey();
-      if (key == null) throw StateError('设备中没有可用的指纹密钥槽');
-      try {
-        await _openWithKey(key);
-      } finally {
-        _wipe(key);
-      }
-      sessionState = VaultSessionState.unlocked;
-      await _refreshUnlockedData();
-    });
-  }
+  Future<void> unlockWithBiometric() => _run(() async {
+    await _session.unlockWithBiometric();
+    await _refreshUnlockedData();
+  });
 
-  Future<void> setBiometricEnabled(bool enabled) async {
-    if (!isUnlocked) throw StateError('请先解锁加密资料库');
-    if (enabled) {
-      throw UnsupportedError('启用指纹需要重新输入主密码');
-    }
-    await _run(() async {
-      await _biometricKeyStore.clear();
-      await _keyManager.setBiometricEnabled(false);
-      header = await _keyManager.readMetadata();
-    });
-  }
+  Future<void> setBiometricEnabled(bool enabled) =>
+      _run(() => _session.setBiometricEnabled(enabled));
 
-  Future<void> enableBiometricWithPassword(String password) async {
-    if (!biometricAvailable) throw StateError('当前设备没有可用的强生物识别');
-    await _run(() async {
-      final metadata = header!;
-      final canonical = metadata.usesChinesePassphrase
-          ? _passphraseCodec.canonicalize(
-              password,
-              wordCount: metadata.wordCount ?? 6,
-            )
-          : password;
-      final key = await _keyManager.unlock(canonical);
-      try {
-        await _biometricKeyStore.saveMasterKey(key);
-        await _keyManager.setBiometricEnabled(true);
-      } finally {
-        _wipe(key);
-      }
-      header = await _keyManager.readMetadata();
-    });
-  }
+  Future<void> enableBiometricWithPassword(String password) =>
+      _run(() => _session.enableBiometricWithPassword(password));
 
   Future<Uint8List> exportVault(String password) async {
     if (!isUnlocked) throw StateError('请先解锁加密资料库');
     late Uint8List result;
     await _run(() async {
-      final metadata = header ?? await _keyManager.readMetadata();
-      if (metadata == null) throw StateError('加密资料库尚未创建');
-      final key = await _keyManager.unlock(
-        _canonicalizePassword(password, metadata),
+      result = await _backup.export(
+        password,
+        refreshUnlockedData: _refreshUnlockedData,
       );
-      final repository = _repository;
-      _repository = null;
-      try {
-        if (repository != null) await repository.close();
-        result = await _archiveService.create(
-          vaultDirectory: _vaultDirectory,
-          masterKey: key,
-        );
-      } finally {
-        try {
-          await _openWithKey(key);
-          await _refreshUnlockedData();
-        } finally {
-          _wipe(key);
-        }
-      }
     });
     return result;
   }
 
-  Future<void> restoreVault(Uint8List bytes, String backupPassword) async {
-    await _run(() async {
-      StagedLifeVault? staged;
-      Uint8List? importedKey;
-      try {
-        await _vaultDirectory.parent.create(recursive: true);
-        staged = await _archiveService.stage(
-          archiveBytes: bytes,
-          stagingParent: _vaultDirectory.parent,
-        );
-        final stagedKeyManager = VaultKeyManager(staged.directory);
-        final metadata = await stagedKeyManager.readMetadata();
-        if (metadata == null) {
-          throw const LifeVaultArchiveException('.lvault 缺少 Vault header');
-        }
-        importedKey = await stagedKeyManager.unlock(
-          _canonicalizePassword(backupPassword, metadata),
-        );
-        await _archiveService.verifyAuthentication(
-          staged: staged,
-          masterKey: importedKey,
-        );
-        await stagedKeyManager.setBiometricEnabled(false);
-        final testDatabase = await AppDatabase.openEncrypted(
-          vaultDirectory: staged.directory,
-          masterKey: importedKey,
-        );
-        await testDatabase.close();
-
-        final repository = _repository;
-        _repository = null;
-        if (repository != null) await repository.close();
-        final rollback = Directory(
-          '${_vaultDirectory.path}.rollback-'
-          '${DateTime.now().microsecondsSinceEpoch}',
-        );
-        final hadVault = await _vaultDirectory.exists();
-        var movedOriginal = false;
-        try {
-          if (hadVault) {
-            await _vaultDirectory.rename(rollback.path);
-            movedOriginal = true;
-          }
-          await staged.directory.rename(_vaultDirectory.path);
-          staged = null;
-          await _openWithKey(importedKey);
-          header = await _keyManager.readMetadata();
-          sessionState = VaultSessionState.unlocked;
-          await _refreshUnlockedData();
-          try {
-            await _biometricKeyStore.clear();
-          } on Object {
-            // Imported headers disable biometrics; stale device slots are never used.
-          }
-          if (hadVault) {
-            try {
-              await rollback.delete(recursive: true);
-            } on Object {
-              // A cleanup failure must not roll back a completed import.
-              // The remaining rollback is encrypted and outside the active vault.
-            }
-          }
-        } on Object {
-          await _repository?.close();
-          _repository = null;
-          if ((!hadVault || movedOriginal) && await _vaultDirectory.exists()) {
-            await _vaultDirectory.delete(recursive: true);
-          }
-          if (movedOriginal) await rollback.rename(_vaultDirectory.path);
-          header = await _keyManager.readMetadata();
-          sessionState = header == null
-              ? VaultSessionState.needsSetup
-              : VaultSessionState.locked;
-          _clearUnlockedData();
-          _clearSessionKey();
-          throw const LifeVaultArchiveException('恢复失败；原 Vault 已保留，请重新解锁');
-        }
-      } finally {
-        if (staged != null && await staged.directory.exists()) {
-          await staged.directory.delete(recursive: true);
-        }
-        if (importedKey != null) _wipe(importedKey);
-        bytes.fillRange(0, bytes.length, 0);
-      }
-    });
-  }
+  Future<void> restoreVault(Uint8List bytes, String backupPassword) => _run(
+    () => _backup.restore(
+      bytes,
+      backupPassword,
+      clearUnlockedData: _clearUnlockedData,
+      refreshUnlockedData: _refreshUnlockedData,
+    ),
+  );
 
   Future<void> lock() async {
-    final repository = _repository;
-    _repository = null;
-    if (repository != null) await repository.close();
-    _clearUnlockedData();
-    sessionState = VaultSessionState.locked;
-    _clearSessionKey();
-    notifyListeners();
+    try {
+      await _session.close();
+    } finally {
+      _clearUnlockedData();
+      notifyListeners();
+    }
   }
 
   void _clearUnlockedData() {
@@ -476,46 +242,7 @@ class AppController extends ChangeNotifier {
   Future<BackupPreview> inspectBackup(Uint8List bytes, String password) async {
     late BackupPreview preview;
     await _run(() async {
-      await _vaultDirectory.parent.create(recursive: true);
-      final staged = await _archiveService.stage(
-        archiveBytes: bytes,
-        stagingParent: _vaultDirectory.parent,
-      );
-      Uint8List? key;
-      AppDatabase? db;
-      try {
-        final manager = VaultKeyManager(staged.directory);
-        final metadata = await manager.readMetadata();
-        if (metadata == null) throw const LifeVaultArchiveException('备份缺少资料库头');
-        key = await manager.unlock(_canonicalizePassword(password, metadata));
-        await _archiveService.verifyAuthentication(
-          staged: staged,
-          masterKey: key,
-        );
-        db = await AppDatabase.openEncrypted(
-          vaultDirectory: staged.directory,
-          masterKey: key,
-        );
-        final r = SqliteVaultRepository(db);
-        final archive = ZipDecoder().decodeBytes(bytes);
-        final container = jsonDecode(
-          utf8.decode(archive.findFile('container.json')!.readBytes()!),
-        ) as Map;
-        preview = BackupPreview(
-          createdAt: DateTime.tryParse('${container['createdAt']}'),
-          cards: (await r.listCards()).length,
-          credentials: (await r.listCredentials()).length,
-          originals: (await r.listBlobs()).length,
-          recycledCards: (await r.listCards(recycled: true)).length,
-          recycledCredentials: (await r.listCredentials(recycled: true)).length,
-        );
-      } finally {
-        await db?.close();
-        if (key != null) _wipe(key);
-        if (await staged.directory.exists()) {
-          await staged.directory.delete(recursive: true);
-        }
-      }
+      preview = await _backup.inspect(bytes, password);
     });
     return preview;
   }
@@ -572,11 +299,8 @@ class AppController extends ChangeNotifier {
     late LifeCard card;
     await _run(() async {
       try {
-        final key = _requireSessionKey();
-        final blob = await _blobStore.write(
-          vaultDirectory: _vaultDirectory,
-          masterKey: key,
-          clearBytes: bytes,
+        final blob = await _session.writeOriginal(
+          bytes: bytes,
           originalName: originalName,
           mimeType: mimeType,
           mediaKind: mediaKind,
@@ -584,7 +308,7 @@ class AppController extends ChangeNotifier {
         try {
           card = await _requireRepository().registerBlob(blob);
         } on Object {
-          await _blobStore.delete(vaultDirectory: _vaultDirectory, blob: blob);
+          await _session.deleteOriginal(blob);
           rethrow;
         }
         await _refreshUnlockedData();
@@ -598,11 +322,7 @@ class AppController extends ChangeNotifier {
   Future<Uint8List> readOriginal(String blobId) async {
     final blob = blobs.where((item) => item.id == blobId).firstOrNull;
     if (blob == null) throw StateError('原始资料不存在');
-    return _blobStore.read(
-      vaultDirectory: _vaultDirectory,
-      masterKey: _requireSessionKey(),
-      blob: blob,
-    );
+    return _session.readOriginal(blob);
   }
 
   Future<LifeCard> runOcr(String blobId) async {
@@ -613,11 +333,7 @@ class AppController extends ChangeNotifier {
       if (blob.mediaKind != BlobMediaKind.image) {
         throw const FormatException('只有图片原件可以执行 OCR');
       }
-      final bytes = await _blobStore.read(
-        vaultDirectory: _vaultDirectory,
-        masterKey: _requireSessionKey(),
-        blob: blob,
-      );
+      final bytes = await _session.readOriginal(blob);
       late OcrResult result;
       try {
         result = await _ocrProvider.recognize(
@@ -799,25 +515,6 @@ class AppController extends ChangeNotifier {
     return VisibilityLevel.hidden;
   }
 
-  Future<void> _openWithKey(Uint8List key) async {
-    await _repository?.close();
-    final database = await AppDatabase.openEncrypted(
-      vaultDirectory: _vaultDirectory,
-      masterKey: key,
-    );
-    _repository = SqliteVaultRepository(database);
-    _replaceSessionKey(key);
-  }
-
-  String _canonicalizePassword(String password, VaultHeaderMetadata metadata) {
-    return metadata.usesChinesePassphrase
-        ? _passphraseCodec.canonicalize(
-            password,
-            wordCount: metadata.wordCount ?? 6,
-          )
-        : password;
-  }
-
   Future<void> _refreshUnlockedData() async {
     final repository = _requireRepository();
     final results = await Future.wait<Object>([
@@ -852,28 +549,7 @@ class AppController extends ChangeNotifier {
     });
   }
 
-  VaultRepository _requireRepository() {
-    final repository = _repository;
-    if (repository == null) throw StateError('加密资料库尚未解锁');
-    return repository;
-  }
-
-  Uint8List _requireSessionKey() {
-    final key = _sessionKey;
-    if (key == null) throw StateError('加密资料库尚未解锁');
-    return key;
-  }
-
-  void _replaceSessionKey(Uint8List key) {
-    _clearSessionKey();
-    _sessionKey = Uint8List.fromList(key);
-  }
-
-  void _clearSessionKey() {
-    final key = _sessionKey;
-    if (key != null) _wipe(key);
-    _sessionKey = null;
-  }
+  VaultRepository _requireRepository() => _session.repository;
 
   Future<void> _run(Future<void> Function() action) async {
     if (isBusy) throw StateError('请等待当前操作完成');
@@ -894,7 +570,11 @@ class AppController extends ChangeNotifier {
   String _messageFor(Object error) {
     if (error is VaultUnlockException) return error.message;
     if (error is LifeVaultArchiveException) return error.message;
+    if (error is VaultRecoveryException) return error.message;
     if (error is FormatException) return error.message;
+    if (error is FileSystemException) {
+      return '资料库文件读写失败，已有文件已保留。请检查存储空间与备份。';
+    }
     if (kDebugMode) return error.toString();
     return '操作失败，请重试';
   }
@@ -903,8 +583,7 @@ class AppController extends ChangeNotifier {
 
   @override
   void dispose() {
-    _repository?.close();
-    _clearSessionKey();
+    _session.dispose();
     super.dispose();
   }
 }

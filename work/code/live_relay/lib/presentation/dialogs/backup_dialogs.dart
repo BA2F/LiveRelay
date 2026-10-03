@@ -121,7 +121,9 @@ Future<void> restoreFromBackup(
       if (confirmed != true) return;
       await controller.restoreVault(bytes, password);
       if (messenger.mounted) {
-        messenger.showSnackBar(const SnackBar(content: Text('已从加密备份恢复')));
+        messenger.showSnackBar(
+          SnackBar(content: Text(controller.recoveryNotice ?? '已从加密备份恢复')),
+        );
       }
     } finally {
       bytes.fillRange(0, bytes.length, 0);

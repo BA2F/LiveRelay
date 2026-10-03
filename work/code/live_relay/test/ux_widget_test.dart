@@ -3,6 +3,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
 import 'package:live_relay/application/app_controller.dart';
+import 'package:live_relay/application/vault_session.dart';
+import 'package:live_relay/application/vault_backup_service.dart';
+import 'package:live_relay/infrastructure/backup/life_vault_archive.dart';
+import 'package:live_relay/infrastructure/import/edge_password_csv_importer.dart';
+
+import 'support/session_fakes.dart';
+import 'support/verification_fakes.dart';
+
 import 'package:live_relay/application/release_preview.dart';
 import 'package:live_relay/core/domain/entities.dart';
 import 'package:live_relay/presentation/design_system/app_theme.dart';
@@ -14,7 +22,21 @@ import 'package:live_relay/presentation/dialogs/card_dialogs.dart';
 import 'package:live_relay/presentation/widgets/release_preview_panel.dart';
 
 class SnapshotController extends AppController {
-  SnapshotController() {
+  SnapshotController() : this._(fixtureSession());
+  SnapshotController._(VaultSession session)
+    : super(
+        session: session,
+        backup: VaultBackupService(
+          session: session,
+          archive: LifeVaultArchiveService(),
+          restoreTransaction: () => throw UnsupportedError('UI snapshot only'),
+        ),
+        ocrProvider: TestOcr(),
+        aiProvider: RecordingAi(),
+        aiSettingsStore: TestAiSettings(),
+        edgeImporter: const EdgePasswordCsvImporter(),
+        prepareEnvironment: () async {},
+      ) {
     final now = DateTime.utc(2026, 10, 1);
     cards = [
       LifeCard(
@@ -44,6 +66,9 @@ class SnapshotController extends AppController {
       ),
     ];
   }
+  @override
+  VaultSessionState sessionState = VaultSessionState.loading;
+
   @override
   Future<void> refresh({
     String cardQuery = '',

@@ -6,7 +6,7 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:provider/provider.dart';
-import 'package:live_relay/application/app_controller.dart';
+import 'package:live_relay/infrastructure/app_composition.dart';
 import 'package:live_relay/application/app_preferences.dart';
 import 'package:live_relay/core/domain/entities.dart';
 import 'package:live_relay/presentation/app.dart';
@@ -21,7 +21,7 @@ void main() {
       final directory = await Directory.systemTemp.createTemp(
         'relay-desktop-check-',
       );
-      final c = AppController(
+      final c = createAppController(
         directory,
         NoBiometrics(),
         TestOcr(),

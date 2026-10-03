@@ -6,6 +6,7 @@ import 'dart:typed_data';
 import 'package:cryptography/cryptography.dart';
 
 import 'vault_password_policy.dart';
+import '../storage/recoverable_file.dart';
 
 class VaultUnlockException implements Exception {
   const VaultUnlockException([this.message = '主密码不正确或 Vault 已损坏']);
@@ -35,7 +36,9 @@ class VaultHeaderMetadata {
 /// Owns the small, non-sensitive vault header and the password key slot.
 /// Structured data is encrypted separately with the returned random master key.
 class VaultKeyManager {
-  VaultKeyManager(this.rootDirectory);
+  VaultKeyManager(this.rootDirectory, {this.writeCheckpoint});
+
+  final Future<void> Function(String stage)? writeCheckpoint;
 
   static const _aad = 'LiveRelay/VaultMasterKey/v1';
   static const _headerName = 'vault-header.json';
@@ -47,7 +50,24 @@ class VaultKeyManager {
 
   File get headerFile => File('${rootDirectory.path}/$_headerName');
 
-  Future<bool> exists() => headerFile.exists();
+  Future<bool> exists() async {
+    await _recoverHeader();
+    return headerFile.exists();
+  }
+
+  Future<void> _recoverHeader() => RecoverableFile(headerFile).recover((bytes) {
+    try {
+      final header = jsonDecode(utf8.decode(bytes));
+      return header is Map &&
+          header['formatVersion'] == 1 &&
+          header['passwordSlot'] is Map &&
+          header['kdf'] is Map &&
+          header['passwordKind'] is String &&
+          DateTime.tryParse(header['createdAt'] as String? ?? '') != null;
+    } on Object {
+      return false;
+    }
+  });
 
   Future<VaultHeaderMetadata?> readMetadata() async {
     if (!await exists()) return null;
@@ -154,6 +174,10 @@ class VaultKeyManager {
   }
 
   Future<Map<String, Object?>> _readHeader() async {
+    await _recoverHeader();
+    if (await headerFile.length() > 64 * 1024) {
+      throw const FormatException('Vault header 超出允许大小');
+    }
     final decoded = jsonDecode(await headerFile.readAsString());
     if (decoded is! Map<String, Object?>) {
       throw const FormatException('Vault header 格式错误');
@@ -187,11 +211,10 @@ class VaultKeyManager {
   }
 
   Future<void> _writeHeader(Map<String, Object?> header) async {
-    await rootDirectory.create(recursive: true);
-    final temporary = File('${headerFile.path}.tmp');
-    await temporary.writeAsString(jsonEncode(header), flush: true);
-    if (await headerFile.exists()) await headerFile.delete();
-    await temporary.rename(headerFile.path);
+    await RecoverableFile(
+      headerFile,
+      checkpoint: writeCheckpoint,
+    ).write(utf8.encode(jsonEncode(header)));
   }
 
   Uint8List _randomBytes(int length) {
