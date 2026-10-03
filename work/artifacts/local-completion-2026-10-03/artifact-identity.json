@@ -1,7 +1,7 @@
 {
   "date": "2026-10-03",
   "git_baseline": "9bb28e5",
-  "uncommitted_worktree": true,
+  "uncommitted_worktree": false,
   "production_target": "lib/main.dart",
   "demo_target": "lib/main_debug_demo.dart",
   "android_signing": "internal debug signing configuration; not formal distribution",
@@ -33,5 +33,8 @@
     }
   },
   "application_version": "1.0.0+2",
-  "release_tag": "mvp-0.3"
+  "release_tag": "mvp-0.3",
+  "sourceCommit": "9cf27684b296559748ae46e0223d2538f80d6b49",
+  "publishedAt": "2026-10-03T15:03:07Z",
+  "releaseUrl": "https://github.com/BA2F/LiveRelay/releases/tag/mvp-0.3"
 }

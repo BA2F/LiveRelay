@@ -30,7 +30,7 @@ APK使用现有Android Debug证书，只供内部侧载验收；Release构建模
 
 ## 制品身份
 
-源码以 `mvp-0.3` annotated tag及发布页对应commit为准；服务端附件身份和源码commit回写仓库 [artifacts.json](https://github.com/BA2F/LiveRelay/blob/main/docs/60_quality/releases/artifacts.json)。
+已发布于 `2026-10-03T15:03:07Z`，源码commit `9cf27684b296559748ae46e0223d2538f80d6b49`，`mvp-0.3` annotated tag固定指向该提交；服务端附件身份和源码commit回写仓库 [artifacts.json](https://github.com/BA2F/LiveRelay/blob/main/docs/60_quality/releases/artifacts.json)。
 
 | 附件 | 字节数 | SHA-256 |
 | --- | ---: | --- |
