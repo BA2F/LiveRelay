@@ -6,6 +6,8 @@ import '../../core/security/chinese_passphrase.dart';
 import '../../core/security/vault_password_policy.dart';
 import '../design_system/atoms.dart';
 import '../dialogs/backup_dialogs.dart';
+import '../dialogs/security_dialogs.dart';
+import 'recipient_page.dart';
 
 class _GateScaffold extends StatelessWidget {
   const _GateScaffold({required this.title, required this.child});
@@ -129,12 +131,25 @@ class _SetupVaultPageState extends State<SetupVaultPage> {
     }
     try {
       setState(() => _creationError = null);
-      await controller.setupVault(
-        password: _password.text,
-        usesChinesePassphrase: _useGenerator,
-        wordCount: _useGenerator ? _wordCount : null,
-        enableBiometric: _enableBiometric && controller.biometricAvailable,
-      );
+      if (controller.supportsModernSecurity) {
+        final r = await confirmNewRecovery(context, controller);
+        if (r == null || !mounted) return;
+        await controller.setupModernVault(
+          password: _password.text,
+          recoveryText: r,
+          recoveryConfirmation: r,
+          chinese: _useGenerator,
+          wordCount: _useGenerator ? _wordCount : null,
+          biometric: _enableBiometric && controller.biometricAvailable,
+        );
+      } else {
+        await controller.setupVault(
+          password: _password.text,
+          usesChinesePassphrase: _useGenerator,
+          wordCount: _useGenerator ? _wordCount : null,
+          enableBiometric: _enableBiometric && controller.biometricAvailable,
+        );
+      }
       if (mounted && controller.isUnlocked && Navigator.of(context).canPop()) {
         Navigator.pop(context);
       }
@@ -156,6 +171,7 @@ class _SetupVaultPageState extends State<SetupVaultPage> {
           const Text(
             '记下资料位置、账号、资产或想交代的事。内容加密保存在本机，默认只有本人可见。请定期导出加密备份，设备丢失后可用口令恢复。',
           ),
+          const RecipientEntryButton(),
           const SizedBox(height: 12),
           OutlinedButton.icon(
             onPressed: controller.isBusy
@@ -400,7 +416,13 @@ class _UnlockVaultPageState extends State<UnlockVaultPage> {
 
   Future<void> _unlock(AppController controller) async {
     try {
-      await controller.unlockWithPassword(_password.text);
+      if (controller.header?.formatVersion == 3 &&
+          controller.header?.dailyPolicy == 'all' &&
+          controller.header?.keyFileEnabled == true) {
+        await unlockWithKeyFile(context, controller, _password.text);
+      } else {
+        await controller.unlockWithPassword(_password.text);
+      }
     } on Object {
       _password.clear();
     }
@@ -408,7 +430,11 @@ class _UnlockVaultPageState extends State<UnlockVaultPage> {
 
   Future<void> _unlockBiometric(AppController controller) async {
     try {
-      await controller.unlockWithBiometric();
+      if (controller.header?.dailyPolicy == 'all') {
+        await _unlock(controller);
+      } else {
+        await controller.unlockWithBiometric();
+      }
     } on Object {
       // Error is shown by the controller.
     }
@@ -425,6 +451,7 @@ class _UnlockVaultPageState extends State<UnlockVaultPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          const RecipientEntryButton(),
           TextField(
             controller: _password,
             obscureText: _obscure,
@@ -473,6 +500,22 @@ class _UnlockVaultPageState extends State<UnlockVaultPage> {
             icon: const Icon(Icons.settings_backup_restore),
             label: const Text('从加密备份恢复'),
           ),
+          if (controller.header?.keyFileEnabled == true)
+            OutlinedButton.icon(
+              onPressed: controller.isBusy
+                  ? null
+                  : () =>
+                        unlockWithKeyFile(context, controller, _password.text),
+              icon: const Icon(Icons.description_outlined),
+              label: const Text('使用密钥文件解锁'),
+            ),
+          if (controller.header?.recoveryEnabled == true)
+            TextButton(
+              onPressed: controller.isBusy
+                  ? null
+                  : () => beginIndependentRecovery(context, controller),
+              child: const Text('忘记密码？使用独立恢复凭证'),
+            ),
           if (canUseBiometric) ...[
             const SizedBox(height: 12),
             OutlinedButton.icon(

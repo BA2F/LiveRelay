@@ -1,0 +1,15 @@
+{
+  "production_entry": "lib/main.dart",
+  "reachable_local_dart_files": 93,
+  "demo_dependency_paths": [],
+  "production_fake_passwords_present": {
+    "Demo-only-2026": false,
+    "Recipient-demo-2026": false,
+    "fictional-only-password": false
+  },
+  "demo_fake_passwords_present": {
+    "Demo-only-2026": true,
+    "Recipient-demo-2026": true,
+    "fictional-only-password": true
+  }
+}

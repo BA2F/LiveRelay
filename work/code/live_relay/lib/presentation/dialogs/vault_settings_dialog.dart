@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import '../../application/app_controller.dart';
 import '../../application/device_capabilities.dart';
 import '../pages/recycle_page.dart';
+import '../pages/security_settings_page.dart';
 import 'backup_dialogs.dart';
 import 'ai_settings_dialog.dart';
 import 'capability_dialog.dart';
@@ -35,7 +36,23 @@ Future<void> showVaultSettings(
               subtitle: const Text('信息已加密保存在本机，默认仅本人可见'),
               trailing: const Icon(Icons.lock_outline),
             ),
-            if (controller.biometricAvailable)
+            if (controller.supportsModernSecurity)
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(Icons.security),
+                title: const Text('解锁方式与独立恢复'),
+                subtitle: const Text('更换密码、密钥文件、指纹与组合策略'),
+                onTap: () {
+                  Navigator.pop(sheetContext);
+                  Navigator.of(context).push<void>(
+                    MaterialPageRoute(
+                      builder: (_) => const SecuritySettingsPage(),
+                    ),
+                  );
+                },
+              ),
+            if (controller.biometricAvailable &&
+                controller.header?.formatVersion == 1)
               SwitchListTile(
                 contentPadding: EdgeInsets.zero,
                 secondary: const Icon(Icons.fingerprint),

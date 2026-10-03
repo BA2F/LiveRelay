@@ -1,15 +1,43 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../core/ports/development_controls.dart';
+
 import '../../application/app_controller.dart';
 import '../../application/app_preferences.dart';
 import '../../application/device_capabilities.dart';
 import '../dialogs/capability_dialog.dart';
 import '../dialogs/vault_settings_dialog.dart';
 import '../widgets/appearance_settings.dart';
+import 'agent_page.dart';
+import 'speech_input_page.dart';
+import 'identity_page.dart';
+import 'recipient_page.dart';
+import 'local_backup_page.dart';
 
-class ProfilePage extends StatelessWidget {
+class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
+  @override
+  State<ProfilePage> createState() => _ProfilePageState();
+}
+
+class _ProfilePageState extends State<ProfilePage> {
+  int taps = 0;
+  DateTime? lastTap;
+  void versionTap(DevelopmentControls? controls) {
+    if (controls == null) return;
+    final now = DateTime.now();
+    if (lastTap == null ||
+        now.difference(lastTap!) > const Duration(seconds: 3)) {
+      taps = 0;
+    }
+    lastTap = now;
+    if (++taps >= 7) {
+      taps = 0;
+      controls.activate();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final controller = context.watch<AppController>();
@@ -17,7 +45,7 @@ class ProfilePage extends StatelessWidget {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        const Card(
+        Card(
           child: Padding(
             padding: EdgeInsets.all(20),
             child: Column(
@@ -26,7 +54,7 @@ class ProfilePage extends StatelessWidget {
                 CircleAvatar(child: Icon(Icons.person_outline)),
                 SizedBox(height: 12),
                 Text(
-                  '本人',
+                  controller.ownerProfile['name'] as String,
                   style: TextStyle(fontSize: 24, fontWeight: FontWeight.w600),
                 ),
                 SizedBox(height: 4),
@@ -35,6 +63,17 @@ class ProfilePage extends StatelessWidget {
             ),
           ),
         ),
+        if (controller.handoff != null)
+          ListTile(
+            leading: const Icon(Icons.badge_outlined),
+            title: const Text('本人身份与接收者'),
+            subtitle: const Text('编辑身份资料、验证接收者、限定范围交接'),
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const IdentityPage()),
+            ),
+          ),
+        const RecipientEntryButton(),
         const SizedBox(height: 24),
         if (preferences != null) AppearanceSettings(preferences: preferences),
         const SizedBox(height: 16),
@@ -91,17 +130,34 @@ class ProfilePage extends StatelessWidget {
             leading: Icon(item.$3),
             title: Text(item.$2),
             subtitle: Text(controller.capability(item.$1).message),
-            onTap: () => showCapabilityMessage(
-              context,
-              item.$2,
-              controller.capability(item.$1),
-            ),
+            onTap: () {
+              if (item.$1 == AppFeature.agent ||
+                  item.$1 == AppFeature.speechInput ||
+                  item.$1 == AppFeature.partialBackup) {
+                Navigator.of(context).push<void>(
+                  MaterialPageRoute(
+                    builder: (_) => item.$1 == AppFeature.agent
+                        ? const AgentPage()
+                        : item.$1 == AppFeature.speechInput
+                        ? const SpeechInputPage()
+                        : const LocalBackupPage(),
+                  ),
+                );
+              } else {
+                showCapabilityMessage(
+                  context,
+                  item.$2,
+                  controller.capability(item.$1),
+                );
+              }
+            },
           ),
         const Divider(),
-        const ListTile(
-          leading: Icon(Icons.lightbulb_outline),
-          title: Text('留灯 LiveRelay'),
-          subtitle: Text('1.0.0'),
+        ListTile(
+          leading: const Icon(Icons.lightbulb_outline),
+          title: const Text('留灯 LiveRelay'),
+          subtitle: const Text('1.0.0'),
+          onTap: () => versionTap(context.read<DevelopmentControls?>()),
         ),
       ],
     );

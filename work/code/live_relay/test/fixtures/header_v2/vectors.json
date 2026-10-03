@@ -1,0 +1,21 @@
+{
+  "generator": "Python cryptography 50.0.1",
+  "fixtures": [
+    {
+      "file": "custom.json",
+      "canonicalPassword": "fictional-password-中文-2026",
+      "descriptorHash": "f418ada4ffe6381d4d52f93c7f0a6e4aa45ba166bacc411798de4d051d9f8150",
+      "passwordFactorAad": "[\"LiveRelay/Header/v2/factor\",\"f418ada4ffe6381d4d52f93c7f0a6e4aa45ba166bacc411798de4d051d9f8150\",\"password\"]"
+    },
+    {
+      "file": "chinese.json",
+      "canonicalPassword": "aba adou afei age agong ahong",
+      "descriptorHash": "75ae4c0b700209c8155e4c288c27c41289b0f8634daf804f264ff8349c37e29e",
+      "passwordFactorAad": "[\"LiveRelay/Header/v2/factor\",\"75ae4c0b700209c8155e4c288c27c41289b0f8634daf804f264ff8349c37e29e\",\"password\"]"
+    }
+  ],
+  "recoveryCredential": "LRR1-ICEiIyQlJicoKSorLC0uLzAxMjM0NTY3ODk6Ozw9Pj8-1Xyu4w",
+  "masterKey": "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8",
+  "legacyPassword": "fictional-legacy-password-2026",
+  "legacyChinesePassword": "aba adou afei age agong ahong"
+}

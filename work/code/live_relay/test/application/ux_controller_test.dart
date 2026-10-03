@@ -95,6 +95,25 @@ void main() {
     },
   );
 
+  test('speech draft stays linked to encrypted audio after reopen', () async {
+    await c.importOriginal(
+      bytes: Uint8List.fromList(utf8.encode('fictional-audio')),
+      originalName: 'speech-test.wav',
+      mimeType: 'audio/wav',
+      mediaKind: BlobMediaKind.audio,
+    );
+    final blobId = c.blobs.single.id;
+    await c.saveSpeechDraft('人工校对后的文字', blobId: blobId);
+    await c.lock();
+    await c.unlockWithPassword(password);
+    final draft = c.cards.firstWhere((v) => v.content == '人工校对后的文字');
+    expect(draft.status, CardStatus.draft);
+    final source = (await c.cardSources(draft.id)).single;
+    expect(source.kind, SourceKind.audio);
+    expect(source.blobId, blobId);
+    expect(utf8.decode(await c.readOriginal(blobId)), 'fictional-audio');
+  });
+
   test(
     'manual original path, revisions and recycle survive encrypted reopen',
     () async {

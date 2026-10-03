@@ -18,6 +18,8 @@ import '../dialogs/capability_dialog.dart';
 import '../widgets/life_card_tile.dart';
 import 'cards_page.dart';
 import 'originals_page.dart';
+import 'speech_input_page.dart';
+import 'agent_page.dart';
 
 class CapturePage extends StatelessWidget {
   const CapturePage({super.key});
@@ -69,13 +71,22 @@ class CapturePage extends StatelessWidget {
               OutlinedButton.icon(
                 onPressed: controller.isBusy
                     ? null
-                    : () => showCapabilityMessage(
-                        context,
-                        '语音输入',
-                        controller.capability(AppFeature.speechInput),
+                    : () => Navigator.of(context).push<void>(
+                        MaterialPageRoute(
+                          builder: (_) => const SpeechInputPage(),
+                        ),
                       ),
                 icon: const Icon(Icons.keyboard_voice_outlined),
                 label: const Text('语音输入'),
+              ),
+              OutlinedButton.icon(
+                onPressed: controller.isBusy
+                    ? null
+                    : () => Navigator.of(context).push<void>(
+                        MaterialPageRoute(builder: (_) => const AgentPage()),
+                      ),
+                icon: const Icon(Icons.auto_awesome_outlined),
+                label: const Text('Agent 整理'),
               ),
               OutlinedButton.icon(
                 onPressed: controller.isBusy

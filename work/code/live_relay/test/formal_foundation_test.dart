@@ -89,7 +89,7 @@ void main() {
     );
     expect(
       android.feature(AppFeature.agent).status,
-      CapabilityStatus.notImplemented,
+      CapabilityStatus.needsSetup,
     );
   });
   testWidgets(

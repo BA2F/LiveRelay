@@ -372,6 +372,8 @@ class BackupPreview {
     required this.originals,
     required this.recycledCards,
     required this.recycledCredentials,
+    this.missingOriginals = 0,
+    this.requiresReset = false,
   });
   final DateTime? createdAt;
   final int cards;
@@ -379,4 +381,6 @@ class BackupPreview {
   final int originals;
   final int recycledCards;
   final int recycledCredentials;
+  final int missingOriginals;
+  final bool requiresReset;
 }

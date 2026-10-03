@@ -1,3 +1,5 @@
+import '../../core/ports/ai_provider.dart';
+
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 class AiProviderSettings {
@@ -5,8 +7,10 @@ class AiProviderSettings {
     required this.endpoint,
     required this.model,
     required this.hasApiKey,
+    this.protocol = AiProtocol.chatCompletions,
   });
 
+  final AiProtocol protocol;
   final String endpoint;
   final String model;
   final bool hasApiKey;
@@ -28,12 +32,16 @@ class AiProviderSettingsStore {
   static const _endpointKey = 'endpoint';
   static const _modelKey = 'model';
   static const _apiKey = 'api-key';
+  static const _protocolKey = 'protocol';
 
   final FlutterSecureStorage _storage;
 
   Future<AiProviderSettings> read() async {
     final values = await _storage.readAll();
     return AiProviderSettings(
+      protocol: values[_protocolKey] == 'responses'
+          ? AiProtocol.responses
+          : AiProtocol.chatCompletions,
       endpoint: values[_endpointKey] ?? '',
       model: values[_modelKey] ?? '',
       hasApiKey: (values[_apiKey] ?? '').isNotEmpty,
@@ -58,6 +66,9 @@ class AiProviderSettingsStore {
       await _storage.write(key: _apiKey, value: apiKey.trim());
     }
   }
+
+  Future<void> saveProtocol(AiProtocol protocol) =>
+      _storage.write(key: _protocolKey, value: protocol.name);
 
   Future<void> clear() => _storage.deleteAll();
 }

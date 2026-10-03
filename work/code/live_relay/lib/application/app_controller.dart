@@ -1,9 +1,16 @@
 import 'dart:io' show FileSystemException;
+import 'dart:convert';
 
 import 'package:collection/collection.dart';
 import 'package:flutter/foundation.dart';
 
 import 'vault_session.dart';
+import 'local_handoff_service.dart';
+import 'recipient_service.dart';
+import 'vault_security_service.dart';
+import '../core/security/recovery_credential.dart';
+import 'draft_agent_service.dart';
+import 'speech_service.dart';
 import 'vault_backup_service.dart';
 
 import '../core/ai/ai_privacy.dart';
@@ -33,8 +40,115 @@ class AppController extends ChangeNotifier {
     required this._aiSettingsStore,
     required this._edgeImporter,
     required this._prepareEnvironment,
-  });
+    this._draftAgentService,
+    this._speechService,
+    this._securityService,
+    this.handoff,
+    this.recipient,
+  }) {
+    _speechService?.addListener(notifyListeners);
+    _securityService?.addListener(notifyListeners);
+  }
 
+  Map<String, Object?> ownerProfile = const {
+    'name': '本人',
+    'contact': '',
+    'note': '',
+  };
+  Future<void> saveOwnerProfile(String name, String contact, String note) =>
+      _run(() async {
+        await handoff!.saveProfile(name, contact, note);
+        ownerProfile = await handoff!.profile();
+      });
+  final LocalHandoffService? handoff;
+  final RecipientService? recipient;
+  final VaultSecurityService? _securityService;
+  bool get supportsModernSecurity => _securityService != null;
+  String get securityProgress => _securityService?.stage ?? '';
+  Future<String> generateRecovery() async {
+    final r = RecoveryCredential.generate();
+    try {
+      return await r.encode();
+    } finally {
+      r.dispose();
+    }
+  }
+
+  Future<void> setupModernVault({
+    required String password,
+    required String recoveryText,
+    required String recoveryConfirmation,
+    bool chinese = false,
+    int? wordCount,
+    bool biometric = false,
+  }) => _run(() async {
+    if (recoveryText != recoveryConfirmation) {
+      throw const FormatException('恢复凭证确认不一致');
+    }
+    final r = await RecoveryCredential.parse(recoveryText);
+    try {
+      await _session.createModern(
+        password: password,
+        recovery: r,
+        usesChinesePassphrase: chinese,
+        wordCount: wordCount,
+        enableBiometric: biometric,
+      );
+      await _refreshUnlockedData();
+    } finally {
+      r.dispose();
+    }
+  });
+  Future<void> unlockDaily({
+    String? password,
+    Uint8List? keyFile,
+    String preferred = 'password',
+  }) => _run(() async {
+    await _session.unlockDaily(
+      password: password,
+      keyFile: keyFile,
+      preferred: preferred,
+    );
+    await _refreshUnlockedData();
+  });
+  Future<void> beginRecovery(String text) => _run(() async {
+    await _session.unlockWithRecovery(text);
+    _clearUnlockedData();
+  });
+  Future<void> configureSecurity({
+    required String oldPassword,
+    required String newPassword,
+    required String recoveryText,
+    required String recoveryConfirmation,
+    String policy = 'any',
+    Uint8List? oldKeyFile,
+    Uint8List? newKeyFile,
+    bool biometric = false,
+    bool chinese = false,
+    int? wordCount,
+  }) => _run(() async {
+    try {
+      await _securityService!.configure(
+        oldPassword: oldPassword,
+        newPassword: newPassword,
+        recoveryText: recoveryText,
+        recoveryConfirmation: recoveryConfirmation,
+        policy: policy,
+        oldKeyFile: oldKeyFile,
+        newKeyFile: newKeyFile,
+        biometric: biometric,
+        chinese: chinese,
+        wordCount: wordCount,
+      );
+      await _refreshUnlockedData();
+    } catch (_) {
+      _clearUnlockedData();
+      rethrow;
+    }
+  });
+  final DraftAgentService? _draftAgentService;
+  final SpeechService? _speechService;
+  SpeechService? get speech => _speechService;
   final VaultSession _session;
   final VaultBackupService _backup;
   final OcrProvider _ocrProvider;
@@ -47,7 +161,10 @@ class AppController extends ChangeNotifier {
   VaultSessionState get sessionState => _session.state;
   VaultHeaderMetadata? get header => _session.header;
   bool get biometricAvailable => _session.biometricAvailable;
+  AiCancellation? _agentCancellation;
+  void cancelAgentTask() => _agentCancellation?.cancel();
   bool isBusy = false;
+  bool agentCommandsAvailable = false;
   AiProviderSettings aiSettings = const AiProviderSettings(
     endpoint: '',
     model: '',
@@ -75,10 +192,19 @@ class AppController extends ChangeNotifier {
   );
 
   bool get isUnlocked => sessionState == VaultSessionState.unlocked;
-  final capabilities = DeviceCapabilities.current();
+  DeviceCapabilities capabilities = DeviceCapabilities.current();
+  void setDemonstrationCapabilities(DeviceCapabilities value) {
+    capabilities = value;
+    notifyListeners();
+  }
 
-  FeatureCapability capability(AppFeature feature) =>
-      capabilities.feature(feature, biometricAvailable: biometricAvailable);
+  FeatureCapability capability(AppFeature feature) => capabilities.feature(
+    feature,
+    biometricAvailable: biometricAvailable,
+    agentConfigured:
+        aiSettings.isConfigured && aiSettings.protocol == AiProtocol.responses,
+    speechInstalled: _speechService?.installed ?? false,
+  );
 
   List<CardSummary> findInformationCards(
     String query, {
@@ -111,6 +237,13 @@ class AppController extends ChangeNotifier {
           model: '',
           hasApiKey: false,
         );
+      }
+      try {
+        await _speechService?.refresh();
+        agentCommandsAvailable =
+            await _draftAgentService?.commandAvailable() ?? false;
+      } on Object {
+        /* Speech setup does not block vault access. */
       }
       await _session.prepare();
       await _backup.recover();
@@ -168,6 +301,20 @@ class AppController extends ChangeNotifier {
     return result;
   }
 
+  Future<({Uint8List database, Uint8List attachments})> exportSplitVault(
+    String credential,
+  ) async {
+    late ({Uint8List database, Uint8List attachments}) result;
+    await _run(() async {
+      result = await _backup.exportSplit(credential, _refreshUnlockedData);
+    });
+    return result;
+  }
+
+  Future<int> missingOriginalCount() => _backup.missingCount();
+  Future<void> importOriginalSupplement(Uint8List bytes) =>
+      _run(() => _backup.importSupplement(bytes));
+
   Future<void> restoreVault(Uint8List bytes, String backupPassword) => _run(
     () => _backup.restore(
       bytes,
@@ -178,6 +325,7 @@ class AppController extends ChangeNotifier {
   );
 
   Future<void> lock() async {
+    cancelAgentTask();
     try {
       await _session.close();
     } finally {
@@ -187,6 +335,7 @@ class AppController extends ChangeNotifier {
   }
 
   void _clearUnlockedData() {
+    ownerProfile = const {'name': '本人', 'contact': '', 'note': ''};
     cards = const [];
     recycledCards = const [];
     recycledCredentials = const [];
@@ -378,6 +527,7 @@ class AppController extends ChangeNotifier {
           apiKey: apiKey,
           model: aiSettings.model,
           redactedText: payload.redactedText,
+          protocol: aiSettings.protocol,
         ),
       );
       final suggestions = _aiPrivacy.validateAndRehydrate(response, payload);
@@ -397,6 +547,7 @@ class AppController extends ChangeNotifier {
     required String endpoint,
     required String model,
     String? apiKey,
+    AiProtocol? protocol,
   }) async {
     await _run(() async {
       await _aiSettingsStore.save(
@@ -404,6 +555,7 @@ class AppController extends ChangeNotifier {
         model: model,
         apiKey: apiKey,
       );
+      if (protocol != null) await _aiSettingsStore.saveProtocol(protocol);
       aiSettings = await _aiSettingsStore.read();
     });
   }
@@ -417,6 +569,86 @@ class AppController extends ChangeNotifier {
         hasApiKey: false,
       );
     });
+  }
+
+  String previewAgentDisclosure(String text, List<SensitiveMark> marks) =>
+      (_draftAgentService ?? (throw StateError('Agent 尚未配置')))
+          .prepare(text, marks)
+          .redactedText;
+
+  Future<AgentDraftBatch> proposeAgentDrafts(
+    String text,
+    List<SensitiveMark> marks, {
+    bool allowCommands = false,
+  }) async {
+    late AgentDraftBatch batch;
+    await _run(() async {
+      if (!isUnlocked) throw StateError('请先解锁资料库');
+      if (!aiSettings.isConfigured ||
+          aiSettings.protocol != AiProtocol.responses) {
+        throw StateError('请在 AI 服务设置中选择 Responses 并配置服务');
+      }
+      final cancellation = AiCancellation();
+      _agentCancellation = cancellation;
+      try {
+        final key = await _aiSettingsStore.readApiKey();
+        cancellation.check();
+        if (!isUnlocked) throw StateError('资料库已锁定');
+        if (key == null || key.isEmpty) throw StateError('AI 服务密钥不存在');
+        batch = await _draftAgentService!.propose(
+          text: text,
+          marks: marks,
+          endpoint: Uri.parse(aiSettings.endpoint),
+          model: aiSettings.model,
+          apiKey: key,
+          cancellation: cancellation,
+          allowCommands: allowCommands,
+        );
+      } finally {
+        if (identical(_agentCancellation, cancellation)) {
+          _agentCancellation = null;
+        }
+      }
+      if (!isUnlocked) throw StateError('资料库已锁定，本次结果已丢弃');
+    });
+    return batch;
+  }
+
+  Future<void> saveAgentDrafts(AgentDraftBatch batch) => _mutate(
+    (repository) => repository.saveAgentSuggestions(
+      batch.sourceText,
+      batch.suggestions.map((s) => s.toDraft()).toList(),
+      providerLabel: batch.providerLabel,
+    ),
+  );
+
+  Future<void> saveSpeechDraft(String text, {String? blobId}) {
+    final content = text.trim();
+    if (content.isEmpty || content.length > 32000) {
+      throw const FormatException('语音文字为空或过长');
+    }
+    final draft = CardDraft(
+      title: String.fromCharCodes(content.split('\n').first.runes.take(28)),
+      content: content,
+      kind: CardKind.note,
+      status: CardStatus.draft,
+      tags: ['语音', '待确认'],
+    );
+    if (blobId != null) {
+      return _mutate(
+        (r) => r.createCardFromOriginal(
+          blobId,
+          draft,
+          sourceKind: SourceKind.audio,
+          sourceLabel: '本地语音识别 · 本人校对',
+        ),
+      );
+    }
+    return createCard(
+      draft,
+      sourceKind: SourceKind.ownerInput,
+      sourceLabel: '语音页手动输入 · 本人校对',
+    );
   }
 
   Future<List<CardRevision>> cardHistory(String id) =>
@@ -538,6 +770,12 @@ class AppController extends ChangeNotifier {
     recycledCards = results[7] as List<LifeCard>;
     recycledCredentials = results[8] as List<CredentialEntry>;
     lastBackupExport = await repository.lastBackupExport();
+    if (handoff != null) {
+      final raw = await repository.readLocalValue('identity.profile');
+      ownerProfile = raw == null
+          ? const {'name': '本人', 'contact': '', 'note': ''}
+          : Map<String, Object?>.from(jsonDecode(raw) as Map);
+    }
   }
 
   Future<void> _mutate(
@@ -583,6 +821,12 @@ class AppController extends ChangeNotifier {
 
   @override
   void dispose() {
+    cancelAgentTask();
+    _securityService?.removeListener(notifyListeners);
+    _securityService?.dispose();
+    recipient?.dispose();
+    _speechService?.removeListener(notifyListeners);
+    _speechService?.dispose();
     _session.dispose();
     super.dispose();
   }

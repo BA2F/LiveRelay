@@ -1,12 +1,13 @@
 # 版本与安装包发布
 
-安装包发布到 [GitHub Releases](https://github.com/BA2F/LiveRelay/releases)，Git 保留源码、版本说明和制品身份，APK/AAB 与构建缓存不加入源码历史。
+安装包发布到 [GitHub Releases](https://github.com/BA2F/LiveRelay/releases)，Git 保留源码、版本说明和制品身份，APK/AAB、Linux应用归档与构建缓存不加入源码历史。
 
 ## 命名和身份
 
 - MVP 里程碑使用 `mvp-X.Y` 标签、`LiveRelay · MVP X.Y` 标题及 `LiveRelay-MVPX.Y-Android.apk` 附件。
 - 正式语义版本使用 `vX.Y.Z`；发布前明确应用版本名及递增的 Android `versionCode`，在 `pubspec.yaml` 或构建参数中设置并记录。Tag 不会自动改变 APK 内部版本。
 - MVP 0.1/0.2 是原包归档例外：两版内部 `1.0.0+1` 保持原样；后续新构建必须递增 Android build number。
+- Linux附件使用 `LiveRelay-MVPX.Y-Linux-x86_64.tar.gz`，归档完整Flutter bundle，保留可执行权限；说明构建发行版／glibc及运行依赖，不能只上传runner。独立demo不混入生产bundle。
 - 每个版本记录源码 commit、构建日期、包名、最低/目标 SDK、内部版本、大小、SHA-256、签名证书、验证范围及未验证能力。
 - 已发布 Tag 和附件作为固定历史保留。修正说明可以更新正文；二进制变化创建新版本，不覆盖同名附件或移动 Tag。
 
@@ -22,7 +23,8 @@
 cd work/code/live_relay
 flutter analyze
 flutter test
-flutter build apk --release
+flutter build apk --release --target lib/main.dart
+flutter build linux --release --target lib/main.dart
 ```
 
 确认 Release APK 的内部版本、签名和 hash。`aapt dump badging` 可读取包信息；Android build-tools 的 `apksigner verify --verbose --print-certs` 验证证书。复制已验证制品到被忽略的 `work/exports/release-artifacts/<tag>/`；改名不重新构建，也不改变内容。
@@ -30,7 +32,7 @@ flutter build apk --release
 在附件目录生成校验文件：
 
 ```bash
-sha256sum LiveRelay-MVPX.Y-Android.apk > SHA256SUMS
+sha256sum LiveRelay-MVPX.Y-Android.apk LiveRelay-MVPX.Y-Linux-x86_64.tar.gz > SHA256SUMS
 ```
 
 ## 发布顺序

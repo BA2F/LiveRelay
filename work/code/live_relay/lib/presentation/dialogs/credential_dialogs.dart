@@ -5,6 +5,7 @@ import '../../application/release_preview.dart';
 import '../../core/domain/entities.dart';
 import '../design_system/atoms.dart';
 import 'card_dialogs.dart';
+import 'password_generator_dialog.dart';
 import '../widgets/credential_secret_actions.dart';
 import '../widgets/release_preview_panel.dart';
 
@@ -167,6 +168,19 @@ class _CredentialEditorSheetState extends State<_CredentialEditorSheet> {
                   ),
                 ),
               ),
+            ),
+            const SizedBox(height: 8),
+            OutlinedButton.icon(
+              onPressed: _saving
+                  ? null
+                  : () async {
+                      final generated = await showPasswordGenerator(context);
+                      if (generated != null && mounted) {
+                        _secret.text = generated;
+                      }
+                    },
+              icon: const Icon(Icons.password_outlined),
+              label: const Text('生成随机密码'),
             ),
             const SizedBox(height: 8),
             OutlinedButton.icon(

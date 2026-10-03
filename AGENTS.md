@@ -1,7 +1,7 @@
 # LiveRelay AI Agent 工作规则
 
 > 状态：当前有效  
-> 版本：0.5
+> 版本：0.6
 > 最后更新：2026-10-03
 > 依赖文档：无
 
@@ -12,9 +12,9 @@
 
 ## 当前项目状态
 
-LiveRelay 已完成首个可运行的 Flutter/Android MVP，源码位于 `work/code/live_relay/`。当前开始正式版分阶段开发：首个基础切片及创建密码校验修正已完成，Android／Linux 构建通过，Windows runner 已准备但未在 Windows 验证；真机验证与安全复核仍待完成。内部端口尚未冻结为跨 package 或对外公共契约。`40_modules/` 和 `50_interfaces/` 记录当前实现映射，不代表模块已经拆成独立 package。
+LiveRelay 源码位于 `work/code/live_relay/`。正式版本机软件基础已完成密码库生成、Agent／语音，以及独立恢复、更多解锁／全库换钥、身份／独立接收者、真实限定范围交接、本地分层备份、独立调试演示。主界面新建 Header v3、SQLCipher schema v5；旧库由本人主动升级。硬件／Windows／手机资源／正式签名及安全复核仍待完成，云端和语言／视觉优化后置。内部端口和新格式尚未冻结为跨 package 或对外公共契约；模块文档是实现映射，不代表已拆 package。
 
-新聊天从 `memory/当前项目上下文.md` 和 `handoffs/2026-10-03_正式版基础.md` 接续，已确认产品范围见 `docs/20_product/16_正式版演进与已确认范围.md`。先检查 Git 实际状态；截至本次交接，基础代码与文档位于 Linux 主工作区 `codex/formal-foundation` 分支的未提交／未跟踪改动中，不能只从远端 main 判断当前实现。
+新聊天从 `memory/当前项目上下文.md` 和 `handoffs/2026-10-03_本机安全交接与备份完成.md` 接续，已确认产品范围见 `docs/20_product/16_正式版演进与已确认范围.md`。先检查Git真实状态；Linux `codex/formal-foundation` 基础提交为 `9bb28e5`，后续 K1／K2／软件基础和本机补全为未提交／未跟踪内容，不能只从远端 main 判断实现。
 
 ## 执行环境
 

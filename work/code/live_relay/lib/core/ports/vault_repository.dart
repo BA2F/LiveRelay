@@ -1,6 +1,12 @@
+import 'dart:typed_data';
+
 import '../domain/entities.dart';
 
 abstract interface class VaultRepository {
+  Future<Uint8List> exportLocalState();
+  Future<void> importLocalState(Uint8List bytes);
+  Future<String?> readLocalValue(String key);
+  Future<void> writeLocalValue(String key, String value);
   Future<List<LifeCard>> listCards({
     String query = '',
     CardKind? kind,
@@ -36,7 +42,12 @@ abstract interface class VaultRepository {
   Future<void> restoreCard(String id);
   Future<List<CardSource>> cardSources(String id);
   Future<List<LifeCard>> cardsForBlob(String blobId);
-  Future<LifeCard> createCardFromOriginal(String blobId, CardDraft draft);
+  Future<LifeCard> createCardFromOriginal(
+    String blobId,
+    CardDraft draft, {
+    SourceKind sourceKind = SourceKind.ownerInput,
+    String? sourceLabel,
+  });
   Future<DateTime?> lastBackupExport();
   Future<void> recordBackupExport(DateTime time);
 
@@ -52,6 +63,12 @@ abstract interface class VaultRepository {
 
   Future<List<LifeCard>> saveAiSuggestions(
     String blobId,
+    List<CardDraft> drafts, {
+    required String providerLabel,
+  });
+
+  Future<List<LifeCard>> saveAgentSuggestions(
+    String sourceText,
     List<CardDraft> drafts, {
     required String providerLabel,
   });

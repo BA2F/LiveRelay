@@ -161,8 +161,16 @@ class AuditEvents extends Table {
   DateTimeColumn get occurredAt => dateTime()();
 }
 
+class VaultLocalState extends Table {
+  TextColumn get name => text()();
+  TextColumn get value => text()();
+  @override
+  Set<Column<Object>> get primaryKey => {name};
+}
+
 @DriftDatabase(
   tables: [
+    VaultLocalState,
     Sources,
     EncryptedBlobs,
     Cards,
@@ -213,7 +221,7 @@ class AppDatabase extends _$AppDatabase {
   }
 
   @override
-  int get schemaVersion => 4;
+  int get schemaVersion => 5;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -233,6 +241,7 @@ class AppDatabase extends _$AppDatabase {
       );
     },
     onUpgrade: (migrator, from, to) async {
+      if (from < 5) await migrator.createTable(vaultLocalState);
       if (from < 2) {
         await migrator.createTable(encryptedBlobs);
       }

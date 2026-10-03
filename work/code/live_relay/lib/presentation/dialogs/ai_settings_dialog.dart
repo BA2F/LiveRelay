@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../application/app_controller.dart';
+import '../../core/ports/ai_provider.dart';
 
 class AiSettingsDialog extends StatefulWidget {
   const AiSettingsDialog({super.key, required this.controller});
@@ -21,6 +22,7 @@ class AiSettingsDialogState extends State<AiSettingsDialog> {
     text: widget.controller.aiSettings.model,
   );
   final _apiKey = TextEditingController();
+  late AiProtocol _protocol = widget.controller.aiSettings.protocol;
   bool _busy = false;
   bool _showKey = false;
   String? _error;
@@ -41,6 +43,7 @@ class AiSettingsDialogState extends State<AiSettingsDialog> {
     try {
       await widget.controller.saveAiSettings(
         endpoint: _endpoint.text,
+        protocol: _protocol,
         model: _model.text,
         apiKey: _apiKey.text.isEmpty ? null : _apiKey.text,
       );
@@ -65,12 +68,51 @@ class AiSettingsDialogState extends State<AiSettingsDialog> {
         children: [
           const Text('默认关闭。配置不代表授权；每次外发前仍会展示范围并要求单次确认。'),
           const SizedBox(height: 16),
+          DropdownButtonFormField<AiProtocol>(
+            initialValue: _protocol,
+            decoration: const InputDecoration(labelText: '服务协议'),
+            items: const [
+              DropdownMenuItem(
+                value: AiProtocol.chatCompletions,
+                child: Text('Chat Completions 整理'),
+              ),
+              DropdownMenuItem(
+                value: AiProtocol.responses,
+                child: Text('Responses Agent'),
+              ),
+            ],
+            onChanged: _busy
+                ? null
+                : (value) {
+                    if (value == null) return;
+                    setState(() {
+                      _protocol = value;
+                      final uri = Uri.tryParse(_endpoint.text);
+                      if (uri != null &&
+                          (uri.path.endsWith('/chat/completions') ||
+                              uri.path.endsWith('/responses'))) {
+                        final prefix = uri.path.endsWith('/responses')
+                            ? uri.path.substring(0, uri.path.length - 10)
+                            : uri.path.substring(0, uri.path.length - 17);
+                        _endpoint.text = uri
+                            .replace(
+                              path:
+                                  '$prefix/${value == AiProtocol.responses ? 'responses' : 'chat/completions'}',
+                            )
+                            .toString();
+                      }
+                    });
+                  },
+          ),
+          const SizedBox(height: 12),
           TextField(
             controller: _endpoint,
             enabled: !_busy,
             keyboardType: TextInputType.url,
-            decoration: const InputDecoration(
-              labelText: 'HTTPS 服务地址（Chat Completions）',
+            decoration: InputDecoration(
+              labelText: _protocol == AiProtocol.responses
+                  ? 'HTTPS 服务地址（Responses）'
+                  : 'HTTPS 服务地址（Chat Completions）',
             ),
           ),
           const SizedBox(height: 12),

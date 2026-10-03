@@ -77,3 +77,12 @@ windows/flutter/ephemeral/
 *.apk
 *.aab
 /work/exports/release-artifacts/
+
+# 下载的语音权重与本地验证模型不纳入源码
+/work/artifacts/**/sense-voice.tar.bz2
+/work/artifacts/**/speech-model/
+/work/artifacts/**/public-sample.wav
+
+# 本机功能验证的完整公开向量与独立演示 bundle
+/work/artifacts/local-completion-*/hpke-public-vectors.json
+/work/artifacts/local-completion-*/demo-linux/

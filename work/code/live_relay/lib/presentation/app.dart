@@ -6,17 +6,21 @@ import '../application/app_controller.dart';
 import '../application/app_preferences.dart';
 import 'design_system/app_theme.dart';
 import 'pages/gate_page.dart';
+import 'pages/security_settings_page.dart';
 import 'pages/home_shell.dart';
 import 'pages/onboarding_page.dart';
 
 class LiveRelayApp extends StatelessWidget {
-  const LiveRelayApp({super.key});
+  const LiveRelayApp({super.key, this.environmentOverlay, this.navigatorKey});
+  final Widget Function(BuildContext context, Widget child)? environmentOverlay;
+  final GlobalKey<NavigatorState>? navigatorKey;
 
   @override
   Widget build(BuildContext context) {
     final preferences = context.watch<AppPreferences?>();
     return MaterialApp(
       title: '留灯 LiveRelay',
+      navigatorKey: navigatorKey,
       locale: const Locale('zh', 'CN'),
       supportedLocales: const [Locale('zh', 'CN')],
       localizationsDelegates: GlobalMaterialLocalizations.delegates,
@@ -38,7 +42,7 @@ class LiveRelayApp extends StatelessWidget {
           data: media.copyWith(
             textScaler: media.textScaler.clamp(minScaleFactor: minimum),
           ),
-          child: child!,
+          child: environmentOverlay?.call(context, child!) ?? child!,
         );
       },
       home: Consumer<AppController>(
@@ -49,6 +53,9 @@ class LiveRelayApp extends StatelessWidget {
                 ? const SetupVaultPage()
                 : const OnboardingPage(),
           VaultSessionState.locked => const UnlockVaultPage(),
+          VaultSessionState.recovering => const SecuritySettingsPage(
+            recovery: true,
+          ),
           VaultSessionState.unlocked =>
             preferences != null && !preferences.onboardingComplete
                 ? const FinishSetupPage()

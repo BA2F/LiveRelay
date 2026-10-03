@@ -1,0 +1,37 @@
+{
+  "date": "2026-10-03",
+  "git_baseline": "9bb28e5",
+  "uncommitted_worktree": true,
+  "production_target": "lib/main.dart",
+  "demo_target": "lib/main_debug_demo.dart",
+  "android_signing": "internal debug signing configuration; not formal distribution",
+  "artifacts": {
+    "android_release_apk": {
+      "path": "work/code/live_relay/build/app/outputs/flutter-apk/app-release.apk",
+      "bytes": 189907934,
+      "sha256": "766fc249f9749f37e69231a7777a53a30bd65bdd88b3cde14b19ba0c8ac73b9e"
+    },
+    "linux_release_executable": {
+      "path": "work/code/live_relay/build/linux/x64/release/bundle/live_relay",
+      "bytes": 24216,
+      "sha256": "9502dec775215e1902a17a3eed88eaca34c77156f0472d729181e35dc2232f31"
+    },
+    "linux_release_app_library": {
+      "path": "work/code/live_relay/build/linux/x64/release/bundle/lib/libapp.so",
+      "bytes": 10208136,
+      "sha256": "e0121eaa3f5b4b8dc7b474e6786f5f342f64daee168008029f0c8561fcecb317"
+    },
+    "linux_demo_debug_kernel": {
+      "path": "work/artifacts/local-completion-2026-10-03/demo-linux/data/flutter_assets/kernel_blob.bin",
+      "bytes": 91356712,
+      "sha256": "196b4fc3917f7db838974e38e28b5a820f452a41ff273dacb75f46e87be68ffe"
+    },
+    "linux_release_archive": {
+      "path": "work/exports/release-artifacts/mvp-0.3/LiveRelay-MVP0.3-Linux-x86_64.tar.gz",
+      "bytes": 24132258,
+      "sha256": "4f3f3b4c453517f35470d177e3d305420270063d1bdc44adb494dd9ae8bb948f"
+    }
+  },
+  "application_version": "1.0.0+2",
+  "release_tag": "mvp-0.3"
+}

@@ -55,6 +55,27 @@ void main() {
     expect(await repository.getCard(parts.first.id), isNotNull);
   });
 
+  test(
+    'Agent batches preserve the source and roll back an invalid later card',
+    () async {
+      await expectLater(
+        repository.saveAgentSuggestions('本人原文', const [
+          CardDraft(title: '有效卡片', content: '内容'),
+          CardDraft(title: '', content: '无效标题'),
+        ], providerLabel: 'fictional-agent'),
+        throwsA(isA<FormatException>()),
+      );
+      expect(await repository.listCards(), isEmpty);
+      final cards = await repository.saveAgentSuggestions('本人原文', const [
+        CardDraft(title: '整理结果', content: '改写内容', status: CardStatus.confirmed),
+      ], providerLabel: 'fictional-agent');
+      expect(cards.single.status, CardStatus.draft);
+      final source = (await repository.cardSources(cards.single.id)).single;
+      expect(source.excerpt, '本人原文');
+      expect(source.kind, SourceKind.aiGenerated);
+    },
+  );
+
   test('credential keeps old secret until explicit purge', () async {
     final entry = await repository.saveCredential(
       const CredentialDraft(

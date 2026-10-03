@@ -8,6 +8,7 @@ import '../dialogs/backup_dialogs.dart';
 import '../dialogs/capability_dialog.dart';
 import '../widgets/appearance_settings.dart';
 import 'gate_page.dart';
+import 'recipient_page.dart';
 
 class OnboardingPage extends StatefulWidget {
   const OnboardingPage({super.key});
@@ -56,6 +57,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
+                  const RecipientEntryButton(),
                   Icon(
                     Icons.lightbulb_rounded,
                     size: 64,

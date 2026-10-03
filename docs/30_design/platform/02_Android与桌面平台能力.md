@@ -1,7 +1,7 @@
 # Android 与桌面平台能力
 
 > 状态：已确认  
-> 版本：0.6
+> 版本：0.7
 > 最后更新：2026-10-03
 > 依赖文档：platform/00_应用实现架构总览.md
 
@@ -12,7 +12,8 @@ MVP 只为确实需要替换的能力定义端口：
 
 - `BiometricKeyStore`：生物识别保护的 VMK 保存/读取；
 - `OcrProvider`：图像 bytes → OCRResult；
-- `AiProvider`：脱敏文本 → Provider 响应。
+- `AiProvider`：脱敏文本 → Provider 响应；
+- 正式基础新增 `SpeechProvider` 与 `AgentCommandProvider`，分别承接实际本地模型和 Linux 隔离命令。
 
 Camera、File Picker、录音、播放和文件系统当前封装在表现层/基础设施层，不为了假想统一提前抽象成公共端口。
 
@@ -31,7 +32,7 @@ Secure Screen 与后台自动锁定尚未实现。复制密码后 30 秒会尝�
 
 2026-10-03 已完成 Linux 桌面第一切片：发布构建、原生临时加密库端到端回归、宽屏侧栏、统一卡片视图、首次设置及外观偏好。Windows runner 已准备，不能据此宣称 Windows 编译／硬件验收完成。
 
-`application/device_capabilities.dart` 提供内部能力状态，普通 UI 保留不可用入口。当前 Linux／Windows 相机、ML Kit OCR、设备生物解锁及音视频播放显示设备不支持；导入和原件留存仍可使用。Agent、语音转文字、报平安、拆分备份显示暂未提供。该状态表不代替硬件权限检查或模型安装管理，后二者随对应实现扩展。
+`application/device_capabilities.dart` 提供内部能力状态，普通 UI 保留不可用入口。当前 Linux／Windows 相机、ML Kit OCR、设备生物解锁及音视频播放显示设备不支持；导入和原件留存仍可使用。Agent 在 Responses 配置完成后显示可用，语音根据本地模型是否安装显示需配置／可用；报平安和拆分备份仍未提供。Linux 命令需真实探测并按本次授权，其他平台尚未实现该工具。状态表不代替实际麦克风权限、模型资源或硬件验收。
 
 - 批量整理；
 - 文件导入；
@@ -41,6 +42,12 @@ Secure Screen 与后台自动锁定尚未实现。复制密码后 30 秒会尝�
 长期产品方向可以概括为：
 
 > Mobile Capture + Desktop Organize
+
+## 2026-10-03 Agent／语音平台事实
+
+Responses 文字整理不依赖本机模型，可在当前移动／桌面入口配置使用。Linux 使用可用的 bubblewrap user namespaces／Bash／prlimit，探测失败不运行宿主命令；没有 Windows 沙箱实现。
+
+本地语音原生库已接入 Android／Linux／Windows，Linux 真模型及公开样本运行通过，Android／Linux release 构建通过。Android 实体录音和手机资源、Windows 构建／运行尚未验收。模型权重需主动下载或导入，首次未安装时显示真实状态。详见 [Agent](../ai/05_内置Agent与隔离命令.md)及 [语音](../capture/03_本地语音输入.md)。
 
 ## 其他基础设施原则
 

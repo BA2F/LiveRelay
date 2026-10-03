@@ -32,6 +32,41 @@ class EncryptedBlobStore implements VaultBlobStore {
   final _sha256 = Sha256();
 
   @override
+  Future<void> copyUnderKey({
+    required Directory source,
+    required Directory target,
+    required Uint8List oldKey,
+    required Uint8List newKey,
+    required VaultBlob blob,
+  }) async {
+    final clear = await read(
+      vaultDirectory: source,
+      masterKey: oldKey,
+      blob: blob,
+    );
+    final key = SecretKey(newKey);
+    try {
+      final box = await _cipher.encrypt(
+        clear,
+        secretKey: key,
+        nonce: _cipher.newNonce(),
+        aad: utf8.encode('$_aadPrefix${blob.id}'),
+      );
+      final output = BytesBuilder(copy: false)
+        ..add(_magic)
+        ..add(box.nonce)
+        ..add(box.mac.bytes)
+        ..add(box.cipherText);
+      final file = File(path.join(target.path, blob.relativePath));
+      await file.parent.create(recursive: true);
+      await file.writeAsBytes(output.takeBytes(), flush: true);
+    } finally {
+      key.destroy();
+      clear.fillRange(0, clear.length, 0);
+    }
+  }
+
+  @override
   Future<VaultBlob> write({
     required Directory vaultDirectory,
     required Uint8List masterKey,

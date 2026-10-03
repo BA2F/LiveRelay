@@ -9,6 +9,7 @@ import '../design_system/atoms.dart';
 import '../dialogs/card_dialogs.dart';
 import '../model_labels.dart';
 import '../widgets/release_preview_panel.dart';
+import 'manual_handoff_page.dart';
 
 ReleasePolicy _policy(AppController c, String type, String id) =>
     c.releasePolicies
@@ -52,6 +53,21 @@ class HandoffPage extends StatelessWidget {
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
       children: [
+        if (c.handoff != null)
+          ListTile(
+            leading: const Icon(Icons.send_outlined),
+            title: const Text('真实限定范围交接'),
+            subtitle: const Text('核对接收者身份，本人明确选择本次交付内容'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: c.isBusy
+                ? null
+                : () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const ManualHandoffPage(),
+                    ),
+                  ),
+          ),
         const Text('仅本机模拟 · 预览对象为演示执行人，不会发送给他人，也不自动判断生命状态。'),
         const SizedBox(height: 16),
         Card(

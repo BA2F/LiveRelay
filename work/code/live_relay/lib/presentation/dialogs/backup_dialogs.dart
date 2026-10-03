@@ -36,7 +36,7 @@ class PasswordPromptDialogState extends State<PasswordPromptDialog> {
         obscureText: true,
         autofocus: true,
         onSubmitted: (_) => Navigator.pop(context, _text.text),
-        decoration: const InputDecoration(labelText: '主密码或中文词组'),
+        decoration: const InputDecoration(labelText: '主密码、中文词组或 LRR1 恢复凭证'),
       ),
       actions: [
         TextButton(
@@ -68,8 +68,10 @@ Future<void> restoreFromBackup(
     if (picked == null || !context.mounted) return;
     final password = await showDialog<String>(
       context: context,
-      builder: (_) =>
-          const PasswordPromptDialog(title: '输入备份的口令', actionLabel: '验证备份'),
+      builder: (_) => const PasswordPromptDialog(
+        title: '输入备份的密码或独立恢复凭证',
+        actionLabel: '验证备份',
+      ),
     );
     if (password == null || !context.mounted) return;
     final bytes = await picked.readAsBytes();
@@ -102,7 +104,13 @@ Future<void> restoreFromBackup(
                       ? '恢复成功后当前资料库全部由备份替换，不会合并。需要保留当前信息时，请先取消并导出。验证失败会保留当前资料库。'
                       : '无需先创建临时资料库。恢复后使用备份口令解锁。',
                 ),
-                const Text('恢复后指纹需重新启用。'),
+                Text(
+                  preview.requiresReset
+                      ? '恢复后进入安全重设流程，保存新凭证并完成换钥后才能打开资料库。'
+                      : '恢复后指纹需重新启用。',
+                ),
+                if (preview.missingOriginals > 0)
+                  Text('此数据库包暂不包含 ${preview.missingOriginals} 个原件；可随后导入配对原件包。'),
               ],
             ),
           ),

@@ -9,14 +9,102 @@ import '../../core/ports/vault_repository.dart';
 import 'app_database.dart';
 
 class SqliteVaultRepository implements VaultRepository {
-  SqliteVaultRepository(this.database, {Uuid? uuid})
-    : _uuid = uuid ?? const Uuid();
+  SqliteVaultRepository(this.database, {Uuid? uuid, DateTime Function()? clock})
+    : _uuid = uuid ?? const Uuid(),
+      _clock = clock ?? _utcNow;
+  static DateTime _utcNow() => DateTime.now().toUtc();
+  final DateTime Function() _clock;
 
   final AppDatabase database;
   final Uuid _uuid;
   final LifeStateMachine _stateMachine = const LifeStateMachine();
 
-  DateTime get _now => DateTime.now().toUtc();
+  DateTime get _now => _clock().toUtc();
+
+  static const _stateTables = [
+    'vault_local_state',
+    'sources',
+    'encrypted_blobs',
+    'life_cards',
+    'card_revisions',
+    'card_relations',
+    'credentials',
+    'credential_revisions',
+    'release_policies',
+    'life_state_events',
+    'audit_events',
+  ];
+  @override
+  Future<String?> readLocalValue(String key) async => (await (database.select(
+    database.vaultLocalState,
+  )..where((t) => t.name.equals(key))).getSingleOrNull())?.value;
+  @override
+  Future<void> writeLocalValue(String key, String value) async {
+    if (key.length > 100 || value.length > 1024 * 1024) {
+      throw const FormatException('本地资料过大');
+    }
+    await database
+        .into(database.vaultLocalState)
+        .insertOnConflictUpdate(
+          VaultLocalStateCompanion.insert(name: key, value: value),
+        );
+  }
+
+  @override
+  Future<Uint8List> exportLocalState() => database.transaction(() async {
+    final state = <String, Object?>{};
+    for (final table in _stateTables) {
+      state[table] =
+          (await database.customSelect('SELECT * FROM "$table"').get())
+              .map((r) => r.data)
+              .toList();
+    }
+    return Uint8List.fromList(utf8.encode(jsonEncode(state)));
+  });
+  @override
+  Future<void> importLocalState(Uint8List bytes) async {
+    if (bytes.length > 256 * 1024 * 1024) {
+      throw const FormatException('数据库快照过大');
+    }
+    final state = jsonDecode(utf8.decode(bytes));
+    if (state is! Map ||
+        state.length != _stateTables.length ||
+        !_stateTables.every(state.containsKey)) {
+      throw const FormatException('数据库快照结构错误');
+    }
+    await database.customStatement('PRAGMA foreign_keys = OFF');
+    try {
+      await database.transaction(() async {
+        for (final table in _stateTables) {
+          await database.customStatement('DELETE FROM "$table"');
+          final columns =
+              (await database.customSelect('PRAGMA table_info("$table")').get())
+                  .map((r) => r.data['name'] as String)
+                  .toSet();
+          final rows = state[table];
+          if (rows is! List) throw const FormatException('数据库表结构错误');
+          for (final raw in rows) {
+            if (raw is! Map ||
+                raw.length != columns.length ||
+                !columns.containsAll(raw.keys.cast<String>())) {
+              throw const FormatException('数据库列结构错误');
+            }
+            final names = raw.keys.cast<String>().toList();
+            await database.customStatement(
+              'INSERT INTO "$table" (${names.map((n) => '"$n"').join(',')}) VALUES (${names.map((_) => '?').join(',')})',
+              names.map((n) => raw[n]).toList(),
+            );
+          }
+        }
+        if ((await database.customSelect('PRAGMA foreign_key_check').get())
+            .isNotEmpty) {
+          throw const FormatException('数据库关联不完整');
+        }
+      });
+    } finally {
+      await database.customStatement('PRAGMA foreign_keys = ON');
+    }
+  }
 
   @override
   Future<List<LifeCard>> listCards({
@@ -93,6 +181,7 @@ class SqliteVaultRepository implements VaultRepository {
     required String sourceLabel,
     String? parentCardId,
     String? blobId,
+    String? sourceText,
   }) async {
     _validateCardDraft(draft);
     final id = _uuid.v7();
@@ -106,7 +195,7 @@ class SqliteVaultRepository implements VaultRepository {
             id: sourceId,
             kind: sourceKind.name,
             label: sourceLabel,
-            textExcerpt: Value(draft.content),
+            textExcerpt: Value(sourceText ?? draft.content),
             blobId: Value(blobId),
             createdAt: now,
           ),
@@ -404,19 +493,23 @@ class SqliteVaultRepository implements VaultRepository {
   }
 
   @override
-  Future<LifeCard> createCardFromOriginal(String blobId, CardDraft draft) =>
-      database.transaction(() async {
-        final blob = await (database.select(
-          database.encryptedBlobs,
-        )..where((t) => t.id.equals(blobId))).getSingleOrNull();
-        if (blob == null) throw StateError('原件不存在');
-        return _insertCard(
-          draft,
-          sourceKind: SourceKind.ownerInput,
-          sourceLabel: '本人整理 · ${blob.originalName}',
-          blobId: blobId,
-        );
-      });
+  Future<LifeCard> createCardFromOriginal(
+    String blobId,
+    CardDraft draft, {
+    SourceKind sourceKind = SourceKind.ownerInput,
+    String? sourceLabel,
+  }) => database.transaction(() async {
+    final blob = await (database.select(
+      database.encryptedBlobs,
+    )..where((t) => t.id.equals(blobId))).getSingleOrNull();
+    if (blob == null) throw StateError('原件不存在');
+    return _insertCard(
+      draft,
+      sourceKind: sourceKind,
+      sourceLabel: sourceLabel ?? '本人整理 · ${blob.originalName}',
+      blobId: blobId,
+    );
+  });
 
   @override
   Future<DateTime?> lastBackupExport() async {
@@ -620,6 +713,43 @@ class SqliteVaultRepository implements VaultRepository {
         'blob',
         blobId,
         '获授权云 AI 生成 ${cards.length} 张待确认草稿',
+      );
+      return cards;
+    });
+  }
+
+  @override
+  Future<List<LifeCard>> saveAgentSuggestions(
+    String sourceText,
+    List<CardDraft> drafts, {
+    required String providerLabel,
+  }) {
+    if (sourceText.length > 32000 || drafts.isEmpty || drafts.length > 20) {
+      throw const FormatException('Agent 草稿数量或来源大小错误');
+    }
+    return database.transaction(() async {
+      final cards = <LifeCard>[];
+      for (final draft in drafts) {
+        cards.add(
+          await _insertCard(
+            CardDraft(
+              title: draft.title,
+              content: draft.content,
+              kind: draft.kind,
+              status: CardStatus.draft,
+              tags: draft.tags,
+            ),
+            sourceKind: SourceKind.aiGenerated,
+            sourceLabel: providerLabel,
+            sourceText: sourceText,
+          ),
+        );
+      }
+      await _audit(
+        'agent-organize',
+        'cards',
+        '',
+        '本人核对并保存 ${cards.length} 张 Agent 草稿',
       );
       return cards;
     });

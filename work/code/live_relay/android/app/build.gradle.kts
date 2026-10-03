@@ -59,6 +59,8 @@ flutter {
 }
 
 dependencies {
+    // Same version already used by local_auth; direct dependency for our CryptoObject adapter.
+    implementation("androidx.biometric:biometric:1.1.0")
     // Bundled on-device model: OCR never uploads the original image.
     implementation("com.google.mlkit:text-recognition-chinese:16.0.1")
 }
