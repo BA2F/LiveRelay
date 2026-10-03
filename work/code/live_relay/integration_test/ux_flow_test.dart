@@ -309,6 +309,9 @@ void main() {
       expect(preview.originals, 1);
       await tester.tap(find.byTooltip('设置'));
       await tester.pumpAndSettle();
+      await tester.ensureVisible(find.text('资料库设置'));
+      await tester.tap(find.text('资料库设置'));
+      await tester.pumpAndSettle();
       await shot('22-settings-backup-status');
       await Navigator.of(currentContext()).maybePop();
       await tester.pumpAndSettle();

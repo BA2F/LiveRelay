@@ -9,13 +9,28 @@ import 'package:path_provider/path_provider.dart';
 import 'package:video_player/video_player.dart';
 
 import '../../application/app_controller.dart';
+import '../../application/device_capabilities.dart';
 import '../../core/domain/entities.dart';
+import 'capability_dialog.dart';
 
 Future<void> showEncryptedOriginal(
   BuildContext context,
   AppController controller,
   VaultBlob blob,
 ) async {
+  final feature = switch (blob.mediaKind) {
+    BlobMediaKind.audio || BlobMediaKind.video => AppFeature.mediaPlayback,
+    BlobMediaKind.document || BlobMediaKind.other => AppFeature.documentPreview,
+    BlobMediaKind.image => null,
+  };
+  if (feature != null && !controller.capability(feature).isAvailable) {
+    await showCapabilityMessage(
+      context,
+      '查看原件',
+      controller.capability(feature),
+    );
+    return;
+  }
   Uint8List? clearBytes;
   try {
     clearBytes = await controller.readOriginal(blob.id);
@@ -33,7 +48,7 @@ Future<void> showEncryptedOriginal(
         await _showVideo(context, blob, clearBytes);
       case BlobMediaKind.document:
       case BlobMediaKind.other:
-        throw const FormatException('当前 MVP 尚未接入该文件类型的安全预览器');
+        throw const FormatException('此文件类型暂不支持预览');
     }
   } on Object catch (error) {
     if (context.mounted) {
@@ -51,7 +66,7 @@ Future<void> _showAudio(
   Uint8List clearBytes,
 ) async {
   if (!Platform.isAndroid && !Platform.isIOS && !Platform.isMacOS) {
-    throw UnsupportedError('当前平台尚未接入音频播放 Provider');
+    throw UnsupportedError('此设备暂不支持音频播放');
   }
   final temporary = await _writeTemporaryMedia(blob, clearBytes, '.m4a');
   try {
@@ -73,7 +88,7 @@ Future<void> _showVideo(
   Uint8List clearBytes,
 ) async {
   if (!Platform.isAndroid && !Platform.isIOS && !Platform.isMacOS) {
-    throw UnsupportedError('当前平台尚未接入视频播放 Provider');
+    throw UnsupportedError('此设备暂不支持视频播放');
   }
   final temporary = await _writeTemporaryMedia(blob, clearBytes, '.mp4');
   try {

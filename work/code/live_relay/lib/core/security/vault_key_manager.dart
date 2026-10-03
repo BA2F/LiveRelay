@@ -5,6 +5,8 @@ import 'dart:typed_data';
 
 import 'package:cryptography/cryptography.dart';
 
+import 'vault_password_policy.dart';
+
 class VaultUnlockException implements Exception {
   const VaultUnlockException([this.message = '主密码不正确或 Vault 已损坏']);
 
@@ -59,9 +61,10 @@ class VaultKeyManager {
     int? wordCount,
   }) async {
     if (await exists()) throw StateError('Vault 已存在');
-    if (canonicalPassword.length < 8) {
-      throw const FormatException('主密码至少需要 8 个字符');
-    }
+    final validationError = VaultPasswordPolicy.creationError(
+      canonicalPassword,
+    );
+    if (validationError != null) throw FormatException(validationError);
     await rootDirectory.create(recursive: true);
 
     final masterKey = _randomBytes(32);

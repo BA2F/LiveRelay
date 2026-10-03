@@ -97,7 +97,17 @@ class VaultBlob {
   final List<SensitiveMark> sensitiveMarks;
 }
 
-class LifeCard {
+abstract interface class InformationCard {
+  String get id;
+  String get title;
+  List<String> get tags;
+  DateTime get createdAt;
+  DateTime get updatedAt;
+  int get revisionNumber;
+  bool get isDeleted;
+}
+
+class LifeCard implements InformationCard {
   const LifeCard({
     required this.id,
     required this.title,
@@ -113,20 +123,27 @@ class LifeCard {
     this.parentCardId,
   });
 
+  @override
   final String id;
+  @override
   final String title;
   final String content;
   final CardKind kind;
   final CardStatus status;
+  @override
   final List<String> tags;
+  @override
   final DateTime createdAt;
+  @override
   final DateTime updatedAt;
   final DateTime? confirmedAt;
   final DateTime? deletedAt;
   final String? parentCardId;
+  @override
   final int revisionNumber;
 
   bool get isDraft => status == CardStatus.draft;
+  @override
   bool get isDeleted => deletedAt != null;
 }
 
@@ -186,7 +203,7 @@ class CardRelation {
   final RelationKind kind;
 }
 
-class CredentialEntry {
+class CredentialEntry implements InformationCard {
   const CredentialEntry({
     required this.id,
     required this.title,
@@ -201,18 +218,25 @@ class CredentialEntry {
     this.deletedAt,
   });
 
+  @override
   final String id;
+  @override
   final String title;
   final String username;
   final String secret;
   final String website;
   final String notes;
+  @override
   final List<String> tags;
+  @override
   final DateTime createdAt;
+  @override
   final DateTime updatedAt;
   final DateTime? deletedAt;
+  @override
   final int revisionNumber;
 
+  @override
   bool get isDeleted => deletedAt != null;
 }
 

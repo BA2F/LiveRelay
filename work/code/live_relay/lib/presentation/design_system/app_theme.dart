@@ -1,22 +1,35 @@
 import 'package:flutter/material.dart';
 
+import 'appearance_tokens.dart';
+
 class LiveRelayTheme {
   const LiveRelayTheme._();
 
   static const seed = Color(0xFF9A4D16);
 
-  static ThemeData light() => _theme(Brightness.light);
+  static ThemeData light({
+    Color seedColor = seed,
+    AppearanceTokens tokens = const AppearanceTokens(),
+  }) => _theme(Brightness.light, seedColor, tokens);
 
-  static ThemeData dark() => _theme(Brightness.dark);
+  static ThemeData dark({
+    Color seedColor = seed,
+    AppearanceTokens tokens = const AppearanceTokens(),
+  }) => _theme(Brightness.dark, seedColor, tokens);
 
-  static ThemeData _theme(Brightness brightness) {
+  static ThemeData _theme(
+    Brightness brightness,
+    Color seedColor,
+    AppearanceTokens tokens,
+  ) {
     final scheme = ColorScheme.fromSeed(
-      seedColor: seed,
+      seedColor: seedColor,
       brightness: brightness,
       dynamicSchemeVariant: DynamicSchemeVariant.tonalSpot,
     );
     return ThemeData(
       useMaterial3: true,
+      extensions: [tokens],
       materialTapTargetSize: MaterialTapTargetSize.padded,
       filledButtonTheme: FilledButtonThemeData(
         style: FilledButton.styleFrom(minimumSize: const Size(48, 48)),
@@ -43,21 +56,23 @@ class LiveRelayTheme {
         elevation: 0,
         color: scheme.surfaceContainerLow,
         margin: EdgeInsets.zero,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(tokens.cardRadius),
+        ),
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         fillColor: scheme.surfaceContainerHighest.withValues(alpha: 0.45),
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(tokens.fieldRadius),
           borderSide: BorderSide.none,
         ),
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(tokens.fieldRadius),
           borderSide: BorderSide.none,
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(tokens.fieldRadius),
           borderSide: BorderSide(color: scheme.primary, width: 1.5),
         ),
       ),

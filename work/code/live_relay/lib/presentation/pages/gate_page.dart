@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../../application/app_controller.dart';
 import '../../core/security/chinese_passphrase.dart';
+import '../../core/security/vault_password_policy.dart';
 import '../design_system/atoms.dart';
 import '../dialogs/backup_dialogs.dart';
 
@@ -79,6 +80,17 @@ class _SetupVaultPageState extends State<SetupVaultPage> {
   bool _obscure = true;
   int _wordCount = 6;
   ChinesePassphrase? _generated;
+  String? _creationError;
+
+  bool get _passwordValid =>
+      VaultPasswordPolicy.creationError(_password.text) == null;
+  bool get _confirmationMatches =>
+      _confirmation.text.isNotEmpty && _confirmation.text == _password.text;
+  bool get _canCreate =>
+      _savedPassphrase &&
+      (_useGenerator
+          ? _generated != null
+          : _passwordValid && _confirmationMatches);
 
   @override
   void dispose() {
@@ -94,10 +106,12 @@ class _SetupVaultPageState extends State<SetupVaultPage> {
       _password.text = phrase.chinese;
       _confirmation.clear();
       _savedPassphrase = false;
+      _creationError = null;
     });
   }
 
   Future<void> _submit(AppController controller) async {
+    if (!_useGenerator && !_passwordValid) return;
     if (!_savedPassphrase) {
       ScaffoldMessenger.of(context)
           .showSnackBar(const SnackBar(content: Text('请先确认已妥善保存口令')));
@@ -114,14 +128,20 @@ class _SetupVaultPageState extends State<SetupVaultPage> {
       return;
     }
     try {
+      setState(() => _creationError = null);
       await controller.setupVault(
         password: _password.text,
         usesChinesePassphrase: _useGenerator,
         wordCount: _useGenerator ? _wordCount : null,
         enableBiometric: _enableBiometric && controller.biometricAvailable,
       );
+      if (mounted && controller.isUnlocked && Navigator.of(context).canPop()) {
+        Navigator.pop(context);
+      }
     } on Object {
-      // The controller exposes a safe user-facing error below.
+      if (mounted) {
+        setState(() => _creationError = controller.lastError ?? '资料库未创建，请重试');
+      }
     }
   }
 
@@ -161,6 +181,7 @@ class _SetupVaultPageState extends State<SetupVaultPage> {
                           _password.clear();
                           _confirmation.clear();
                           _savedPassphrase = false;
+                          _creationError = null;
                         }),
                 ),
             ],
@@ -190,6 +211,7 @@ class _SetupVaultPageState extends State<SetupVaultPage> {
                                 _password.clear();
                                 _confirmation.clear();
                                 _savedPassphrase = false;
+                                _creationError = null;
                               }),
                       ),
                     ),
@@ -232,9 +254,22 @@ class _SetupVaultPageState extends State<SetupVaultPage> {
           TextField(
             controller: _password,
             obscureText: _obscure,
+            readOnly: _useGenerator,
             enabled: !controller.isBusy,
+            onChanged: (_) => setState(() {
+              _savedPassphrase = false;
+              _creationError = null;
+            }),
             decoration: InputDecoration(
               labelText: _useGenerator ? '中文词组口令' : '主密码',
+              helperText: _useGenerator
+                  ? (_generated == null ? '点击上方按钮生成口令' : '已生成，请妥善保存')
+                  : '至少 ${VaultPasswordPolicy.minimumLength} 个字符，支持中文、字母、数字和符号',
+              helperMaxLines: 3,
+              errorMaxLines: 2,
+              errorText: !_useGenerator && _password.text.isNotEmpty
+                  ? VaultPasswordPolicy.creationError(_password.text)
+                  : null,
               prefixIcon: const Icon(Icons.key),
               suffixIcon: IconButton(
                 tooltip: _obscure ? '显示口令' : '遮挡口令',
@@ -243,25 +278,40 @@ class _SetupVaultPageState extends State<SetupVaultPage> {
               ),
             ),
           ),
+          if (!_useGenerator && _passwordValid)
+            const _ValidationCheck('密码长度符合要求'),
           const SizedBox(height: 12),
           if (!_useGenerator)
             TextField(
               controller: _confirmation,
               obscureText: _obscure,
               enabled: !controller.isBusy,
-              decoration: const InputDecoration(
+              onChanged: (_) => setState(() => _creationError = null),
+              decoration: InputDecoration(
                 labelText: '再次输入主密码',
                 prefixIcon: Icon(Icons.verified_user_outlined),
+                helperText: '请再次输入相同的密码',
+                helperMaxLines: 2,
+                errorMaxLines: 2,
+                errorText:
+                    _confirmation.text.isNotEmpty && !_confirmationMatches
+                    ? '两次输入的密码不一致'
+                    : null,
               ),
             ),
+          if (!_useGenerator && _confirmationMatches)
+            const _ValidationCheck('两次输入一致'),
           CheckboxListTile(
             contentPadding: EdgeInsets.zero,
             value: _savedPassphrase,
             onChanged: controller.isBusy
                 ? null
-                : (value) => setState(() => _savedPassphrase = value ?? false),
+                : (value) => setState(() {
+                    _savedPassphrase = value ?? false;
+                    _creationError = null;
+                  }),
             title: const Text('我已妥善保存口令'),
-            subtitle: const Text('口令无法找回。指纹不能代替换设备时的恢复口令。'),
+            subtitle: const Text('口令无法找回。换设备后需要口令才能解锁。'),
           ),
           if (controller.biometricAvailable) ...[
             const SizedBox(height: 8),
@@ -272,17 +322,19 @@ class _SetupVaultPageState extends State<SetupVaultPage> {
                   ? null
                   : (value) => setState(() => _enableBiometric = value),
               title: const Text('启用指纹解锁'),
-              subtitle: const Text('主密码仍是恢复资料库 的必要入口'),
+              subtitle: const Text('换设备后仍需使用解锁口令'),
               secondary: const Icon(Icons.fingerprint),
             ),
           ],
-          if (controller.lastError != null) ...[
+          if (_creationError != null) ...[
             const SizedBox(height: 12),
-            ErrorBanner(controller.lastError!),
+            ErrorBanner(_creationError!),
           ],
           const SizedBox(height: 20),
           FilledButton.icon(
-            onPressed: controller.isBusy ? null : () => _submit(controller),
+            onPressed: controller.isBusy || !_canCreate
+                ? null
+                : () => _submit(controller),
             icon: controller.isBusy
                 ? const SizedBox.square(
                     dimension: 18,
@@ -304,6 +356,29 @@ class _SetupVaultPageState extends State<SetupVaultPage> {
       ),
     );
   }
+}
+
+class _ValidationCheck extends StatelessWidget {
+  const _ValidationCheck(this.message);
+  final String message;
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.only(top: 8),
+    child: Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(
+          Icons.check_circle_outline,
+          size: 20,
+          color: Theme.of(context).colorScheme.primary,
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(message, style: Theme.of(context).textTheme.bodySmall),
+        ),
+      ],
+    ),
+  );
 }
 
 class UnlockVaultPage extends StatefulWidget {

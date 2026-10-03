@@ -317,7 +317,7 @@ class _TransitionActions extends StatelessWidget {
       context: context,
       builder: (dialogContext) => AlertDialog(
         title: Text('模拟切换到“${target.label}”？'),
-        content: const Text('这只改变本机 MVP 的演示状态，并按已有策略计算可见范围。'),
+        content: const Text('这只改变本机模拟状态，不会通知他人。'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogContext, false),

@@ -10,9 +10,11 @@ import 'package:provider/provider.dart';
 import 'package:record/record.dart';
 
 import '../../application/app_controller.dart';
+import '../../application/device_capabilities.dart';
 import '../../core/domain/entities.dart';
 import '../design_system/atoms.dart';
 import '../dialogs/card_dialogs.dart';
+import '../dialogs/capability_dialog.dart';
 import '../widgets/life_card_tile.dart';
 import 'cards_page.dart';
 import 'originals_page.dart';
@@ -63,6 +65,17 @@ class CapturePage extends StatelessWidget {
                     : () => _recordAudio(context, controller),
                 icon: const Icon(Icons.mic_outlined),
                 label: const Text('录音'),
+              ),
+              OutlinedButton.icon(
+                onPressed: controller.isBusy
+                    ? null
+                    : () => showCapabilityMessage(
+                        context,
+                        '语音输入',
+                        controller.capability(AppFeature.speechInput),
+                      ),
+                icon: const Icon(Icons.keyboard_voice_outlined),
+                label: const Text('语音输入'),
               ),
               OutlinedButton.icon(
                 onPressed: controller.isBusy
@@ -216,6 +229,15 @@ class CapturePage extends StatelessWidget {
     AppController controller,
     BlobMediaKind kind,
   ) async {
+    final capability = controller.capability(AppFeature.camera);
+    if (!capability.isAvailable) {
+      await showCapabilityMessage(
+        context,
+        kind == BlobMediaKind.image ? '拍照' : '录像',
+        capability,
+      );
+      return;
+    }
     final picker = ImagePicker();
     final captured = kind == BlobMediaKind.image
         ? await picker.pickImage(
@@ -417,7 +439,7 @@ class _AudioRecorderSheetState extends State<_AudioRecorderSheet> {
             style: Theme.of(context).textTheme.headlineSmall,
           ),
           const SizedBox(height: 8),
-          const Text('停止后立即进入加密 Blob；MVP 暂不自动转写。'),
+          const Text('录音会加密保存，暂不自动转写。'),
           if (_error != null) ...[
             const SizedBox(height: 12),
             Text(

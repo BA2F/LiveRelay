@@ -11,6 +11,8 @@ import 'package:path/path.dart' as path;
 import 'package:path_provider/path_provider.dart';
 
 import '../core/ai/ai_privacy.dart';
+import 'card_summary.dart';
+import 'device_capabilities.dart';
 import '../core/domain/entities.dart';
 import '../core/ports/ai_provider.dart';
 import '../core/ports/biometric_key_store.dart';
@@ -88,6 +90,30 @@ class AppController extends ChangeNotifier {
   );
 
   bool get isUnlocked => sessionState == VaultSessionState.unlocked;
+  final capabilities = DeviceCapabilities.current();
+
+  FeatureCapability capability(AppFeature feature) =>
+      capabilities.feature(feature, biometricAvailable: biometricAvailable);
+
+  List<CardSummary> findInformationCards(
+    String query, {
+    CardKind? kind,
+    CardStatus? status,
+    bool passwordsOnly = false,
+  }) {
+    final summaries = <CardSummary>[
+      if (!passwordsOnly)
+        ...findCards(
+          query,
+          kind: kind,
+          status: status,
+        ).map(CardSummary.fromRecord),
+      if (kind == null && status == null)
+        ...findCredentials(query).map(CardSummary.fromRecord),
+    ];
+    summaries.sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
+    return List.unmodifiable(summaries);
+  }
 
   Future<void> initialize() async {
     try {

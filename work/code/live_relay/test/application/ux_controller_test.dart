@@ -57,6 +57,44 @@ void main() {
   );
 
   test(
+    'unified password view retains canonical storage, revisions and recycling',
+    () async {
+      await c.saveCredential(
+        const CredentialDraft(
+          title: '邮箱',
+          username: 'owner',
+          secret: 'never-index-me',
+        ),
+      );
+      final id = c.credentials.single.id;
+      expect(c.cards, isEmpty);
+      expect(
+        c.findInformationCards('', passwordsOnly: true).single.recordId,
+        id,
+      );
+      expect(c.findInformationCards('never-index-me'), isEmpty);
+      await c.saveCredential(
+        const CredentialDraft(
+          title: '新邮箱',
+          username: 'owner',
+          secret: 'new-secret',
+        ),
+        id: id,
+      );
+      expect(c.findInformationCards('新邮箱').single.recordId, id);
+      expect(await c.credentialHistory(id), hasLength(2));
+      await c.lock();
+      await c.unlockWithPassword(password);
+      expect(c.findInformationCards('新邮箱').single.recordId, id);
+      await c.trashCredential(id);
+      expect(c.findInformationCards(''), isEmpty);
+      await c.restoreCredential(id);
+      expect(c.findInformationCards('').single.recordId, id);
+      expect(c.cards, isEmpty);
+    },
+  );
+
+  test(
     'manual original path, revisions and recycle survive encrypted reopen',
     () async {
       final bytes = Uint8List.fromList(utf8.encode('original-test-content'));

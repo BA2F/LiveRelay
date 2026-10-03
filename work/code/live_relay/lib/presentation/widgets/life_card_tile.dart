@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 
 import '../../core/domain/entities.dart';
 import '../design_system/atoms.dart';
+import '../design_system/appearance_tokens.dart';
 import '../model_labels.dart';
 
 class LifeCardTile extends StatelessWidget {
@@ -25,7 +26,9 @@ class LifeCardTile extends StatelessWidget {
     return Card(
       color: selected ? scheme.secondaryContainer : null,
       child: InkWell(
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(
+          AppearanceTokens.of(context).cardRadius,
+        ),
         onTap: onTap,
         onLongPress: onSelected == null ? null : () => onSelected!(!selected),
         child: Padding(

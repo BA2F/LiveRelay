@@ -5,6 +5,8 @@ import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
 import '../../application/app_controller.dart';
+import '../../application/device_capabilities.dart';
+import '../dialogs/capability_dialog.dart';
 import '../../core/domain/entities.dart';
 import '../design_system/atoms.dart';
 import '../dialogs/ai_privacy_dialogs.dart';
@@ -266,10 +268,23 @@ class _OriginalWorkspaceState extends State<_OriginalWorkspace> {
                       ),
                       onPressed: controller.isBusy
                           ? null
-                          : () => runUiAction(context, () async {
-                              await controller.runOcr(blob.id);
-                              _reloadLinked();
-                            }, success: '识别文字已保存为待整理草稿'),
+                          : () {
+                              final capability = controller.capability(
+                                AppFeature.ocr,
+                              );
+                              if (!capability.isAvailable) {
+                                showCapabilityMessage(
+                                  context,
+                                  '识别文字',
+                                  capability,
+                                );
+                                return;
+                              }
+                              runUiAction(context, () async {
+                                await controller.runOcr(blob.id);
+                                _reloadLinked();
+                              }, success: '识别文字已保存为待整理草稿');
+                            },
                     ),
                   if (blob.ocrText != null) ...[
                     ExpansionTile(

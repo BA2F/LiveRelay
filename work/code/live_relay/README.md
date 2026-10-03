@@ -1,4 +1,4 @@
-# LiveRelay Flutter/Android 应用
+# LiveRelay Flutter 应用
 
 应用源码入口。产品用途、安装包和操作入门见 [仓库 README](../../../README.md)。
 
@@ -7,6 +7,7 @@
 - Flutter stable，Dart 版本符合 `pubspec.yaml`（当前约束 `^3.13.2`）；依赖锁定于 `pubspec.lock`。
 - Android SDK、Java 17+；Android 最低 API 24。最近可运行工具链和验证结果见 [质量记录](../../../docs/60_quality/00_测试与验证策略.md)。
 - Agent 开发任务使用 [AGENTS.md](../../../AGENTS.md)指定的 Linux 工作区。
+- Linux 桌面需要 Flutter desktop 工具链、GTK 与 libsecret 开发依赖；Windows runner 已生成，Windows 编译及安全存储需在 Windows 验证。
 
 ## 运行
 
@@ -33,21 +34,29 @@ Debug 使用 `app.liverelay.live_relay.verification`，与 Release 的 `app.live
 flutter analyze
 flutter test
 flutter drive --driver=test_driver/ux_driver.dart --target=integration_test/ux_flow_test.dart -d <android-device-id>
+flutter test integration_test/formal_foundation_desktop_test.dart -d linux
 ```
 
 `test/` 包含领域、安全、加密仓储/备份、Provider 边界和 Widget 行为测试。`integration_test/ux_flow_test.dart` 在独立临时资料库中使用真实 SQLCipher、Blob 和 Android ML Kit；离线 AI Provider 记录实际外发文本，验证单次授权，不使用真实 API Key。该测试生成虚构资料，Driver 将运行截图写入 `work/paper/uiux-review-2026-10-01/implementation-screenshots/`。
 
 不要将原用户资料库或真实个人资料作为回归输入。真实服务和实体硬件的验收需单独记录，不用离线测试代替。
 
+`formal_foundation_desktop_test.dart` 使用临时目录和真实 SQLCipher，验证首次设置、偏好保存、统一卡片视图、平台能力提示、重新解锁和备份核对。可传入 `--dart-define=FOUNDATION_SCREENSHOTS=/绝对输出目录` 保存虚构资料截图。
+
 ## 构建
 
 ```bash
 flutter build apk --release
+flutter build linux --release
+# 在 Windows 主机运行
+flutter build windows --release
 ```
 
 产物：`build/app/outputs/flutter-apk/app-release.apk`。Java 不在环境路径时，设置 `JAVA_HOME` 和对应 `PATH` 后构建。本机使用 Android Studio 自带 JBR；它是环境配置，不写入仓库。
 
 当前 Release 配置使用内部 Android Debug 证书。正式发布前需配置发布签名并完成安全/真机验收。已发布 APK 的版本、源码提交、证书和校验值见 [发布记录](../../../docs/60_quality/releases/)，流程见 [RELEASING](../../../RELEASING.md)。
+
+正式版第一切片新增首次设置、我的、可持久化外观和宽屏导航。设备偏好只存外观、字级与引导标记，不包含密钥或身份权限；已有 Vault 不重新创建。密码卡片摘要与密码库操作同一凭据，秘密仅在专门操作中出现。语言目前仅完成简体中文。后续产品范围见 [正式版演进](../../../docs/20_product/16_正式版演进与已确认范围.md)。
 
 ## 代码分层
 

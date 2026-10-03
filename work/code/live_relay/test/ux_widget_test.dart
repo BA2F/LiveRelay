@@ -143,7 +143,7 @@ void main() {
           app(c, const HomeShell(), dark: dark, scale: 2),
         );
         await tester.pumpAndSettle();
-        for (final label in ['卡片', '密码库', '交接', '记录']) {
+        for (final label in ['卡片', '密码库', '交接', '我的', '记录']) {
           await tester.tap(find.text(label).last);
           await tester.pumpAndSettle();
           expect(tester.takeException(), isNull, reason: label);
@@ -242,7 +242,7 @@ void main() {
         final handle = tester.ensureSemantics();
         await tester.pumpWidget(app(c, const HomeShell(), dark: dark));
         await tester.pumpAndSettle();
-        for (final label in ['记录', '卡片', '密码库', '交接']) {
+        for (final label in ['记录', '卡片', '密码库', '交接', '我的']) {
           await tester.tap(find.text(label).last);
           await tester.pumpAndSettle();
           await expectLater(tester, meetsGuideline(labeledTapTargetGuideline));

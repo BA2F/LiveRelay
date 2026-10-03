@@ -4,7 +4,7 @@ import 'package:provider/provider.dart';
 import '../../application/app_controller.dart';
 import '../design_system/atoms.dart';
 import '../dialogs/card_dialogs.dart';
-import 'passwords_page.dart';
+import '../dialogs/credential_dialogs.dart';
 
 class RecyclePage extends StatelessWidget {
   const RecyclePage({super.key});

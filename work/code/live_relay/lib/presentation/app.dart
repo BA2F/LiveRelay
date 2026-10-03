@@ -3,15 +3,18 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:provider/provider.dart';
 
 import '../application/app_controller.dart';
+import '../application/app_preferences.dart';
 import 'design_system/app_theme.dart';
 import 'pages/gate_page.dart';
 import 'pages/home_shell.dart';
+import 'pages/onboarding_page.dart';
 
 class LiveRelayApp extends StatelessWidget {
   const LiveRelayApp({super.key});
 
   @override
   Widget build(BuildContext context) {
+    final preferences = context.watch<AppPreferences?>();
     return MaterialApp(
       title: '留灯 LiveRelay',
       locale: const Locale('zh', 'CN'),
@@ -20,13 +23,36 @@ class LiveRelayApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       theme: LiveRelayTheme.light(),
       darkTheme: LiveRelayTheme.dark(),
-      themeMode: ThemeMode.system,
+      themeMode: switch (preferences?.appearance) {
+        AppearanceMode.light => ThemeMode.light,
+        AppearanceMode.dark => ThemeMode.dark,
+        _ => ThemeMode.system,
+      },
+      builder: (context, child) {
+        final media = MediaQuery.of(context);
+        // Keep accessibility scaling; the app setting only raises the minimum.
+        final minimum = preferences?.readingSize == ReadingSize.large
+            ? 1.25
+            : 1.0;
+        return MediaQuery(
+          data: media.copyWith(
+            textScaler: media.textScaler.clamp(minScaleFactor: minimum),
+          ),
+          child: child!,
+        );
+      },
       home: Consumer<AppController>(
         builder: (context, controller, _) => switch (controller.sessionState) {
           VaultSessionState.loading => const _LoadingScreen(),
-          VaultSessionState.needsSetup => const SetupVaultPage(),
+          VaultSessionState.needsSetup =>
+            preferences == null
+                ? const SetupVaultPage()
+                : const OnboardingPage(),
           VaultSessionState.locked => const UnlockVaultPage(),
-          VaultSessionState.unlocked => const HomeShell(),
+          VaultSessionState.unlocked =>
+            preferences != null && !preferences.onboardingComplete
+                ? const FinishSetupPage()
+                : const HomeShell(),
           VaultSessionState.failure => FailurePage(
             message: controller.lastError ?? '初始化失败',
           ),
