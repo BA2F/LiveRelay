@@ -26,7 +26,7 @@ Drift 生成文件已纳入源码。修改数据库表定义后重新生成：
 dart run build_runner build
 ```
 
-Debug 使用 `app.liverelay.live_relay.verification`，与 Release 的 `app.liverelay.live_relay` 分属独立 Android 数据沙箱。测试安装不覆盖正式资料库；不同包之间不会自动共享资料或指纹槽。
+Debug 使用 `app.liverelay.live_relay.verification`，显示为“留灯·联调”，与 Release 的 `app.liverelay.live_relay` 分属独立 Android 数据沙箱。测试安装不覆盖正式资料库；不同包之间不会自动共享资料或指纹槽。`integration_test` 的 APK 是测试入口，测试结束后不作为普通软件使用；手工联调须重新构建 `--debug --target lib/main.dart` 并安装。
 
 ## 检查与测试
 
@@ -56,6 +56,17 @@ flutter build windows --release
 产物：`build/app/outputs/flutter-apk/app-release.apk`。Java 不在环境路径时，设置 `JAVA_HOME` 和对应 `PATH` 后构建。本机使用 Android Studio 自带 JBR；它是环境配置，不写入仓库。
 
 当前 Release 配置使用内部 Android Debug 证书。正式发布前需配置发布签名并完成安全/真机验收。已发布 APK 的版本、源码提交、证书和校验值见 [发布记录](../../../docs/60_quality/releases/)，流程见 [RELEASING](../../../RELEASING.md)。
+
+Arch／新 glibc 环境的原生插件可能引入旧发行版不存在的符号；MVP0.3 的 secure-storage 插件实际要求 `GLIBC_2.38`，无法在 Ubuntu22.04 启动。下一版 Linux 候选须从 Ubuntu22.04 构建并检查全部 ELF，使用已验证的 [隔离构建脚本](../../../scripts/build_linux_ubuntu22.py)：
+
+```bash
+# 从仓库根目录；rootfs 须预先安装 clang、cmake、ninja-build、pkg-config、
+# libgtk-3-dev、libsecret-1-dev、git、curl、unzip、xz-utils、ca-certificates。
+python3 scripts/build_linux_ubuntu22.py --rootfs <Ubuntu22.04独立rootfs目录> \
+  --flutter-sdk <FlutterSDK目录> --pub-cache <Pub缓存目录> --build-number 3
+```
+
+宿主需 Python3、readelf、bubblewrap 和可用 user namespaces。只挂载应用、SDK 和 hosted 包缓存，不挂载真实资料库；脚本清理 release CMake 缓存，防止混用宿主路径，输出 GLIBC／GLIBCXX／CXXABI 审计。完整 bundle 运行需 GTK3、GLib、libsecret、libstdc++、桌面图形环境；AI Key 存储另需会话 D-Bus 和 Secret Service（例如已解锁的 GNOME Keyring），Linux录音另需parecord、ffmpeg和系统音频服务。已验证 Ubuntu22.04 隔离 Xvfb 启动、原生交接及Secret Service；EndeavourOS正常桌面候选和语音现场试用由本人确认正常。无声卡的 rootfs 不代表完整桌面音频验收，更多发行版／声卡仍待覆盖。已有 Tag／附件保持原样。
 
 正式版第一切片新增首次设置、我的、可持久化外观和宽屏导航。设备偏好只存外观、字级与引导标记，不包含密钥或身份权限；已有 Vault 不重新创建。密码卡片摘要与密码库操作同一凭据，秘密仅在专门操作中出现。语言目前仅完成简体中文。后续产品范围见 [正式版演进](../../../docs/20_product/16_正式版演进与已确认范围.md)。
 
@@ -88,15 +99,15 @@ flutter test integration_test/header_v2_desktop_test.dart -d linux --no-pub --da
 
 `test/fixtures/header_v2/` 全部为公开虚构密码／密钥样本；Python reference 与 Dart writer 支持双向互操作，使用带 Argon2id 的 Python cryptography（本轮 50.0.1）。独立验证代码位于 `test/support/header_v2_reference.py` 和 `header_v2_dart_writer.dart`，不会读取真实用户库。
 
-K2 新增 Android 原生 DeviceFactorChannel 和 DeviceFactorProtection，只保护随机设备分支秘密并要求每次强生物识别授权；新设备 suite 与旧 VMK namespace 分离，桌面返回不支持。本机设置与恢复已在 v3 实现，Android 真机验证未完成。测试软件设备替身位于 test/support，不作为生产回退。独立 writer 可添加 --device 生成公开虚构设备 suite 样本；Python reader 可认证其密码／恢复路径和整 Header，不能代替 Keystore 测试。
+K2 新增 Android 原生 DeviceFactorChannel 和 DeviceFactorProtection，只保护随机设备分支秘密并要求每次强生物识别授权；新设备 suite 与旧 VMK namespace 分离，桌面返回不支持。本机设置与恢复已在 v3 实现；2026-10-04小米13Android13已验证真实启用／解锁／后台取消和换钥恢复，其他机型及录入新指纹失效仍待验证。测试软件设备替身位于 test/support，不作为生产回退。独立 writer 可添加 --device 生成公开虚构设备 suite 样本；Python reader 可认证其密码／恢复路径和整 Header，不能代替 Keystore 测试。
 
 ## 软件基础使用
 
 密码库新建／编辑凭据可选择随机密码生成，调整长度与字符类别后选用；已有中文词组生成器保留，默认遮挡和限时复制不变。
 
-“我的 → AI 服务设置”选择 Responses，填写兼容 HTTPS 地址（例如 `https://api.openai.com/v1/responses`）、模型与自己的服务密钥；“Agent 整理”粘贴本次文字、标记敏感行并确认外发范围。结果需本人核对后保存。Linux 支持本次可选隔离命令，需系统 `/usr/bin/bwrap`、Bash、prlimit 及可用 user namespaces；探测失败不会运行宿主命令，其他平台仍能云文字整理。真实服务尚未用受控 Key 联调。
+“我的 → AI 服务设置”选择 Responses，填写兼容 HTTPS 地址（例如 `https://api.openai.com/v1/responses`）、模型与自己的服务密钥；“Agent 整理”粘贴本次文字、标记敏感行并确认外发范围。结果需本人核对后保存。Linux 支持本次可选隔离命令，需系统 `/usr/bin/bwrap`、Bash、prlimit 及可用 user namespaces；探测失败不会运行宿主命令，其他平台仍能云文字整理。本人已在手机确认受控DeepSeek服务／deepseek-flash真实调用正常；当前Agent建议仍保存为普通卡片，密码子类型录入／转换尚未贯通。
 
-“记录／我的 → 本地语音输入”明确下载约 156 MB 官方模型或导入相同官方包，预留约 1 GB 安装空间。录音最长 60 秒，或导入 16 kHz 单声道 PCM16 WAV；原件加密保存，本地识别后核对文字、保存关联草稿。模型单独存储和卸载，APK 不内置权重。Linux 真模型已跑通，手机资源与 Windows 运行仍待验收。
+“记录／我的 → 本地语音输入”明确下载约 156 MB 官方模型或导入相同官方包，预留约 1 GB 安装空间。录音最长 60 秒，或导入 16 kHz 单声道 PCM16 WAV；原件加密保存，本地识别后核对文字、保存关联草稿。模型单独存储和卸载，APK 不内置权重。Linux和小米13真模型已跑通；5.592秒公开WAV真机转写1489ms、500ms采样进程RSS峰值约837MiB，更低资源手机与Windows运行仍待验收。
 
 公开样本验证工具（不用真实资料库／音频／API Key）：
 
@@ -105,7 +116,7 @@ dart run test/support/speech_smoke.dart <官方模型压缩包> <隔离模型目
 dart run test/support/agent_sandbox_smoke.dart
 ```
 
-当前软件基础进度见 [交付](../../../handoffs/2026-10-03_软件基础加速交付.md)，恢复产品流程、真实限定范围交接、摇篮／分层备份继续开发。
+当前软件基础进度见 [交付](../../../handoffs/2026-10-03_软件基础加速交付.md)，本机恢复、真实限定范围交接和分层备份已实现，云摇篮仍后置；最新实际验收见 [2026-10-04验证](../../../docs/60_quality/2026-10-04_实际联调验证.md)。
 
 ## 本机安全、身份、交接与分层备份
 

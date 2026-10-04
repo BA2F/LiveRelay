@@ -312,6 +312,8 @@ class VaultKeyManager {
         device: device,
         preferred: preferred,
       );
+    } on DeviceFactorException {
+      rethrow;
     } on Object {
       throw const VaultUnlockException('凭证缺失、不正确或设备不可用');
     }

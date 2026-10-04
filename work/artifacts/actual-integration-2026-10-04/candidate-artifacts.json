@@ -1,0 +1,17 @@
+{
+  "baseline": "94c8c8409ab21320cd236bd30457a3bb60582a17",
+  "uncommittedChanges": true,
+  "entry": "lib/main.dart",
+  "buildNumber": 3,
+  "published": false,
+  "artifacts": {
+    "LiveRelay-1.0.0-build3-Linux-x86_64-candidate.tar.gz": {
+      "bytes": 24094717,
+      "sha256": "4dd7a8e69b6166740ff408a8fc296204e44ea7702a5106eb95bc9b057e10b05d"
+    },
+    "LiveRelay-1.0.0-build3-Android-verification.apk": {
+      "bytes": 297084979,
+      "sha256": "2bf5030c4429fae14bdf9d39d6709bf91beab92030b52860257ff2b4801507e6"
+    }
+  }
+}

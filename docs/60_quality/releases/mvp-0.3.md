@@ -30,6 +30,8 @@ APK使用现有Android Debug证书，只供内部侧载验收；Release构建模
 
 ## 制品身份
 
+2026-10-04 实际联调补充：小米13／Android13复现指纹启用和解锁失败，原因是授权前提交 Keystore AAD，以及 Dart 平台通道只读缓冲区清零异常。修复已在隔离 `.verification` 包通过，尚未发布，本文旧 APK 不含修复。Linux 原附件在 Ubuntu22.04／glibc2.35实际启动失败，secure-storage 插件需要 `GLIBC_2.38`；新的 Ubuntu22.04 构建候选已解决，但旧附件保持固定。详见 [本轮验证记录](../2026-10-04_实际联调验证.md)。
+
 已发布于 `2026-10-03T15:03:07Z`，源码commit `9cf27684b296559748ae46e0223d2538f80d6b49`，`mvp-0.3` annotated tag固定指向该提交；服务端附件身份和源码commit回写仓库 [artifacts.json](https://github.com/BA2F/LiveRelay/blob/main/docs/60_quality/releases/artifacts.json)。
 
 | 附件 | 字节数 | SHA-256 |

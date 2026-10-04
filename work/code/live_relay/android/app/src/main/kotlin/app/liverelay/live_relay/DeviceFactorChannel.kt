@@ -3,9 +3,11 @@ package app.liverelay.live_relay
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
+import android.util.Log
 import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyPermanentlyInvalidatedException
 import android.security.keystore.KeyProperties
+import android.security.KeyStoreException
 import androidx.biometric.BiometricManager
 import androidx.biometric.BiometricPrompt
 import androidx.core.content.ContextCompat
@@ -81,6 +83,7 @@ class DeviceFactorChannel(
         }
         var createdAlias: String? = null
         var inputToClear: ByteArray? = null
+        var stage = "prepare"
         try {
             val reference = call.argument<String>("reference") ?: throw IllegalArgumentException()
             val keyAlias = alias(reference)
@@ -135,7 +138,6 @@ class DeviceFactorChannel(
                 inputToClear = input
                 cipher.init(Cipher.DECRYPT_MODE, key, GCMParameterSpec(128, nonce))
             }
-            cipher.updateAAD(aad)
             val active = Operation(result, keyAlias, creating, input)
             operation = active
             val biometricPrompt = BiometricPrompt(
@@ -144,8 +146,14 @@ class DeviceFactorChannel(
                     override fun onAuthenticationSucceeded(auth: BiometricPrompt.AuthenticationResult) {
                         if (operation !== active) return
                         var clear: ByteArray? = null
+                        var authorizedStage = "authorized-aad"
                         try {
                             val authorized = auth.cryptoObject?.cipher ?: throw IllegalStateException()
+                            // Auth-per-use Keystore keys cannot process AAD before
+                            // authorization. Some providers cache that error and
+                            // only expose it as IllegalBlockSizeException at doFinal.
+                            authorized.updateAAD(aad)
+                            authorizedStage = "authorized-cipher"
                             val output = authorized.doFinal(active.input)
                             if (active.creating) {
                                 require(authorized.iv.size == 12 && output.size == 48)
@@ -161,6 +169,7 @@ class DeviceFactorChannel(
                                 succeed(active, output)
                             }
                         } catch (error: Exception) {
+                            logFailure(authorizedStage, error)
                             fail(active, errorCode(error))
                         } finally { clear?.fill(0) }
                     }
@@ -182,6 +191,7 @@ class DeviceFactorChannel(
             )
             prompt = biometricPrompt
             handler.postDelayed(timeout, 60_000)
+            stage = "biometric-prompt"
             biometricPrompt.authenticate(
                 BiometricPrompt.PromptInfo.Builder()
                     .setTitle(if (creating) "启用留灯指纹解锁" else "用指纹解锁留灯")
@@ -192,6 +202,9 @@ class DeviceFactorChannel(
                 BiometricPrompt.CryptoObject(cipher),
             )
         } catch (error: Exception) {
+            // Record only operation stage and exception class, never key bytes,
+            // references, AAD, input, provider messages or stack details.
+            logFailure(stage, error)
             val active = operation
             if (active != null) fail(active, errorCode(error))
             else {
@@ -206,6 +219,13 @@ class DeviceFactorChannel(
         is KeyPermanentlyInvalidatedException -> "invalidated"
         is AEADBadTagException, is IllegalArgumentException -> "rejected"
         else -> "failed"
+    }
+
+    private fun logFailure(stage: String, error: Exception) {
+        val types = generateSequence<Throwable>(error) { it.cause }.take(5).map {
+            it.javaClass.simpleName + if (it is KeyStoreException && Build.VERSION.SDK_INT >= 33) "(${it.numericErrorCode})" else ""
+        }.joinToString(" -> ")
+        Log.w("LiveRelayDeviceFactor", "$stage: $types")
     }
 
     private fun finish(active: Operation) {

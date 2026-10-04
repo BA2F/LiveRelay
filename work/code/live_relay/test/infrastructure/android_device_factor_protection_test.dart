@@ -95,4 +95,64 @@ void main() {
       ),
     );
   });
+
+  test('read-only platform reply becomes an owned writable secret', () async {
+    final transport = Uint8List.fromList(List.generate(32, (i) => i))
+        .asUnmodifiableView();
+    final adapter = AndroidDeviceFactorProtection(
+      channel: ReadOnlyReplyChannel(transport),
+      isAndroid: true,
+    );
+    final clear = await adapter.unprotectFactor(
+      context,
+      WrappedDeviceFactor(
+        nonce: Uint8List(12),
+        cipherText: Uint8List(32),
+        mac: Uint8List(16),
+      ),
+    );
+    expect(clear, transport);
+    clear.fillRange(0, clear.length, 0);
+    expect(clear, everyElement(0));
+    expect(transport, List.generate(32, (i) => i));
+  });
+
+  test(
+    'malformed read-only platform reply retains the typed rejection',
+    () async {
+      final adapter = AndroidDeviceFactorProtection(
+        channel: ReadOnlyReplyChannel(
+          Uint8List.fromList([1, 2, 3]).asUnmodifiableView(),
+        ),
+        isAndroid: true,
+      );
+      await expectLater(
+        adapter.unprotectFactor(
+          context,
+          WrappedDeviceFactor(
+            nonce: Uint8List(12),
+            cipherText: Uint8List(32),
+            mac: Uint8List(16),
+          ),
+        ),
+        throwsA(
+          isA<DeviceFactorException>().having(
+            (e) => e.failure,
+            'failure',
+            DeviceFactorFailure.rejected,
+          ),
+        ),
+      );
+    },
+  );
+}
+
+// Reproduce the physical Android transport's immutable byte view, without
+// the mock messenger re-encoding it into a different buffer implementation.
+class ReadOnlyReplyChannel extends MethodChannel {
+  ReadOnlyReplyChannel(this.reply) : super('read-only-device-reply');
+  final Uint8List reply;
+  @override
+  Future<T?> invokeMethod<T>(String method, [dynamic arguments]) async =>
+      reply as T;
 }

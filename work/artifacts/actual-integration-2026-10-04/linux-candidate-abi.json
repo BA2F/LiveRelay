@@ -1,0 +1,29 @@
+{
+  "live_relay": {
+    "glibc": "2.34"
+  },
+  "libapp.so": {
+    "glibc": null
+  },
+  "libfile_selector_linux_plugin.so": {
+    "glibc": "2.2.5"
+  },
+  "libflutter_linux_gtk.so": {
+    "glibc": "2.18"
+  },
+  "libflutter_secure_storage_linux_plugin.so": {
+    "glibc": "2.32"
+  },
+  "libonnxruntime.so": {
+    "glibc": "2.16"
+  },
+  "librecord_linux_plugin.so": {
+    "glibc": "2.2.5"
+  },
+  "libsherpa-onnx-c-api.so": {
+    "glibc": "2.16"
+  },
+  "libsqlcipher.so": {
+    "glibc": "2.34"
+  }
+}

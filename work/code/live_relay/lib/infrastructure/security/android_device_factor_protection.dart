@@ -92,11 +92,21 @@ class AndroidDeviceFactorProtection implements DeviceFactorProtection {
       'cipherText': wrapped.cipherText,
       'mac': wrapped.mac,
     });
-    if (clear == null || clear.length != 32) {
-      clear?.fillRange(0, clear.length, 0);
-      throw const DeviceFactorException(DeviceFactorFailure.rejected);
+    try {
+      if (clear == null || clear.length != 32) {
+        throw const DeviceFactorException(DeviceFactorFailure.rejected);
+      }
+      // Android's platform transport may return an immutable view. The vault
+      // must own writable bytes so its key cleanup can run on every exit path.
+      return Uint8List.fromList(clear);
+    } finally {
+      try {
+        clear?.fillRange(0, clear.length, 0);
+      } on UnsupportedError {
+        // The borrowed transport view cannot be overwritten. Do not retain it;
+        // the native adapter also wipes its own decrypted output after encoding.
+      }
     }
-    return clear;
   }
 
   @override

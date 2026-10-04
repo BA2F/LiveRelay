@@ -24,7 +24,8 @@ cd work/code/live_relay
 flutter analyze
 flutter test
 flutter build apk --release --target lib/main.dart
-flutter build linux --release --target lib/main.dart
+# Linux 发行包从 Ubuntu22.04 基线构建，不能复用 Arch 的插件/CMake 缓存：
+# 在仓库根目录调用 scripts/build_linux_ubuntu22.py，具体参数见应用 README。
 ```
 
 确认 Release APK 的内部版本、签名和 hash。`aapt dump badging` 可读取包信息；Android build-tools 的 `apksigner verify --verbose --print-certs` 验证证书。复制已验证制品到被忽略的 `work/exports/release-artifacts/<tag>/`；改名不重新构建，也不改变内容。
@@ -36,6 +37,8 @@ sha256sum LiveRelay-MVPX.Y-Android.apk LiveRelay-MVPX.Y-Linux-x86_64.tar.gz > SH
 ```
 
 ## 发布顺序
+
+Linux 候选使用 [隔离构建脚本](scripts/build_linux_ubuntu22.py)，审核全部 ELF 的 GLIBC、GLIBCXX、CXXABI 依赖后，在 Ubuntu22.04 真实用户空间完成启动／原生资料库验证。运行依赖包含 GTK3、GLib、libsecret、libstdc++；服务密钥存储另需会话 D-Bus 和已解锁 Secret Service。录音、桌面 GPU 和其他发行版须分别记录，不能把无声卡 Xvfb 测试写成完整桌面验收。2026-10-04 已发现历史 MVP0.3 原包的插件要求 `GLIBC_2.38`；其附件不覆盖，兼容修复进入下一版本。
 
 先推送源码，再发布指向明确 commit 的 annotated Tag。版本说明写入 `docs/60_quality/releases/<tag>.md`，变更摘要链接于 `CHANGELOG.md`。发布说明包含具体变化、安装/兼容性、验证与限制；历史包须区分构建日期和补录日期，不补造历史验证结果。
 

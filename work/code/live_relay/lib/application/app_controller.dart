@@ -18,6 +18,7 @@ import 'card_summary.dart';
 import 'device_capabilities.dart';
 import '../core/domain/entities.dart';
 import '../core/ports/ai_provider.dart';
+import '../core/ports/device_factor_protection.dart';
 import '../core/ports/ocr_provider.dart';
 import '../core/ports/vault_repository.dart';
 import '../core/security/chinese_passphrase.dart';
@@ -806,6 +807,7 @@ class AppController extends ChangeNotifier {
   }
 
   String _messageFor(Object error) {
+    if (error is DeviceFactorException) return error.toString();
     if (error is VaultUnlockException) return error.message;
     if (error is LifeVaultArchiveException) return error.message;
     if (error is VaultRecoveryException) return error.message;
