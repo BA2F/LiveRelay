@@ -1,0 +1,5 @@
+{
+  "runtimeFiles": 20,
+  "runtimeFilesIdenticalToInteractiveCandidate": true,
+  "excluded": "lib/native_assets.json (debugger-only absolute build path metadata)"
+}

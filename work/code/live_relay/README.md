@@ -57,7 +57,7 @@ flutter build windows --release
 
 当前 Release 配置使用内部 Android Debug 证书。正式发布前需配置发布签名并完成安全/真机验收。已发布 APK 的版本、源码提交、证书和校验值见 [发布记录](../../../docs/60_quality/releases/)，流程见 [RELEASING](../../../RELEASING.md)。
 
-Arch／新 glibc 环境的原生插件可能引入旧发行版不存在的符号；MVP0.3 的 secure-storage 插件实际要求 `GLIBC_2.38`，无法在 Ubuntu22.04 启动。下一版 Linux 候选须从 Ubuntu22.04 构建并检查全部 ELF，使用已验证的 [隔离构建脚本](../../../scripts/build_linux_ubuntu22.py)：
+Arch／新 glibc 环境的原生插件可能引入旧发行版不存在的符号；MVP0.3 的 secure-storage 插件实际要求 `GLIBC_2.38`，无法在 Ubuntu22.04 启动。MVP0.4已从Ubuntu22.04构建并检查全部ELF；后续Linux发布继续使用已验证的 [隔离构建脚本](../../../scripts/build_linux_ubuntu22.py)：
 
 ```bash
 # 从仓库根目录；rootfs 须预先安装 clang、cmake、ninja-build、pkg-config、

@@ -26,13 +26,14 @@ Android 7 / API 24 及以上；另提供 Linux x86_64 完整应用包。安装�
 
 | 里程碑 | 用途 | 发布页 |
 | --- | --- | --- |
-| MVP 0.3 | 当前本机功能预发布，Android＋Linux | [下载 APK、Linux 应用与校验文件](https://github.com/BA2F/LiveRelay/releases/tag/mvp-0.3) |
+| MVP 0.4 | 当前推荐，真机指纹／Linux兼容修复，Android＋Linux | [下载 APK、Linux 应用与校验文件](https://github.com/BA2F/LiveRelay/releases/tag/mvp-0.4) |
+| MVP 0.3 | 上一本机功能版，保留历史附件 | [历史 APK、Linux 应用与校验文件](https://github.com/BA2F/LiveRelay/releases/tag/mvp-0.3) |
 | MVP 0.2 | 上一版侧载包 | [下载 APK 与校验文件](https://github.com/BA2F/LiveRelay/releases/tag/mvp-0.2) |
 | MVP 0.1 | 首个可运行版本的原包归档 | [历史安装包](https://github.com/BA2F/LiveRelay/releases/tag/mvp-0.1) |
 
-下载 APK 和同页的 `SHA256SUMS`，在下载目录执行 `sha256sum -c SHA256SUMS` 核对文件，然后在 Android 设备上安装。MVP 0.3 使用同一包名和证书，构建号升为2，可覆盖旧版安装；不要通过卸载来升级，卸载会清理本机资料库。
+下载 APK 和同页的 `SHA256SUMS`，在下载目录执行 `sha256sum -c SHA256SUMS` 核对文件，然后在 Android 设备上安装。MVP 0.4 使用同一正常包名和证书，构建号升为3，可覆盖旧版安装；不要通过卸载来升级，卸载会清理本机资料库。“留灯·联调”verification包与正常发布包分别保留资料。
 
-Linux 下载 `LiveRelay-MVP0.3-Linux-x86_64.tar.gz`，解压后运行其中的 `live_relay`；必须保留 `lib/` 和 `data/`，不能只复制可执行文件。本包在 Linux x86_64／glibc 2.44 环境构建，实测不能在 Ubuntu22.04 启动（插件需要 `GLIBC_2.38`）。小米13／Android13也已复现本版指纹启用／解锁故障；两项修复正在隔离联调，尚未发布，旧附件不含修复。依赖和当前边界见[本版说明](docs/60_quality/releases/mvp-0.3.md)。
+Linux 下载 `LiveRelay-MVP0.4-Linux-x86_64.tar.gz`，解压后运行其中的 `live_relay`；必须保留 `lib/` 和 `data/`，不能只复制可执行文件。新版从Ubuntu22.04／glibc2.35基线构建，解决旧包 `GLIBC_2.38` 要求，已验证Ubuntu22.04启动与EndeavourOS现场语音。Linux录音需parecord／ffmpeg及系统音频服务；服务密钥存储需会话D-Bus和已解锁Secret Service。小米13／Android13指纹启用／解锁修复也已进入新版。依赖、安装及已知缺口见[本版说明](docs/60_quality/releases/mvp-0.4.md)。
 
 这些 MVP 包标记为预发布，使用 Android Debug 证书供侧载验收。里程碑名称与 APK 内部版本分别记录，详情见 [版本记录](CHANGELOG.md)及各发布页。
 

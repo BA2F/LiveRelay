@@ -30,6 +30,8 @@ flutter build apk --release --target lib/main.dart
 
 确认 Release APK 的内部版本、签名和 hash。`aapt dump badging` 可读取包信息；Android build-tools 的 `apksigner verify --verbose --print-certs` 验证证书。复制已验证制品到被忽略的 `work/exports/release-artifacts/<tag>/`；改名不重新构建，也不改变内容。
 
+Linux完整bundle不得混入测试／调试残留。Flutter测试可能在native_assets目录留下指向开发路径的debugger `native_assets.json`，继而被CMake复制到bundle/lib；AOT发布包不需要该文件。打包时排除该元数据，保留真实原生库和运行资产，再验证最终完整包启动；不删除其他运行所需JSON。
+
 在附件目录生成校验文件：
 
 ```bash

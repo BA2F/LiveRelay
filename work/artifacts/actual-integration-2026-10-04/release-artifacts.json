@@ -1,0 +1,19 @@
+{
+  "sourceCommit": "6fbee32819fdc50413f80ec8e8561c450a0b4735",
+  "version": "1.0.0+3",
+  "tag": "mvp-0.4",
+  "assets": {
+    "LiveRelay-MVP0.4-Android.apk": {
+      "bytes": 189907938,
+      "sha256": "ed2d92929272976dbbb97639b8835e3966208175e438d79cdc46252a7fe9a5fe"
+    },
+    "LiveRelay-MVP0.4-Linux-x86_64.tar.gz": {
+      "bytes": 24263999,
+      "sha256": "4cfd839941b7223ec6862bfed25c80a772e1bbc6cc3dcd36dbfd63d4f1d1d77c"
+    },
+    "SHA256SUMS": {
+      "bytes": 198,
+      "sha256": "dcd36fd994a8f065148fd0689794b4f30d47262bd1f742f4fdec7fbd400c565a"
+    }
+  }
+}

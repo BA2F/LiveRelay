@@ -2,12 +2,16 @@
 
 记录对使用者有影响的版本变化。安装包、校验文件和最终发布说明以 [GitHub Releases](https://github.com/BA2F/LiveRelay/releases)为准；制品身份另见 [发布记录](docs/60_quality/releases/)。
 
-## 未发布 — 实际联调修复，2026-10-04
+## MVP 0.4 — 实际联调修复，2026-10-04
+
+[Release](https://github.com/BA2F/LiveRelay/releases/tag/mvp-0.4) · [完整版本说明](docs/60_quality/releases/mvp-0.4.md)
+
+正常Android／Linux预发布制品；应用内部版本 `1.0.0+3`，与旧版同正常包名和Android签名。
 
 - 修复Android实际启用指纹和指纹解锁失败；保留取消／设备失效的准确提示。密码、指纹、换钥、独立恢复和分层补齐已在小米13验证。
 - 修复Linux原发布包高于Ubuntu22.04的GLIBC要求；新增隔离构建和全部ELF的ABI审计，候选在Ubuntu22.04与EndeavourOS验证。
 - 手机和Linux正常UI语音现场试用、DeepSeek真实Responses Agent调用通过。Agent账号密码仍保存为普通卡片，密码子类型录入按本人要求后续补全。
-- 本轮尚未提交／推送／发布；原MVP0.3 Tag和附件保持不变。完整证据与剩余平台／安全验收见[实际联调验证](docs/60_quality/2026-10-04_实际联调验证.md)。
+- 源码归档于 `6fbee32`，新Tag为 `mvp-0.4`；原MVP0.3 Tag和附件保持不变。完整证据与剩余平台／安全验收见[实际联调验证](docs/60_quality/2026-10-04_实际联调验证.md)。
 
 ## MVP 0.3 — 本机安全、交接与语音，2026-10-03
 
