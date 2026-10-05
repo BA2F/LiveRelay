@@ -8,6 +8,7 @@ import '../../application/app_controller.dart';
 import '../../core/ai/conversation_attachment.dart';
 import '../../core/ai/review_source.dart';
 import '../widgets/local_media_preview.dart';
+import 'review_actions_editor.dart';
 
 class ReviewSourceView extends StatefulWidget {
   const ReviewSourceView({
@@ -192,6 +193,14 @@ class _ReviewSourceViewState extends State<ReviewSourceView> {
           padding: EdgeInsets.symmetric(vertical: 12),
           child: Text('保留确认时完整输入和附件，与当前会话独立。此记录仅在本人资料库中保存，交接范围仍需另行明确选择。'),
         ),
+        if (source.actions.isNotEmpty) ...[
+          Text('确认时的操作', style: Theme.of(context).textTheme.titleMedium),
+          for (var i = 0; i < source.actions.length; i++)
+            Text(
+              '卡片 ${i + 1}：${source.actions[i].bundleId == null ? "独立保存" : "收纳至组合 ${source.actions[i].bundleId}"} · ${source.actions[i].referenceIds.length}项引用 · 失能：${reviewLevelLabel(source.actions[i].incapacitated)} · 身故：${reviewLevelLabel(source.actions[i].deceased)}',
+            ),
+          const Divider(),
+        ],
         for (var i = 0; i < source.inputs.length; i++) ...[
           Text('输入 ${i + 1}', style: Theme.of(context).textTheme.titleMedium),
           SelectableText(source.inputs[i].text),

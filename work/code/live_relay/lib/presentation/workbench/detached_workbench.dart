@@ -412,11 +412,16 @@ class _DetachedWorkbenchState extends State<DetachedWorkbench>
         ],
         if ((m['suggestions'] as List).isNotEmpty)
           FilledButton(
-            onPressed: m['accepted'] == true || _data['working'] == true
+            onPressed:
+                m['accepted'] == true ||
+                    m['hasActions'] == true ||
+                    _data['working'] == true
                 ? null
                 : () => _act('accept', {'reviewId': m['reviewId']}),
             child: Text(m['accepted'] == true ? '已确认保存' : '确认建议并保存'),
           ),
+        if (m['hasActions'] == true && m['accepted'] != true)
+          const Text('包含收纳、引用或可见层级计划，请合并到主工作台核对并确认。'),
         const Divider(),
       ],
       _field(

@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'conversation_attachment.dart';
+import 'review_actions.dart';
 
 /// Owner-only confirmation evidence, independent of the current conversation.
 /// No credentials, provider wire history or release authority belong here.
@@ -17,21 +18,35 @@ class ReviewSource {
     required this.confirmedAt,
     required this.inputs,
     required this.reply,
+    this.actions = const [],
   });
   final String reviewId, providerLabel, reply;
   final DateTime confirmedAt;
   final List<ReviewSourceInput> inputs;
+  final List<ReviewActions> actions;
   static const maxLength = 32 * 1024 * 1024;
   String get storageKey => 'ars.$reviewId';
   static String cardKey(String id) => 'card.agent-source.$id';
+  ReviewSource withActions(List<ReviewActions> plans) => ReviewSource(
+    reviewId: reviewId,
+    providerLabel: providerLabel,
+    confirmedAt: confirmedAt,
+    inputs: inputs,
+    reply: reply,
+    actions: plans,
+  );
 
   String encode() {
     if (!RegExp(r'^[a-zA-Z0-9-]{1,64}$').hasMatch(reviewId) ||
         providerLabel.length > 1000 ||
         reply.length > 128 * 1024 ||
         inputs.length > 1000 ||
+        actions.length > 20 ||
         inputs.any((i) => i.text.length > 32000 || i.attachments.length > 6)) {
       throw const FormatException('确认来源记录无效或过大');
+    }
+    for (final action in actions) {
+      action.validate();
     }
     final encoded = jsonEncode({
       'version': 1,
@@ -39,6 +54,7 @@ class ReviewSource {
       'provider': providerLabel,
       'confirmedAt': confirmedAt.toUtc().toIso8601String(),
       'reply': reply,
+      'actions': [for (final action in actions) action.toJson()],
       'inputs': [
         for (final input in inputs)
           {
@@ -83,6 +99,10 @@ class ReviewSource {
         confirmedAt: DateTime.parse(raw['confirmedAt'] as String),
         inputs: inputs,
         reply: raw['reply'] as String,
+        actions: [
+          for (final a in raw['actions'] as List? ?? [])
+            ReviewActions.fromJson(a as Map),
+        ],
       );
       result.encode();
       return result;

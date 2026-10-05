@@ -6,6 +6,7 @@ import 'package:path/path.dart' as path;
 
 import '../../core/ai/conversation_attachment.dart';
 import '../../core/ai/review_source.dart';
+import '../../core/ai/review_actions.dart';
 
 import 'package:flutter/foundation.dart';
 import 'package:uuid/uuid.dart';
@@ -37,15 +38,27 @@ class ConversationMessage {
     this.role,
     this.text, {
     List<AiCardSuggestion> suggestions = const [],
+    List<ReviewActions>? actions,
     String? reviewId,
     this.providerLabel = '',
     this.attachments = const [],
     this.accepted = false,
-  }) : suggestions = List.of(suggestions),
-       reviewId = reviewId ?? const Uuid().v7();
+  }) : actions = actions == null
+           ? List.generate(suggestions.length, (_) => const ReviewActions())
+           : List.of(actions),
+       suggestions = List.of(suggestions),
+       reviewId = reviewId ?? const Uuid().v7() {
+    if (this.actions.length != this.suggestions.length) {
+      throw const FormatException('建议操作数量不匹配');
+    }
+    for (final action in this.actions) {
+      action.validate();
+    }
+  }
   final List<ConversationAttachment> attachments;
   final String role, text, reviewId, providerLabel;
   final List<AiCardSuggestion> suggestions;
+  final List<ReviewActions> actions;
   bool accepted;
 }
 
@@ -320,6 +333,21 @@ class AgentConversation extends ChangeNotifier {
     notifyListeners();
   }
 
+  void editActions(
+    ConversationMessage message,
+    int index,
+    ReviewActions actions,
+  ) {
+    if (message.accepted || working || !messages.contains(message)) return;
+    if (index < 0 || index >= message.suggestions.length) {
+      throw const FormatException('建议已失效');
+    }
+    actions.validate();
+    message.actions[index] = actions;
+    _scheduleSave();
+    notifyListeners();
+  }
+
   void _scheduleSave() {
     _saveTimer?.cancel();
     _saveTimer = Timer(
@@ -366,6 +394,12 @@ class AgentConversation extends ChangeNotifier {
           raw['role'] as String,
           raw['text'] as String,
           suggestions: suggestions,
+          actions: raw['actions'] == null
+              ? null
+              : [
+                  for (final a in raw['actions'] as List)
+                    ReviewActions.fromJson(a as Map),
+                ],
           reviewId: raw['reviewId'] as String,
           providerLabel: raw['providerLabel'] as String? ?? '',
           attachments: [
@@ -435,6 +469,7 @@ class AgentConversation extends ChangeNotifier {
             'providerLabel': m.providerLabel,
             'attachments': [for (final a in m.attachments) a.toJson()],
             'accepted': m.accepted,
+            'actions': [for (final a in m.actions) a.toJson()],
             'suggestions': [
               for (final s in m.suggestions)
                 {
@@ -628,6 +663,7 @@ class AgentConversation extends ChangeNotifier {
             .join('\n'),
         message.suggestions,
         providerLabel: message.providerLabel,
+        actions: List.of(message.actions),
         reviewSource: ReviewSource(
           reviewId: message.reviewId,
           providerLabel: message.providerLabel,
@@ -637,6 +673,7 @@ class AgentConversation extends ChangeNotifier {
               ReviewSourceInput(input.text, input.attachments),
           ],
           reply: message.text,
+          actions: List.of(message.actions),
         ),
         originalIds: previousInputs
             .expand((m) => m.attachments)
@@ -648,6 +685,25 @@ class AgentConversation extends ChangeNotifier {
       if (_disposed || generation != _generation || !controller.isUnlocked) {
         return;
       }
+      // A crash after commit may leave an unaccepted conversation message.
+      // Retry restores the first transaction's choices rather than claiming
+      // that later edits changed an already committed receipt.
+      final applied = await controller.reviewedActions(message.reviewId);
+      if (_disposed || generation != _generation || !controller.isUnlocked) {
+        return;
+      }
+      final plans = applied == null || applied.isEmpty
+          ? List.generate(
+              message.suggestions.length,
+              (_) => const ReviewActions(),
+            )
+          : applied;
+      if (plans.length != message.suggestions.length) {
+        throw const FormatException('已确认计划数量不匹配');
+      }
+      message.actions
+        ..clear()
+        ..addAll(plans);
       message.accepted = true;
       await flush();
     } on Object catch (e) {

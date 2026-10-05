@@ -20,6 +20,7 @@ import 'workbench/card_references.dart';
 import 'device_capabilities.dart';
 import '../core/domain/entities.dart';
 import '../core/ai/review_source.dart';
+import '../core/ai/review_actions.dart';
 import '../core/ports/ai_provider.dart';
 import '../core/ports/ai_conversation_provider.dart';
 import '../core/ports/device_factor_protection.dart';
@@ -773,6 +774,7 @@ class AppController extends ChangeNotifier {
     required String providerLabel,
     List<String> originalIds = const [],
     ReviewSource? reviewSource,
+    List<ReviewActions> actions = const [],
   }) => _mutate(
     (r) => r.saveReviewedAgentSuggestions(
       reviewId,
@@ -791,6 +793,7 @@ class AppController extends ChangeNotifier {
       providerLabel: providerLabel,
       originalIds: originalIds,
       reviewSource: reviewSource,
+      actions: actions,
     ),
   );
 
@@ -836,6 +839,19 @@ class AppController extends ChangeNotifier {
 
   Future<ReviewSource?> cardReviewSource(String id) =>
       _requireRepository().cardReviewSource(id);
+
+  Future<List<ReviewActions>?> reviewedActions(String reviewId) async {
+    final raw = await _requireRepository().readLocalValue(
+      'agent.plan.$reviewId',
+    );
+    if (raw == null) return null;
+    final data = jsonDecode(raw) as Map;
+    if (data['version'] != 1) throw const FormatException('确认计划版本不支持');
+    return [
+      for (final action in data['actions'] as List)
+        ReviewActions.fromJson(action as Map),
+    ];
+  }
 
   Future<List<CardRelation>> cardRelations(String id) =>
       _requireRepository().relationsForCard(id);

@@ -2,6 +2,7 @@ import 'dart:typed_data';
 
 import '../domain/entities.dart';
 import '../ai/review_source.dart';
+import '../ai/review_actions.dart';
 
 abstract interface class VaultRepository {
   Future<String?> readChunkedLocalValue(String key);
@@ -86,7 +87,7 @@ abstract interface class VaultRepository {
     required String providerLabel,
   });
 
-  /// Idempotent explicit review. Confirmation never changes release policy.
+  /// Idempotent explicit review. Only explicit owner plans change release policy.
   Future<List<LifeCard>> saveReviewedAgentSuggestions(
     String reviewId,
     String sourceText,
@@ -94,6 +95,7 @@ abstract interface class VaultRepository {
     required String providerLabel,
     List<String> originalIds = const [],
     ReviewSource? reviewSource,
+    List<ReviewActions> actions = const [],
   });
 
   Future<ReviewSource?> cardReviewSource(String cardId);

@@ -256,6 +256,9 @@ class NativeWindowHost {
             .where((m) => m.reviewId == a['reviewId'])
             .firstOrNull;
         if (m == null) throw const FormatException('建议已失效');
+        if (m.actions.any((a) => a.hasChanges)) {
+          throw const FormatException('此建议包含操作计划，请合并到主工作台核对并确认');
+        }
         await conversation.accept(m);
       case 'geometry':
         final bounds = windowBounds(a);
@@ -385,6 +388,7 @@ class NativeWindowHost {
             'text': m.text,
             'reviewId': m.reviewId,
             'accepted': m.accepted,
+            'hasActions': m.actions.any((a) => a.hasChanges),
             'suggestions': [
               for (final c in m.suggestions)
                 {'title': c.title, 'content': c.content},

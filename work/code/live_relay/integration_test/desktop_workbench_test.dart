@@ -1555,6 +1555,10 @@ void main() {
           const CardDraft(title: '所选虚构卡片', content: '确认前的卡片正文'),
         );
         final selected = c.cards.single;
+        await c.createCard(const CardDraft(title: '组合原有成员', content: '虚构成员'));
+        final member = c.cards.singleWhere((c) => c.title == '组合原有成员');
+        await c.combineCards('本人选择的组合', [selected.id, member.id]);
+        final bundle = c.cards.singleWhere((c) => c.kind == CardKind.bundle);
         await p.finishOnboarding();
         await p.setDesktopPreset('assistant');
         await tester.pumpWidget(
@@ -1614,9 +1618,87 @@ void main() {
           ],
         );
         q.messages.add(reply);
-        await q.accept(reply);
+        await q.retrySave();
+        await tester.pumpAndSettle();
+        final operations = find.text('保存时的操作');
+        await tester.ensureVisible(operations);
+        await tester.pumpAndSettle();
+        await tester.tap(operations);
+        await tester.pumpAndSettle();
+        final collection = find.byWidgetPredicate(
+          (w) =>
+              w is DropdownButtonFormField<String> &&
+              w.decoration.labelText == '收纳到已有组合',
+        );
+        await tester.ensureVisible(collection);
+        await tester.pumpAndSettle();
+        await tester.tap(collection);
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('本人选择的组合').last);
+        await tester.pumpAndSettle();
+        final deceased = find.byWidgetPredicate(
+          (w) =>
+              w is DropdownButtonFormField<VisibilityLevel> &&
+              w.decoration.labelText == '身故时可见层级',
+        );
+        await tester.ensureVisible(deceased);
+        await tester.pumpAndSettle();
+        await tester.tap(deceased);
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('正文前80字').last);
+        await tester.pumpAndSettle();
+        final reference = find.byWidgetPredicate(
+          (w) =>
+              w is CheckboxListTile &&
+              w.title is Text &&
+              (w.title as Text).data == selected.title,
+        );
+        await tester.ensureVisible(reference);
+        await tester.pumpAndSettle();
+        await tester.tap(reference);
+        await tester.pumpAndSettle();
+        expect(reply.actions.single.bundleId, bundle.id);
+        expect(reply.actions.single.referenceIds, [selected.id]);
+        expect(reply.actions.single.deceased, VisibilityLevel.summary);
+        final evidence = Platform.environment['LIVERELAY_WORKBENCH_EVIDENCE'];
+        if (evidence != null) {
+          final boundary =
+              screenshotKey.currentContext!.findRenderObject()
+                  as RenderRepaintBoundary;
+          final image = await boundary.toImage();
+          final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
+          await File('$evidence/native-review-actions.png')
+              .writeAsBytes(bytes!.buffer.asUint8List());
+          image.dispose();
+        }
+        final confirm = find.text('确认并保存 1 张卡片');
+        await tester.ensureVisible(confirm);
+        await tester.pumpAndSettle();
+        await tester.tap(confirm);
+        for (var i = 0; i < 100 && q.working; i++) {
+          await tester.pump(const Duration(milliseconds: 20));
+        }
+        await tester.pumpAndSettle();
         expect(q.error, isNull);
         final reviewed = c.cards.singleWhere((c) => c.title == '来源验收卡片');
+        expect(
+          c.cardReferences.any(
+            (r) => r.from == reviewed.id && r.to == selected.id,
+          ),
+          true,
+        );
+        expect(
+          (await c.cardRelations(bundle.id)).any(
+            (r) =>
+                r.toCardId == reviewed.id &&
+                r.kind == RelationKind.bundleMember,
+          ),
+          true,
+        );
+        expect(
+          (await c.releasePolicy('card', reviewed.id)).deceased,
+          VisibilityLevel.summary,
+        );
         await q.newConversation();
         await c.updateCard(
           selected.id,
@@ -1656,7 +1738,6 @@ void main() {
         await tester.pumpAndSettle();
         expect(find.byType(Image), findsWidgets);
         expect(c.blobs, isEmpty);
-        final evidence = Platform.environment['LIVERELAY_WORKBENCH_EVIDENCE'];
         if (evidence != null) {
           final boundary =
               screenshotKey.currentContext!.findRenderObject()
@@ -1675,6 +1756,7 @@ void main() {
               'noAutomaticBlobImport': c.blobs.isEmpty,
               'confirmedCard': reviewed.id,
               'imageByteLength': imageBytes.length,
+              'planApplied': reply.actions.single.toJson(),
             }),
           );
         }

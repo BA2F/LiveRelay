@@ -5,6 +5,8 @@ import 'package:uuid/uuid.dart';
 
 import '../../core/domain/entities.dart';
 import '../../core/ai/review_source.dart';
+import '../../core/ai/review_actions.dart';
+import '../../core/domain/card_references.dart';
 import '../../core/domain/lifecycle.dart';
 import '../../core/ports/vault_repository.dart';
 import 'app_database.dart';
@@ -1068,17 +1070,19 @@ class SqliteVaultRepository implements VaultRepository {
     required String providerLabel,
     List<String> originalIds = const [],
     ReviewSource? reviewSource,
+    List<ReviewActions> actions = const [],
   }) {
     if (!RegExp(r'^[a-zA-Z0-9-]{1,64}$').hasMatch(reviewId) ||
         (sourceText.length > 32000 && reviewSource == null) ||
         drafts.isEmpty ||
         drafts.length > 20 ||
+        (actions.isNotEmpty && actions.length != drafts.length) ||
         (reviewSource != null &&
             (reviewSource.reviewId != reviewId ||
                 reviewSource.providerLabel != providerLabel))) {
       throw const FormatException('确认建议数量或来源大小错误');
     }
-    final evidence = reviewSource?.encode();
+    final evidence = reviewSource?.withActions(actions).encode();
     final legacySource = sourceText.length <= 32000
         ? sourceText
         : '完整输入和附件已保存在独立确认来源记录 $reviewId；输入共${sourceText.length}字。';
@@ -1092,6 +1096,23 @@ class SqliteVaultRepository implements VaultRepository {
           if (card != null) cards.add(card);
         }
         return cards;
+      }
+      for (final plan in actions) {
+        plan.validate();
+        if (plan.bundleId != null) {
+          final bundle = await getCard(plan.bundleId!);
+          if (bundle == null ||
+              bundle.isDeleted ||
+              bundle.kind != CardKind.bundle) {
+            throw const FormatException('所选收纳组合已失效，请重新选择');
+          }
+        }
+        for (final id in plan.referenceIds) {
+          final target = await getCard(id);
+          if (target == null || target.isDeleted) {
+            throw const FormatException('所选引用卡片已失效，请重新选择');
+          }
+        }
       }
       final cards = <LifeCard>[];
       for (final draft in drafts) {
@@ -1116,6 +1137,35 @@ class SqliteVaultRepository implements VaultRepository {
           cards[i] = (await getCard(cards[i].id))!;
         }
       }
+      for (var i = 0; i < actions.length; i++) {
+        final plan = actions[i], card = cards[i];
+        if (plan.referenceIds.isNotEmpty) {
+          await CardReferenceStore(this).replace(card.id, plan.referenceIds);
+        }
+        if (plan.bundleId != null) {
+          await database
+              .into(database.cardRelations)
+              .insert(
+                CardRelationsCompanion.insert(
+                  fromCardId: plan.bundleId!,
+                  toCardId: card.id,
+                  kind: RelationKind.bundleMember.name,
+                  createdAt: _now,
+                ),
+              );
+        }
+        if (plan.incapacitated != VisibilityLevel.hidden ||
+            plan.deceased != VisibilityLevel.hidden) {
+          await saveReleasePolicy(
+            ReleasePolicy(
+              recordType: 'card',
+              recordId: card.id,
+              incapacitated: plan.incapacitated,
+              deceased: plan.deceased,
+            ),
+          );
+        }
+      }
       if (reviewSource != null) {
         await writeChunkedLocalValue(reviewSource.storageKey, evidence!);
         for (final card in cards) {
@@ -1125,6 +1175,13 @@ class SqliteVaultRepository implements VaultRepository {
           );
         }
       }
+      await writeLocalValue(
+        'agent.plan.$reviewId',
+        jsonEncode({
+          'version': 1,
+          'actions': [for (final plan in actions) plan.toJson()],
+        }),
+      );
       await writeLocalValue(
         receiptKey,
         jsonEncode(cards.map((c) => c.id).toList()),

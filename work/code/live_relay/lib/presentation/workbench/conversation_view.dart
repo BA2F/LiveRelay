@@ -4,6 +4,7 @@ import '../../application/agent/agent_conversation.dart';
 import '../../core/domain/entities.dart';
 import '../dialogs/ai_settings_dialog.dart';
 import 'attachment_strip.dart';
+import 'review_actions_editor.dart';
 import '../model_labels.dart';
 
 class ConversationView extends StatelessWidget {
@@ -324,14 +325,24 @@ class ConversationView extends StatelessWidget {
                                           .toList(),
                                     ),
                                   ),
+                                  ReviewActionsEditor(
+                                    key: ValueKey('${m.reviewId}/$i/actions'),
+                                    conversation: c,
+                                    message: m,
+                                    index: i,
+                                  ),
                                 ],
                               ),
                             ),
                           if (m.suggestions.isNotEmpty) ...[
                             const SizedBox(height: 12),
                             const Text('确认时会保留此前完整输入和附件，之后可从卡片查看来源。'),
+                            for (var i = 0; i < m.actions.length; i++)
+                              Text(
+                                '卡片${i + 1}：${m.actions[i].bundleId == null ? "独立保存" : "收纳到所选组合"} · ${m.actions[i].referenceIds.length}项引用 · 失能：${reviewLevelLabel(m.actions[i].incapacitated)} · 身故：${reviewLevelLabel(m.actions[i].deceased)}',
+                              ),
                             if (m.accepted)
-                              const Text('已确认并保存 · 交付可见性保持隐藏')
+                              const Text('已确认并保存 · 本人选择的操作已执行')
                             else
                               FilledButton.icon(
                                 onPressed: c.working ? null : () => c.accept(m),

@@ -10,6 +10,8 @@ import 'package:live_relay/presentation/workbench/native_window_host.dart';
 import 'package:live_relay/application/workbench/card_edit_sessions.dart';
 import 'package:live_relay/application/agent/agent_conversation.dart';
 import 'package:live_relay/core/domain/entities.dart';
+import 'package:live_relay/core/ai/review_actions.dart';
+import 'package:live_relay/core/ai/ai_privacy.dart';
 import 'package:live_relay/infrastructure/app_composition.dart';
 
 import '../test/support/verification_fakes.dart';
@@ -146,6 +148,33 @@ Future<void> main(List<String> arguments) async {
             }),
           );
         }
+        q.messages.add(ConversationMessage('user', 'fixture plan source'));
+        final planned = ConversationMessage(
+          'assistant',
+          'fixture planned reply',
+          suggestions: [
+            const AiCardSuggestion(
+              title: 'must review in main',
+              content: 'fixture',
+              kind: CardKind.note,
+              isInference: false,
+            ),
+          ],
+          actions: [
+            ReviewActions(
+              referenceIds: [card.id],
+              deceased: VisibilityLevel.full,
+            ),
+          ],
+        );
+        q.messages.add(planned);
+        await q.retrySave();
+        await child.channel.invokeMethod('diagnosticCommand', {
+          'method': 'accept',
+          'arguments': {'reviewId': planned.reviewId},
+        });
+        expect(planned.accepted, false);
+        expect(c.cards.length, 1);
         await child.channel.invokeMethod('diagnosticClose');
         for (var i = 0; i < 100 && host.sessions.isNotEmpty; i++) {
           await tester.pump(const Duration(milliseconds: 100));

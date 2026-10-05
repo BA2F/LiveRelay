@@ -7,6 +7,7 @@ import 'package:live_relay/application/agent/agent_conversation.dart';
 import 'package:live_relay/core/ai/ai_privacy.dart';
 import 'package:live_relay/core/ai/conversation_attachment.dart';
 import 'package:live_relay/core/ai/review_source.dart';
+import 'package:live_relay/core/ai/review_actions.dart';
 import 'package:live_relay/core/domain/entities.dart';
 import 'package:live_relay/infrastructure/app_composition.dart';
 import 'package:live_relay/infrastructure/persistence/app_database.dart';
@@ -185,9 +186,41 @@ void main() {
           ],
         );
         q.messages.add(message);
+        q.editActions(
+          message,
+          0,
+          ReviewActions(
+            referenceIds: [selected.id],
+            deceased: VisibilityLevel.summary,
+          ),
+        );
+        await q.flush();
+        final restored = AgentConversation(c);
+        await restored.load();
+        expect(restored.messages.last.actions.single.referenceIds, [
+          selected.id,
+        ]);
+        expect(
+          restored.messages.last.actions.single.deceased,
+          VisibilityLevel.summary,
+        );
+        restored.dispose();
         await q.accept(message);
         expect(q.error, isNull);
         final id = c.cards.singleWhere((c) => c.title == 'reviewed').id;
+        // Simulate a process stopping after the card transaction, before the
+        // accepted conversation state reached disk.
+        message.accepted = false;
+        q.editActions(
+          message,
+          0,
+          const ReviewActions(deceased: VisibilityLevel.original),
+        );
+        await q.accept(message);
+        expect(q.error, isNull);
+        expect(message.actions.single.referenceIds, [selected.id]);
+        expect(message.actions.single.deceased, VisibilityLevel.summary);
+        expect(c.cards.length, 2);
         await q.newConversation();
         expect(attachment.bytes.every((b) => b == 0), true);
         await c.updateCard(
@@ -207,6 +240,12 @@ void main() {
           selected.revisionNumber,
         );
         expect(c.blobs, isEmpty);
+        expect(after.actions.single.referenceIds, [selected.id]);
+        expect(after.actions.single.deceased, VisibilityLevel.summary);
+        expect(
+          (await c.releasePolicy('card', id)).deceased,
+          VisibilityLevel.summary,
+        );
         after.wipe();
       } finally {
         q.dispose();
