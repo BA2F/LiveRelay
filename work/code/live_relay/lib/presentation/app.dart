@@ -9,6 +9,7 @@ import 'pages/gate_page.dart';
 import 'pages/security_settings_page.dart';
 import 'pages/home_shell.dart';
 import 'pages/onboarding_page.dart';
+import 'workbench/native_close_guard.dart';
 
 class LiveRelayApp extends StatelessWidget {
   const LiveRelayApp({super.key, this.environmentOverlay, this.navigatorKey});
@@ -38,11 +39,14 @@ class LiveRelayApp extends StatelessWidget {
         final minimum = preferences?.readingSize == ReadingSize.large
             ? 1.25
             : 1.0;
-        return MediaQuery(
-          data: media.copyWith(
-            textScaler: media.textScaler.clamp(minScaleFactor: minimum),
+        return NativeCloseGuard(
+          controller: context.read<AppController>(),
+          child: MediaQuery(
+            data: media.copyWith(
+              textScaler: media.textScaler.clamp(minScaleFactor: minimum),
+            ),
+            child: environmentOverlay?.call(context, child!) ?? child!,
           ),
-          child: environmentOverlay?.call(context, child!) ?? child!,
         );
       },
       home: Consumer<AppController>(

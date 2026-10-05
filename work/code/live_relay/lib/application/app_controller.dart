@@ -1,5 +1,6 @@
 import 'dart:io' show FileSystemException;
 import 'dart:convert';
+import 'dart:ui' show AppExitResponse;
 
 import 'package:collection/collection.dart';
 import 'package:flutter/foundation.dart';
@@ -167,6 +168,7 @@ class AppController extends ChangeNotifier {
   AiCancellation? _agentCancellation;
   void cancelAgentTask() => _agentCancellation?.cancel();
   final exitCleanups = <Future<void> Function()>{};
+  Future<AppExitResponse> Function()? desktopExitRequested;
   bool isBusy = false;
   bool agentCommandsAvailable = false;
   AiProviderSettings aiSettings = const AiProviderSettings(
@@ -468,6 +470,10 @@ class AppController extends ChangeNotifier {
       _requireRepository().readLocalValue('desktop.workbench.v1');
   Future<void> writeWorkbenchState(String value) =>
       _requireRepository().writeLocalValue('desktop.workbench.v1', value);
+  Future<String?> readWorkbenchWindows() =>
+      _requireRepository().readLocalValue('desktop.windows.v1');
+  Future<void> writeWorkbenchWindows(String value) =>
+      _requireRepository().writeLocalValue('desktop.windows.v1', value);
   Future<String?> readWorkbenchExtensions() =>
       _requireRepository().readLocalValue('workbench.extensions.v1');
   Future<void> writeWorkbenchExtensions(String value) =>

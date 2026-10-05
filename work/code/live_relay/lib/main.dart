@@ -8,9 +8,11 @@ import 'package:path_provider/path_provider.dart';
 import 'infrastructure/app_composition.dart';
 import 'application/app_preferences.dart';
 import 'presentation/app.dart';
+import 'presentation/workbench/detached_workbench.dart';
 
-Future<void> main() async {
+Future<void> main(List<String> arguments) async {
   WidgetsFlutterBinding.ensureInitialized();
+  if (await runDetachedWorkbench(arguments)) return;
   final controller = createAppController();
   await controller.initialize();
   File? preferenceFile;

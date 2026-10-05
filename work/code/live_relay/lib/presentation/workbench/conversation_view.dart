@@ -59,7 +59,7 @@ class ConversationView extends StatelessWidget {
     }
   }
 
-  Future<void> _send(BuildContext context) async {
+  Future<void> sendWithConsent(BuildContext context) async {
     final c = conversation;
     final generationText = c.draft;
     try {
@@ -429,7 +429,7 @@ class ConversationView extends StatelessWidget {
                                   (c.draft.trim().isEmpty &&
                                       c.attachments.isEmpty)
                               ? null
-                              : () => _send(context),
+                              : () => sendWithConsent(context),
                           icon: const Icon(Icons.send_outlined),
                           label: const Text('发送'),
                         ),

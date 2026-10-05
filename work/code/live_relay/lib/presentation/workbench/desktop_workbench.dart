@@ -1,11 +1,13 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 import 'dart:ui' show AppExitResponse;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:provider/provider.dart';
+import 'package:window_manager/window_manager.dart';
 
 import '../../application/app_controller.dart';
 import '../../application/app_preferences.dart';
@@ -24,6 +26,8 @@ import 'dock_surface.dart';
 import 'workbench_card_editor.dart';
 import 'relations_view.dart';
 import 'extensions_view.dart';
+import 'native_window_host.dart';
+import '../../application/workbench/window_projection.dart';
 
 class DesktopWorkbench extends StatefulWidget {
   const DesktopWorkbench({super.key});
@@ -37,6 +41,7 @@ class _DesktopWorkbenchState extends State<DesktopWorkbench> {
   late final CardEditSessions _edits;
   late final ExtensionRegistry _extensions;
   late final AgentConversation _conversation;
+  late final NativeWindowHost _windows;
   late final AppLifecycleListener _lifecycle;
   bool _exiting = false;
   final _dragging = ValueNotifier<String?>(null);
@@ -67,6 +72,7 @@ class _DesktopWorkbenchState extends State<DesktopWorkbench> {
     _layout = WorkbenchLayout();
     _conversation = AgentConversation(_controller);
     _lifecycle = AppLifecycleListener(onExitRequested: _requestExit);
+    _controller.desktopExitRequested = _requestExit;
     _extensions = ExtensionRegistry(
       read: _controller.readWorkbenchExtensions,
       write: _controller.writeWorkbenchExtensions,
@@ -76,6 +82,25 @@ class _DesktopWorkbenchState extends State<DesktopWorkbench> {
       save: (id, draft) =>
           _controller.updateCard(id, draft, changeNote: '工作台自动保存'),
       canSave: () => _controller.isUnlocked && !_controller.isBusy,
+    );
+    _windows = NativeWindowHost(
+      controller: _controller,
+      edits: _edits,
+      conversation: _conversation,
+      onDock: (view) {
+        if (mounted && _controller.isUnlocked) _layout.open(view);
+      },
+      onSend: () async {
+        if (!mounted || !_controller.isUnlocked) return;
+        _layout.open('agent');
+        await windowManager.focus();
+        if (!mounted) return;
+        await ConversationView(
+          conversation: _conversation,
+          openManual: () => _layout.open('cards'),
+          openSpeech: () => _layout.open('speech'),
+        ).sendWithConsent(context);
+      },
     );
     _layout.addListener(_layoutChanged);
     _controller.addListener(_controllerChanged);
@@ -104,6 +129,11 @@ class _DesktopWorkbenchState extends State<DesktopWorkbench> {
       }
     } on Object {
       _layoutError = '已恢复默认布局；原有资料保留';
+    }
+    try {
+      await _windows.restore();
+    } on Object {
+      _layoutError = '独立窗口恢复失败；可以重新打开，资料保留';
     }
     if (mounted) {
       setState(() {
@@ -161,12 +191,14 @@ class _DesktopWorkbenchState extends State<DesktopWorkbench> {
   @override
   void dispose() {
     _controller.removeListener(_controllerChanged);
+    _controller.desktopExitRequested = null;
     _layout.removeListener(_layoutChanged);
     _layoutTimer?.cancel();
     _layout.dispose();
     _extensions.removeListener(_extensionsChanged);
     _extensions.dispose();
     _edits.dispose();
+    _windows.dispose();
     _conversation.dispose();
     _lifecycle.dispose();
     _dragging.dispose();
@@ -181,6 +213,7 @@ class _DesktopWorkbenchState extends State<DesktopWorkbench> {
     }
     _exiting = true;
     try {
+      await _windows.flushChildren();
       for (final cleanup in List.of(_controller.exitCleanups)) {
         await cleanup();
       }
@@ -189,6 +222,7 @@ class _DesktopWorkbenchState extends State<DesktopWorkbench> {
       await _conversation.flush();
       await _persistLayout();
       if (_layoutError != null) throw const FormatException('布局未保存');
+      await _windows.shutdown(preserve: true);
       return AppExitResponse.exit;
     } on Object {
       if (mounted) {
@@ -220,7 +254,11 @@ class _DesktopWorkbenchState extends State<DesktopWorkbench> {
   }
 
   Future<void> _preset(String preset) => _action(() async {
+    await _windows.flushChildren();
     await _edits.flush();
+    if (_edits.hasUnsaved) throw const FormatException('请先重试保存修改');
+    await _conversation.flush();
+    await _windows.shutdown();
     if (!mounted) return;
     await context.read<AppPreferences?>()?.setDesktopPreset(preset);
     _layout.reset(assistant: preset == 'assistant');
@@ -276,7 +314,7 @@ class _DesktopWorkbenchState extends State<DesktopWorkbench> {
     );
     if (selected == null || !mounted) return;
     if (selected == '#reset') {
-      _layout.reset(assistant: _layout.assistant);
+      await _preset(_layout.assistant ? 'assistant' : 'library');
     } else {
       _layout.open(selected);
     }
@@ -764,6 +802,15 @@ class _DesktopWorkbenchState extends State<DesktopWorkbench> {
       builder: _view,
       label: _label,
       icon: _icon,
+      onDetach: Platform.isLinux
+          ? (view) => _action(() async {
+              await _edits.flush();
+              if (_edits.hasUnsaved) throw const FormatException('请先保存修改');
+              await _windows.open(view);
+              _layout.close(view);
+            })
+          : null,
+      canDetach: detachableView,
     );
     return CallbackShortcuts(
       bindings: {
@@ -799,10 +846,7 @@ class _DesktopWorkbenchState extends State<DesktopWorkbench> {
                   if (v == 'choose') {
                     await preferences?.setDesktopPreset(null);
                   } else {
-                    _layout.reset(
-                      assistant: preferences?.desktopPreset == 'assistant',
-                    );
-                    await _persistLayout();
+                    await _preset(preferences?.desktopPreset ?? 'library');
                   }
                 }),
                 itemBuilder: (_) => const [
@@ -816,6 +860,7 @@ class _DesktopWorkbenchState extends State<DesktopWorkbench> {
                 onPressed: _controller.isBusy
                     ? null
                     : () => _action(() async {
+                        await _windows.flushChildren();
                         await _edits.flush();
                         if (_edits.hasUnsaved) {
                           throw const FormatException('仍有修改未保存，请重试保存后锁定');
@@ -871,6 +916,33 @@ class _DesktopWorkbenchState extends State<DesktopWorkbench> {
                                 ),
                               ),
                             ),
+                            if (Platform.isLinux)
+                              DragTarget<String>(
+                                onWillAcceptWithDetails: (d) =>
+                                    detachableView(d.data),
+                                onAcceptWithDetails: (d) => _action(() async {
+                                  await _edits.flush();
+                                    if (_edits.hasUnsaved) {
+                                      throw const FormatException('请先保存修改');
+                                    }
+                                  await _windows.open(d.data);
+                                  _layout.close(d.data);
+                                }),
+                                builder: (context, candidates, _) => Container(
+                                  color: candidates.isEmpty
+                                      ? null
+                                      : Theme.of(context)
+                                            .colorScheme
+                                            .primaryContainer,
+                                  child: const Padding(
+                                    padding: EdgeInsets.all(12),
+                                    child: Tooltip(
+                                      message: '拖到这里移到独立桌面窗口',
+                                      child: Icon(Icons.launch),
+                                    ),
+                                  ),
+                                ),
+                              ),
                           ],
                         ),
                       ),
