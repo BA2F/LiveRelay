@@ -19,6 +19,7 @@ import 'workbench/card_references.dart';
 import 'device_capabilities.dart';
 import '../core/domain/entities.dart';
 import '../core/ports/ai_provider.dart';
+import '../core/ports/ai_conversation_provider.dart';
 import '../core/ports/device_factor_protection.dart';
 import '../core/ports/ocr_provider.dart';
 import '../core/ports/vault_repository.dart';
@@ -165,6 +166,7 @@ class AppController extends ChangeNotifier {
   bool get biometricAvailable => _session.biometricAvailable;
   AiCancellation? _agentCancellation;
   void cancelAgentTask() => _agentCancellation?.cancel();
+  final exitCleanups = <Future<void> Function()>{};
   bool isBusy = false;
   bool agentCommandsAvailable = false;
   AiProviderSettings aiSettings = const AiProviderSettings(
@@ -646,6 +648,85 @@ class AppController extends ChangeNotifier {
     });
     return batch;
   }
+
+  AiTokenizedPayload prepareConversationText(
+    String text,
+    List<SensitiveMark> marks,
+  ) => (_draftAgentService ?? (throw StateError('Agent 尚未配置'))).prepare(
+    text,
+    marks,
+  );
+  Future<String?> readConversationState() =>
+      _requireRepository().readLocalValue('agent.conversation.v1');
+  Future<void> writeConversationState(String value) =>
+      _requireRepository().writeLocalValue('agent.conversation.v1', value);
+  Future<AiConversationResponse> converse(
+    String text,
+    List<Map<String, Object?>> history,
+  ) async {
+    late AiConversationResponse response;
+    await _run(() async {
+      if (!isUnlocked) throw StateError('请先解锁资料库');
+      if (!aiSettings.isConfigured) {
+        throw const FormatException('请先配置 AI 服务；也可以在我的资料中手动新建卡片');
+      }
+      final provider = _aiProvider;
+      if (provider is! AiConversationProvider) {
+        throw const FormatException('此 AI 服务尚未支持持续对话');
+      }
+      final cancellation = AiCancellation();
+      _agentCancellation = cancellation;
+      try {
+        final key = await _aiSettingsStore.readApiKey();
+        cancellation.check();
+        if (!isUnlocked || key == null || key.isEmpty) {
+          throw const FormatException('服务密钥不存在或资料库已锁定');
+        }
+        response = await (provider as AiConversationProvider).converse(
+          AiProviderRequest(
+            endpoint: Uri.parse(aiSettings.endpoint),
+            model: aiSettings.model,
+            apiKey: key,
+            protocol: aiSettings.protocol,
+            redactedText: text,
+            cancellation: cancellation,
+          ),
+          history,
+        );
+        cancellation.check();
+        if (!isUnlocked) throw const FormatException('资料库已锁定，本次结果已丢弃');
+      } finally {
+        if (identical(_agentCancellation, cancellation)) {
+          _agentCancellation = null;
+        }
+      }
+    });
+    return response;
+  }
+
+  Future<void> acceptConversationCards(
+    String reviewId,
+    String sourceText,
+    List<AiCardSuggestion> suggestions, {
+    required String providerLabel,
+  }) => _mutate(
+    (r) => r.saveReviewedAgentSuggestions(
+      reviewId,
+      sourceText,
+      suggestions
+          .map(
+            (s) => CardDraft(
+              title: s.title,
+              content: s.content,
+              kind: s.kind,
+              status: CardStatus.confirmed,
+              tags: ['AI', if (s.isInference) '推断'],
+            ),
+          )
+          .toList(),
+      providerLabel: providerLabel,
+    ),
+  );
 
   Future<void> saveAgentDrafts(AgentDraftBatch batch) => _mutate(
     (repository) => repository.saveAgentSuggestions(

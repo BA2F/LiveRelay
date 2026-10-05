@@ -1,0 +1,19 @@
+{
+  "platform": "linux",
+  "fixtureProvider": true,
+  "upstreamCalled": false,
+  "continuousTurns": 2,
+  "consentBeforeRequest": true,
+  "historyRedacted": true,
+  "editableProposals": true,
+  "explicitConfirmedSave": true,
+  "releaseRemainsHidden": true,
+  "sourcePreserved": true,
+  "encryptedConversationReopen": true,
+  "unknownTokenRejected": true,
+  "transcriptBackfillWithoutSend": true,
+  "cancelableExitRequestFlush": true,
+  "systemCloseButtonVerified": false,
+  "microphoneWaveformHardwareVerified": false,
+  "regressionTestsPassed": 40
+}

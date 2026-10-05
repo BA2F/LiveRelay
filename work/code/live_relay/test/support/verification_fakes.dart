@@ -3,6 +3,7 @@ import 'dart:typed_data';
 
 import 'package:live_relay/core/ports/biometric_key_store.dart';
 import 'package:live_relay/core/ports/ai_provider.dart';
+import 'package:live_relay/core/ports/ai_conversation_provider.dart';
 import 'package:live_relay/core/ports/ocr_provider.dart';
 import 'package:live_relay/core/domain/entities.dart';
 import 'package:live_relay/infrastructure/ai/ai_provider_settings_store.dart';
@@ -88,5 +89,39 @@ class RecordingAi implements AiProvider {
         },
       ],
     });
+  }
+}
+
+/// Fixture only: never contacts an upstream AI service.
+class RecordingConversationAi extends RecordingAi
+    implements AiConversationProvider {
+  final turns = <List<Map<String, Object?>>>[];
+  bool invalidReply = false;
+  @override
+  Future<AiConversationResponse> converse(
+    AiProviderRequest request,
+    List<Map<String, Object?>> history,
+  ) async {
+    requests.add(request);
+    turns.add(List.of(history));
+    final content = jsonEncode({
+      'reply': invalidReply ? '[[UNKNOWN_SECRET_99]]' : '收到你的补充',
+      'cards': turns.length == 1
+          ? []
+          : [
+              {
+                'title': '模型建议',
+                'content': '${history.first['content']}，本人补充',
+                'kind': 'note',
+                'inference': false,
+              },
+            ],
+    });
+    return AiConversationResponse(
+      content: content,
+      output: [
+        {'role': 'assistant', 'content': content},
+      ],
+    );
   }
 }

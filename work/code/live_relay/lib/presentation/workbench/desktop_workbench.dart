@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:ui' show AppExitResponse;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -12,7 +13,8 @@ import '../../application/workbench/card_edit_sessions.dart';
 import '../../application/workbench/workbench_layout.dart';
 import '../../application/workbench/extension_registry.dart';
 import '../../core/domain/entities.dart';
-import '../pages/agent_page.dart';
+import '../../application/agent/agent_conversation.dart';
+import 'conversation_view.dart';
 import '../pages/profile_page.dart';
 import '../pages/passwords_page.dart';
 import '../pages/handoff_page.dart';
@@ -34,6 +36,9 @@ class _DesktopWorkbenchState extends State<DesktopWorkbench> {
   late final WorkbenchLayout _layout;
   late final CardEditSessions _edits;
   late final ExtensionRegistry _extensions;
+  late final AgentConversation _conversation;
+  late final AppLifecycleListener _lifecycle;
+  bool _exiting = false;
   final _dragging = ValueNotifier<String?>(null);
   final _search = TextEditingController();
   final _selected = <String>{};
@@ -60,6 +65,8 @@ class _DesktopWorkbenchState extends State<DesktopWorkbench> {
     super.initState();
     _controller = context.read<AppController>();
     _layout = WorkbenchLayout();
+    _conversation = AgentConversation(_controller);
+    _lifecycle = AppLifecycleListener(onExitRequested: _requestExit);
     _extensions = ExtensionRegistry(
       read: _controller.readWorkbenchExtensions,
       write: _controller.writeWorkbenchExtensions,
@@ -76,6 +83,11 @@ class _DesktopWorkbenchState extends State<DesktopWorkbench> {
   }
 
   Future<void> _load() async {
+    try {
+      await _conversation.load();
+    } on Object {
+      _layoutError = '会话读取失败，原有加密记录保留';
+    }
     try {
       await _extensions.load();
     } on Object {
@@ -155,9 +167,38 @@ class _DesktopWorkbenchState extends State<DesktopWorkbench> {
     _extensions.removeListener(_extensionsChanged);
     _extensions.dispose();
     _edits.dispose();
+    _conversation.dispose();
+    _lifecycle.dispose();
     _dragging.dispose();
     _search.dispose();
     super.dispose();
+  }
+
+  Future<AppExitResponse> _requestExit() async {
+    if (_exiting || _controller.isBusy || (_controller.speech?.busy ?? false)) {
+      _controller.cancelAgentTask();
+      return AppExitResponse.cancel;
+    }
+    _exiting = true;
+    try {
+      for (final cleanup in List.of(_controller.exitCleanups)) {
+        await cleanup();
+      }
+      await _edits.flush();
+      if (_edits.hasUnsaved) throw const FormatException('仍有修改未保存');
+      await _conversation.flush();
+      await _persistLayout();
+      if (_layoutError != null) throw const FormatException('布局未保存');
+      return AppExitResponse.exit;
+    } on Object {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('退出已取消，请重试保存后关闭窗口')));
+      }
+      return AppExitResponse.cancel;
+    } finally {
+      _exiting = false;
+    }
   }
 
   Future<void> _action(Future<void> Function() operation) async {
@@ -370,9 +411,15 @@ class _DesktopWorkbenchState extends State<DesktopWorkbench> {
               ),
             ),
           ),
-        actions: [
-          if (_controller.isBusy) const Padding(padding: EdgeInsets.all(14),
-            child: SizedBox.square(dimension: 18, child: CircularProgressIndicator(strokeWidth: 2))),
+          actions: [
+            if (_controller.isBusy)
+              const Padding(
+                padding: EdgeInsets.all(14),
+                child: SizedBox.square(
+                  dimension: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
+              ),
             TextButton(
               onPressed: () => Navigator.pop(context, false),
               child: const Text('取消'),
@@ -612,11 +659,24 @@ class _DesktopWorkbenchState extends State<DesktopWorkbench> {
     }
     return switch (view) {
       'cards' => _library(group),
-      'agent' => const AgentPage(),
+      'agent' => ConversationView(
+        conversation: _conversation,
+        openManual: () => _layout.open('cards'),
+        openSpeech: () => _layout.open('speech'),
+      ),
       'settings' => const ProfilePage(),
       'passwords' => const PasswordsPage(active: true),
       'handoff' => const HandoffPage(),
-      'speech' => const SpeechInputPage(),
+      'speech' => SpeechInputPage(
+        onTranscript: (text) {
+          _conversation.updateDraft(
+            _conversation.draft.isEmpty
+                ? text
+                : '${_conversation.draft}\n$text',
+          );
+          _layout.open('agent');
+        },
+      ),
       'recycle' => _recycle(),
       'extensions' => ExtensionsView(
         registry: _extensions,
@@ -761,6 +821,7 @@ class _DesktopWorkbenchState extends State<DesktopWorkbench> {
                           throw const FormatException('仍有修改未保存，请重试保存后锁定');
                         }
                         await _persistLayout();
+                        await _conversation.flush();
                         await _controller.lock();
                       }),
               ),

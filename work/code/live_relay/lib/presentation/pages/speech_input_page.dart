@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
@@ -12,7 +13,8 @@ import '../../core/domain/entities.dart';
 import '../../infrastructure/speech/local_sense_voice_provider.dart';
 
 class SpeechInputPage extends StatefulWidget {
-  const SpeechInputPage({super.key});
+  const SpeechInputPage({super.key, this.onTranscript});
+  final ValueChanged<String>? onTranscript;
   @override
   State<SpeechInputPage> createState() => _SpeechInputPageState();
 }
@@ -21,7 +23,11 @@ class _SpeechInputPageState extends State<SpeechInputPage> {
   final _recorder = AudioRecorder();
   final _text = TextEditingController();
   late AppController _controller;
-  Timer? _limit;
+  Timer? _limit, _meterTimer;
+  StreamSubscription<Amplitude>? _amplitude;
+  final _recordClock = Stopwatch();
+  final _levels = <double>[];
+  late bool _saveOriginal = widget.onTranscript == null;
   String? _recordPath;
   String? _sourceBlobId;
   int _generation = 0;
@@ -33,6 +39,7 @@ class _SpeechInputPageState extends State<SpeechInputPage> {
     super.initState();
     _controller = context.read<AppController>();
     _controller.addListener(_sessionChanged);
+    _controller.exitCleanups.add(_discardRecording);
   }
 
   void _sessionChanged() {
@@ -47,6 +54,7 @@ class _SpeechInputPageState extends State<SpeechInputPage> {
 
   Future<void> _discardRecording() async {
     _limit?.cancel();
+    await _stopMeter();
     _recording = false;
     try {
       await _recorder.cancel();
@@ -54,6 +62,13 @@ class _SpeechInputPageState extends State<SpeechInputPage> {
       /* Cleanup below is retried. */
     }
     await _deleteRecording();
+  }
+
+  Future<void> _stopMeter() async {
+    _meterTimer?.cancel();
+    _recordClock.stop();
+    await _amplitude?.cancel();
+    _amplitude = null;
   }
 
   Future<void> _deleteRecording() async {
@@ -73,6 +88,7 @@ class _SpeechInputPageState extends State<SpeechInputPage> {
   void dispose() {
     _generation++;
     _controller.removeListener(_sessionChanged);
+    _controller.exitCleanups.remove(_discardRecording);
     _limit?.cancel();
     unawaited(_discardRecording().whenComplete(_recorder.dispose));
     _text.dispose();
@@ -120,12 +136,36 @@ class _SpeechInputPageState extends State<SpeechInputPage> {
       await _discardRecording();
       return;
     }
+    _levels.clear();
+    _recordClock.reset();
+    _recordClock.start();
+    _amplitude = _recorder
+        .onAmplitudeChanged(const Duration(milliseconds: 100))
+        .listen(
+          (value) {
+            if (!mounted || !_recording || !value.current.isFinite) return;
+            setState(() {
+              _levels.add(
+                ((value.current.clamp(-60.0, 0.0) + 60) / 60).toDouble(),
+              );
+              if (_levels.length > 60) _levels.removeAt(0);
+            });
+          },
+          onError: (Object _) {
+            if (mounted) setState(() => _error = '无法读取录音音量');
+          },
+        );
+    _meterTimer = Timer.periodic(const Duration(milliseconds: 200), (_) {
+      if (mounted && _recording) setState(() {});
+    });
     setState(() => _recording = true);
     _limit = Timer(const Duration(seconds: 60), () => unawaited(_stop()));
   });
   Future<void> _stop() async {
     if (!_recording) return;
     _limit?.cancel();
+    await _stopMeter();
+    if (!mounted) return;
     setState(() => _recording = false);
     await _action(() async {
       try {
@@ -169,20 +209,23 @@ class _SpeechInputPageState extends State<SpeechInputPage> {
     if (await file.length() > 2 * 1024 * 1024) {
       throw const FormatException('请选择 60 秒以内的 WAV');
     }
-    _text.clear();
-    _sourceBlobId = null;
-    final original = await _controller.importOriginal(
-      bytes: await file.readAsBytes(),
-      originalName: '语音-${DateTime.now().millisecondsSinceEpoch}.wav',
-      mimeType: 'audio/wav',
-      mediaKind: BlobMediaKind.audio,
-    );
-    if (!mounted || !_controller.isUnlocked || generation != _generation) {
-      return;
+    String? blobId;
+    late final Uint8List bytes;
+    if (_saveOriginal) {
+      final original = await _controller.importOriginal(
+        bytes: await file.readAsBytes(),
+        originalName: '语音-${DateTime.now().millisecondsSinceEpoch}.wav',
+        mimeType: 'audio/wav',
+        mediaKind: BlobMediaKind.audio,
+      );
+      if (!mounted || !_controller.isUnlocked || generation != _generation) {
+        return;
+      }
+      blobId = (await _controller.cardSources(original.id)).first.blobId!;
+      bytes = await _controller.readOriginal(blobId);
+    } else {
+      bytes = await file.readAsBytes();
     }
-    final sources = await _controller.cardSources(original.id);
-    final blobId = sources.first.blobId!;
-    final bytes = await _controller.readOriginal(blobId);
     if (!mounted || !_controller.isUnlocked || generation != _generation) {
       bytes.fillRange(0, bytes.length, 0);
       return;
@@ -206,7 +249,21 @@ class _SpeechInputPageState extends State<SpeechInputPage> {
           : ListView(
               padding: const EdgeInsets.all(16),
               children: [
-                const Text('录音原件加密保留，识别在本机完成，不上传音频。每次最长 60 秒，核对文字后保存关联草稿。'),
+                Text(
+                  widget.onTranscript == null
+                      ? '录音原件加密保留，识别在本机完成，不上传音频。每次最长 60 秒，核对文字后保存关联草稿。'
+                      : '识别在本机完成，不上传音频。每次最长 60 秒；核对后可填入助手，发送时另行确认。',
+                ),
+                if (widget.onTranscript != null)
+                  CheckboxListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text('另存录音原件到资料库'),
+                    value: _saveOriginal,
+                    onChanged: busy || _recording
+                        ? null
+                        : (value) =>
+                              setState(() => _saveOriginal = value ?? false),
+                  ),
                 const SizedBox(height: 16),
                 if (service == null || !service.supported)
                   const Text('当前平台尚未支持本地语音')
@@ -287,11 +344,34 @@ class _SpeechInputPageState extends State<SpeechInputPage> {
                         ),
                       ],
                     ),
-                    if (_recording)
-                      const Padding(
-                        padding: EdgeInsets.symmetric(vertical: 12),
-                        child: Text('正在录音，60 秒后自动停止'),
+                    if (_recording) ...[
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        child: Semantics(
+                          label: '实时录音音量',
+                          child: SizedBox(
+                            height: 48,
+                            width: double.infinity,
+                            child: CustomPaint(
+                              painter: _Waveform(
+                                List.of(_levels),
+                                Theme.of(context).colorScheme.primary,
+                              ),
+                            ),
+                          ),
+                        ),
                       ),
+                      Text(
+                        '正在录音 ${_recordClock.elapsed.inSeconds.toString().padLeft(2, "0")} / 60 秒',
+                      ),
+                      TextButton(
+                        onPressed: () async {
+                          await _discardRecording();
+                          if (mounted) setState(() {});
+                        },
+                        child: const Text('取消录音'),
+                      ),
+                    ],
                   ],
                 ],
                 if (_error != null)
@@ -319,6 +399,14 @@ class _SpeechInputPageState extends State<SpeechInputPage> {
                   ),
                   onChanged: (_) => setState(() {}),
                 ),
+                if (widget.onTranscript != null)
+                  OutlinedButton.icon(
+                    onPressed: busy || _recording || _text.text.trim().isEmpty
+                        ? null
+                        : () => widget.onTranscript!(_text.text.trim()),
+                    icon: const Icon(Icons.chat_bubble_outline),
+                    label: const Text('填入助手输入'),
+                  ),
                 FilledButton(
                   onPressed: busy || _recording || _text.text.trim().isEmpty
                       ? null
@@ -341,4 +429,30 @@ class _SpeechInputPageState extends State<SpeechInputPage> {
             ),
     );
   }
+}
+
+class _Waveform extends CustomPainter {
+  _Waveform(this.levels, this.color);
+  final List<double> levels;
+  final Color color;
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color
+      ..strokeWidth = 3
+      ..strokeCap = StrokeCap.round;
+    final gap = size.width / 60;
+    for (var i = 0; i < levels.length; i++) {
+      final height = (levels[i] * size.height).clamp(2.0, size.height);
+      final x = gap * (60 - levels.length + i + 0.5);
+      canvas.drawLine(
+        Offset(x, (size.height - height) / 2),
+        Offset(x, (size.height + height) / 2),
+        paint,
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(_Waveform oldDelegate) => true;
 }

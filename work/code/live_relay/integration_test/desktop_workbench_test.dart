@@ -8,6 +8,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:provider/provider.dart';
 import 'package:live_relay/application/app_preferences.dart';
+import 'package:live_relay/application/agent/agent_conversation.dart';
+import 'package:live_relay/presentation/workbench/conversation_view.dart';
 import 'package:live_relay/application/workbench/workbench_layout.dart';
 import 'package:live_relay/core/domain/entities.dart';
 import 'package:live_relay/infrastructure/app_composition.dart';
@@ -18,6 +20,7 @@ import '../test/support/verification_fakes.dart';
 
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
+  WidgetController.hitTestWarningShouldBeFatal = true;
   testWidgets(
     'native desktop edits and layout persist in encrypted vault without confirming drafts',
     (tester) async {
@@ -348,6 +351,201 @@ void main() {
               .any((source) => source.blobId == blob.id),
           isTrue,
         );
+      } finally {
+        await tester.pumpWidget(const SizedBox());
+        await c.lock();
+        c.dispose();
+        p.dispose();
+        await root.delete(recursive: true);
+      }
+    },
+  );
+  testWidgets(
+    'native continuous conversation edits, consent, confirmation and encrypted recovery',
+    (tester) async {
+      final root = await Directory.systemTemp.createTemp(
+        'liverelay-conversation-test-',
+      );
+      final ai = RecordingConversationAi();
+      final c = createAppController(
+        root,
+        NoBiometrics(),
+        TestOcr(),
+        ai,
+        TestAiSettings()..configured = true,
+      );
+      final p = AppPreferences();
+      final screenshotKey = GlobalKey();
+      try {
+        await c.initialize();
+        await c.setupVault(
+          password: 'fictional-conversation-2026',
+          usesChinesePassphrase: false,
+        );
+        await p.finishOnboarding();
+        await p.setDesktopPreset('assistant');
+        await tester.pumpWidget(
+          MultiProvider(
+            providers: [
+              ChangeNotifierProvider.value(value: c),
+              ChangeNotifierProvider.value(value: p),
+            ],
+            child: RepaintBoundary(
+              key: screenshotKey,
+              child: const LiveRelayApp(),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        final view = tester.widget<ConversationView>(
+          find.byType(ConversationView),
+        );
+        final conversation = view.conversation;
+        Future<void> settleConversation() async {
+          for (
+            var attempt = 0;
+            attempt < 100 && conversation.working;
+            attempt++
+          ) {
+            await tester.pump(const Duration(milliseconds: 100));
+          }
+          await tester.pumpAndSettle();
+          expect(conversation.working, false);
+          expect(conversation.error, isNull);
+        }
+
+        final input = find.byWidgetPredicate(
+          (w) => w is TextField && w.decoration?.labelText == '对话输入',
+        );
+        await tester.enterText(input, '虚构秘密');
+        conversation.mark(0, SensitiveFieldKind.secret);
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('发送'));
+        await tester.pumpAndSettle();
+        expect(ai.requests, isEmpty); // UI consent precedes any request.
+        expect(find.textContaining('[[TURN1_SECRET_01]]'), findsWidgets);
+        expect(
+          find.text('允许本次发送'),
+          findsOneWidget,
+          reason:
+              '输入=${conversation.draft}; 错误=${conversation.error}; 提示=${tester.widgetList<Text>(find.descendant(of: find.byType(SnackBar), matching: find.byType(Text))).map((t) => t.data).join()}',
+        );
+        await tester.tap(find.text('允许本次发送'));
+        await tester.pump(const Duration(milliseconds: 100));
+        await settleConversation();
+        expect(ai.requests.single.redactedText, '[[TURN1_SECRET_01]]');
+        expect(c.cards, isEmpty);
+        expect(
+          identical(
+            tester
+                .widget<ConversationView>(find.byType(ConversationView))
+                .conversation,
+            conversation,
+          ),
+          true,
+        );
+        expect(tester.widget<TextField>(input).enabled, true);
+        await tester.tap(input);
+        await tester.pumpAndSettle();
+        await tester.enterText(input, '请整理成卡片');
+        expect(tester.widget<TextField>(input).controller!.text, '请整理成卡片');
+        expect(conversation.draft, '请整理成卡片');
+        await tester.pumpAndSettle();
+        expect(conversation.draft, '请整理成卡片');
+        expect(conversation.working, false);
+        await tester.tap(find.text('发送'));
+        await tester.pumpAndSettle();
+        expect(
+          find.text('允许本次发送'),
+          findsOneWidget,
+          reason:
+              '输入=${conversation.draft}; 错误=${conversation.error}; 提示=${tester.widgetList<Text>(find.descendant(of: find.byType(SnackBar), matching: find.byType(Text))).map((t) => t.data).join()}',
+        );
+        await tester.tap(find.text('允许本次发送'));
+        await tester.pump(const Duration(milliseconds: 100));
+        await settleConversation();
+        expect(ai.turns.last, hasLength(2));
+        expect(jsonEncode(ai.turns.last), isNot(contains('虚构秘密')));
+        expect(
+          conversation.messages.last.suggestions.single.content,
+          contains('虚构秘密'),
+        );
+        expect(c.cards, isEmpty);
+        final title = find.byWidgetPredicate(
+          (w) => w is TextField && w.decoration?.labelText == '建议标题',
+        );
+        await tester.ensureVisible(title);
+        await tester.pumpAndSettle();
+        await tester.tap(title);
+        await tester.pumpAndSettle();
+        await tester.enterText(title, '本人修改后的建议');
+        final confirm = find.text('确认并保存 1 张卡片');
+        await tester.ensureVisible(confirm);
+        await tester.tap(confirm);
+        await settleConversation();
+        expect(c.cards.single.title, '本人修改后的建议');
+        final source = (await c.cardSources(c.cards.single.id)).single;
+        expect(source.excerpt, contains('虚构秘密'));
+        expect(source.excerpt, contains('请整理成卡片'));
+        expect(c.cards.single.status, CardStatus.confirmed);
+        expect(
+          (await c.releasePolicy(
+            'card',
+            c.cards.single.id,
+          )).visibleAt(LifeState.deceased),
+          VisibilityLevel.hidden,
+        );
+        expect(conversation.messages.last.accepted, true);
+        final evidencePath =
+            Platform.environment['LIVERELAY_WORKBENCH_EVIDENCE'];
+        if (evidencePath != null) {
+          final boundary =
+              screenshotKey.currentContext!.findRenderObject()
+                  as RenderRepaintBoundary;
+          final image = await boundary.toImage();
+          final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
+          await File('$evidencePath/native-agent.png')
+              .writeAsBytes(bytes!.buffer.asUint8List());
+          image.dispose();
+        }
+        conversation.updateDraft('重开后继续的输入');
+        expect(
+          await WidgetsBinding.instance.handleRequestAppExit(),
+          ui.AppExitResponse.exit,
+        );
+        expect(await c.readConversationState(), contains('重开后继续的输入'));
+        final surface = tester.widget<DockSurface>(find.byType(DockSurface));
+        surface.layout.open('speech');
+        await tester.pumpAndSettle();
+        expect(find.text('另存录音原件到资料库'), findsOneWidget);
+        final transcript = find.byWidgetPredicate(
+          (w) => w is TextField && w.decoration?.labelText == '检查或修改识别文字',
+        );
+        await tester.enterText(transcript, '虚构转写回填');
+        await tester.pumpAndSettle();
+        await tester.ensureVisible(find.text('填入助手输入'));
+        await tester.tap(find.text('填入助手输入'));
+        await tester.pumpAndSettle();
+        expect(conversation.draft, contains('虚构转写回填'));
+        expect(ai.requests.length, 2);
+        await conversation.flush();
+        await tester.pumpWidget(const SizedBox());
+        await c.lock();
+        await c.unlockWithPassword('fictional-conversation-2026');
+        final restored = AgentConversation(c);
+        await restored.load();
+        expect(restored.messages.length, 4);
+        expect(restored.messages.last.accepted, true);
+        expect(restored.messages.last.suggestions.single.title, '本人修改后的建议');
+        expect(restored.draft, '重开后继续的输入\n虚构转写回填');
+        await restored.accept(restored.messages.last);
+        expect(c.cards.length, 1);
+        ai.invalidReply = true;
+        final ok = await restored.send(restored.prepare('下一轮', []));
+        expect(ok, false);
+        expect(restored.messages.length, 4);
+        expect(restored.error, contains('未知'));
+        restored.dispose();
       } finally {
         await tester.pumpWidget(const SizedBox());
         await c.lock();

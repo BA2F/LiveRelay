@@ -83,6 +83,14 @@ abstract interface class VaultRepository {
     required String providerLabel,
   });
 
+  /// Idempotent explicit review. Confirmation never changes release policy.
+  Future<List<LifeCard>> saveReviewedAgentSuggestions(
+    String reviewId,
+    String sourceText,
+    List<CardDraft> drafts, {
+    required String providerLabel,
+  });
+
   Future<List<CredentialEntry>> listCredentials({
     String query = '',
     bool recycled = false,

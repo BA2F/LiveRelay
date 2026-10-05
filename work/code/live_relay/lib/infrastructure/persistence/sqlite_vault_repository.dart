@@ -1004,6 +1004,61 @@ class SqliteVaultRepository implements VaultRepository {
   }
 
   @override
+  Future<List<LifeCard>> saveReviewedAgentSuggestions(
+    String reviewId,
+    String sourceText,
+    List<CardDraft> drafts, {
+    required String providerLabel,
+  }) {
+    if (!RegExp(r'^[a-zA-Z0-9-]{1,64}$').hasMatch(reviewId) ||
+        sourceText.length > 32000 ||
+        drafts.isEmpty ||
+        drafts.length > 20) {
+      throw const FormatException('确认建议数量或来源大小错误');
+    }
+    return database.transaction(() async {
+      final receiptKey = 'agent.review.$reviewId';
+      final receipt = await readLocalValue(receiptKey);
+      if (receipt != null) {
+        final cards = <LifeCard>[];
+        for (final id in jsonDecode(receipt) as List) {
+          final card = await getCard(id as String);
+          if (card != null) cards.add(card);
+        }
+        return cards;
+      }
+      final cards = <LifeCard>[];
+      for (final draft in drafts) {
+        cards.add(
+          await _insertCard(
+            CardDraft(
+              title: draft.title,
+              content: draft.content,
+              kind: draft.kind,
+              status: CardStatus.confirmed,
+              tags: draft.tags,
+            ),
+            sourceKind: SourceKind.aiGenerated,
+            sourceLabel: providerLabel,
+            sourceText: sourceText,
+          ),
+        );
+      }
+      await writeLocalValue(
+        receiptKey,
+        jsonEncode(cards.map((c) => c.id).toList()),
+      );
+      await _audit(
+        'agent-review',
+        'cards',
+        reviewId,
+        '本人编辑并明确确认 ${cards.length} 张建议',
+      );
+      return cards;
+    });
+  }
+
+  @override
   Future<List<CredentialEntry>> listCredentials({
     String query = '',
     bool recycled = false,
