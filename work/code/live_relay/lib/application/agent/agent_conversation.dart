@@ -1,5 +1,10 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
+
+import 'package:path/path.dart' as path;
+
+import '../../core/ai/conversation_attachment.dart';
 
 import 'package:flutter/foundation.dart';
 import 'package:uuid/uuid.dart';
@@ -15,7 +20,9 @@ class PreparedConversationTurn {
     this.generation,
     this.turn,
     this.provider,
+    this.attachments,
   );
+  final List<ConversationAttachment> attachments;
   final int generation, turn;
   final String provider;
   final String text;
@@ -29,9 +36,11 @@ class ConversationMessage {
     List<AiCardSuggestion> suggestions = const [],
     String? reviewId,
     this.providerLabel = '',
+    this.attachments = const [],
     this.accepted = false,
   }) : suggestions = List.of(suggestions),
        reviewId = reviewId ?? const Uuid().v7();
+  final List<ConversationAttachment> attachments;
   final String role, text, reviewId, providerLabel;
   final List<AiCardSuggestion> suggestions;
   bool accepted;
@@ -51,11 +60,12 @@ class AgentConversation extends ChangeNotifier {
 
   String get _configuration {
     final s = controller.aiSettings;
-    return '${s.protocol.name}:${s.endpoint}:${s.model}';
+    return '${s.protocol.name}:${s.endpoint}:${s.model}:${s.supportsImages}:${s.supportsFiles}';
   }
 
   final AppController controller;
   final messages = <ConversationMessage>[];
+  final attachments = <ConversationAttachment>[];
   final _history = <Map<String, Object?>>[];
   final _tokens = <String, String>{};
   final marks = <int, SensitiveFieldKind>{};
@@ -68,7 +78,19 @@ class AgentConversation extends ChangeNotifier {
   static final _pattern = RegExp(r'\[\[[A-Z][A-Z0-9_]*_\d{2}\]\]');
 
   PreparedConversationTurn prepare(String text, List<SensitiveMark> marks) {
-    final payload = controller.prepareConversationText(text, marks);
+    final selected = List<ConversationAttachment>.of(attachments);
+    final settings = controller.aiSettings;
+    for (final a in selected) {
+      a.wire(
+        settings.protocol,
+        images: settings.supportsImages,
+        files: settings.supportsFiles,
+      );
+    }
+    final input = text.trim().isEmpty && selected.isNotEmpty
+        ? '请理解所选附件。'
+        : text;
+    final payload = controller.prepareConversationText(input, marks);
     var redacted = payload.redactedText;
     final tokens = <String, String>{};
     for (final entry in payload.tokenMap.entries) {
@@ -77,15 +99,128 @@ class AgentConversation extends ChangeNotifier {
       tokens[token] = entry.value;
     }
     return PreparedConversationTurn(
-      text,
+      input,
       AiTokenizedPayload(redactedText: redacted, tokenMap: tokens),
       _generation,
       _turn,
       _configuration,
+      selected,
     );
   }
 
-  String get disclosureHistory => _history.map(jsonEncode).join('\n');
+  String get disclosureHistory => jsonEncode(
+    _history,
+  ).replaceAll(RegExp(r'data:[^;]+;base64,[A-Za-z0-9+/=]+'), '[附件二进制；见历史附件预览]');
+  String get attachmentStamp => attachments.map((a) => a.id).join(',');
+  Future<void> addFilePaths(Iterable<String> paths) async {
+    if (working || !controller.isUnlocked) return;
+    final generation = _generation;
+    final added = <ConversationAttachment>[];
+    try {
+      for (final filePath in paths) {
+        final file = File(filePath);
+        if (await file.length() > ConversationAttachment.maxBytes) {
+          throw const FormatException('每个附件最多 2 MB');
+        }
+        added.add(
+          ConversationAttachment.read(
+            path.basename(filePath),
+            await file.readAsBytes(),
+          ),
+        );
+      }
+      if (_disposed || generation != _generation || !controller.isUnlocked) {
+        for (final a in added) {
+          a.wipe();
+        }
+        return;
+      }
+      _addAttachments(added);
+    } on Object {
+      for (final a in added) {
+        a.wipe();
+      }
+      rethrow;
+    }
+  }
+
+  void _addAttachments(List<ConversationAttachment> added) {
+    if (attachments.length + added.length > 6 ||
+        [...attachments, ...added].fold<int>(0, (n, a) => n + a.bytes.length) >
+            4 * 1024 * 1024) {
+      throw const FormatException('每轮最多 6 个附件、总计 4 MB');
+    }
+    attachments.addAll(added);
+    _scheduleSave();
+    notifyListeners();
+  }
+
+  void attachCard(LifeCard card) {
+    if (working || !controller.isUnlocked) return;
+    _addAttachments([
+      ConversationAttachment.read(
+        '${card.title}.txt',
+        Uint8List.fromList(utf8.encode('${card.title}\n${card.content}')),
+        cardId: card.id,
+      ),
+    ]);
+  }
+
+  Future<void> attachOriginal(VaultBlob blob) async {
+    if (working || !controller.isUnlocked) return;
+    if (blob.byteLength > ConversationAttachment.maxBytes) {
+      throw const FormatException('每个附件最多 2 MB');
+    }
+    final generation = _generation;
+    final bytes = await controller.readOriginal(blob.id);
+    if (_disposed || generation != _generation || !controller.isUnlocked) {
+      bytes.fillRange(0, bytes.length, 0);
+      return;
+    }
+    try {
+      _addAttachments([
+        ConversationAttachment.read(blob.originalName, bytes, blobId: blob.id),
+      ]);
+    } on Object {
+      bytes.fillRange(0, bytes.length, 0);
+      rethrow;
+    }
+  }
+
+  void removeAttachment(ConversationAttachment attachment) {
+    if (working || !attachments.remove(attachment)) return;
+    attachment.wipe();
+    _scheduleSave();
+    notifyListeners();
+  }
+
+  Future<void> saveOriginal(ConversationAttachment attachment) async {
+    if (working || attachment.blobId != null || attachment.cardId != null) {
+      return;
+    }
+    working = true;
+    notifyListeners();
+    try {
+      final original = await controller.importOriginal(
+        bytes: Uint8List.fromList(attachment.bytes),
+        originalName: attachment.name,
+        mimeType: attachment.mimeType,
+        mediaKind: attachment.kind == ConversationAttachmentKind.image
+            ? BlobMediaKind.image
+            : BlobMediaKind.document,
+      );
+      attachment.blobId = (await controller.cardSources(original.id))
+          .first
+          .blobId;
+      await flush();
+    } finally {
+      if (!_disposed) {
+        working = false;
+        notifyListeners();
+      }
+    }
+  }
+
   void updateDraft(String text) {
     draft = text;
     marks.removeWhere((line, _) => line >= text.split('\n').length);
@@ -108,14 +243,18 @@ class AgentConversation extends ChangeNotifier {
     int index, {
     String? title,
     String? content,
+    CardKind? kind,
+    bool? isInference,
+    List<String>? tags,
   }) {
     if (message.accepted || working) return;
     final s = message.suggestions[index];
     message.suggestions[index] = AiCardSuggestion(
       title: title ?? s.title,
       content: content ?? s.content,
-      kind: s.kind,
-      isInference: s.isInference,
+      kind: kind ?? s.kind,
+      isInference: isInference ?? s.isInference,
+      tags: tags ?? s.tags,
     );
     _scheduleSave();
     notifyListeners();
@@ -159,6 +298,7 @@ class AgentConversation extends ChangeNotifier {
             content: s['content'] as String,
             kind: CardKind.values.byName(s['kind'] as String),
             isInference: s['inference'] == true,
+            tags: List<String>.from(s['tags'] as List? ?? []),
           ),
       ];
       loaded.add(
@@ -168,6 +308,10 @@ class AgentConversation extends ChangeNotifier {
           suggestions: suggestions,
           reviewId: raw['reviewId'] as String,
           providerLabel: raw['providerLabel'] as String? ?? '',
+          attachments: [
+            for (final a in raw['attachments'] as List? ?? [])
+              ConversationAttachment.fromJson(a as Map),
+          ],
           accepted: raw['accepted'] == true,
         ),
       );
@@ -180,12 +324,22 @@ class AgentConversation extends ChangeNotifier {
           e.value as String,
         ),
     };
+    final loadedAttachments = [
+      for (final a in data['attachments'] as List? ?? [])
+        ConversationAttachment.fromJson(a as Map),
+    ];
     final loadedDraft = data['draft'] as String;
     _history.addAll(history);
     _tokens.addAll(tokens);
     messages.addAll(loaded);
+    attachments.addAll(loadedAttachments);
     _turn = turn;
-    _providerFingerprint = provider;
+    final settings = controller.aiSettings;
+    final oldConfiguration =
+        '${settings.protocol.name}:${settings.endpoint}:${settings.model}';
+    _providerFingerprint = provider == oldConfiguration
+        ? '$provider:false:false'
+        : provider;
     draft = loadedDraft;
     marks.addAll(loadedMarks);
     notifyListeners();
@@ -204,6 +358,7 @@ class AgentConversation extends ChangeNotifier {
       'history': _history,
       'tokens': _tokens,
       'draft': draft,
+      'attachments': [for (final a in attachments) a.toJson()],
       'marks': {for (final e in marks.entries) e.key.toString(): e.value.name},
       'messages': [
         for (final m in messages)
@@ -212,6 +367,7 @@ class AgentConversation extends ChangeNotifier {
             'text': m.text,
             'reviewId': m.reviewId,
             'providerLabel': m.providerLabel,
+            'attachments': [for (final a in m.attachments) a.toJson()],
             'accepted': m.accepted,
             'suggestions': [
               for (final s in m.suggestions)
@@ -220,6 +376,7 @@ class AgentConversation extends ChangeNotifier {
                   'content': s.content,
                   'kind': s.kind.name,
                   'inference': s.isInference,
+                  'tags': s.tags,
                 },
             ],
           },
@@ -248,21 +405,38 @@ class AgentConversation extends ChangeNotifier {
     notifyListeners();
     final generation = _generation;
     final settings = controller.aiSettings;
-    final fingerprint =
-        '${settings.protocol.name}:${settings.endpoint}:${settings.model}';
+    final fingerprint = _configuration;
     try {
       if (_persistenceBlocked ||
           turn.generation != _generation ||
           turn.turn != _turn ||
-          turn.provider != fingerprint) {
+          turn.provider != fingerprint ||
+          turn.attachments.map((a) => a.id).join(',') != attachmentStamp) {
         throw const FormatException('会话或服务配置已变化，请重新检查本轮发送范围');
       }
       if (_providerFingerprint != null && fingerprint != _providerFingerprint) {
         throw const FormatException('服务或模型已切换，请先开始新会话，避免将既有对话转发给其他模型');
       }
+      final content = turn.attachments.isEmpty
+          ? null
+          : <Map<String, Object?>>[
+              {
+                'type': settings.protocol.name == 'responses'
+                    ? 'input_text'
+                    : 'text',
+                'text': turn.payload.redactedText,
+              },
+              for (final a in turn.attachments)
+                a.wire(
+                  settings.protocol,
+                  images: settings.supportsImages,
+                  files: settings.supportsFiles,
+                ),
+            ];
       final response = await controller.converse(
         turn.payload.redactedText,
         List.of(_history),
+        inputContent: content,
       );
       if (_disposed || generation != _generation || !controller.isUnlocked) {
         return false;
@@ -297,12 +471,18 @@ class AgentConversation extends ChangeNotifier {
                 tokenMap: {for (final t in used) t: tokens[t]!},
               ),
             );
-      _history.add({'role': 'user', 'content': turn.payload.redactedText});
+      _history.add({
+        'role': 'user',
+        'content': content ?? turn.payload.redactedText,
+      });
       _history.addAll(response.output);
       _tokens.addAll(turn.payload.tokenMap);
       _providerFingerprint = fingerprint;
       _turn++;
-      messages.add(ConversationMessage('user', turn.text));
+      messages.add(
+        ConversationMessage('user', turn.text, attachments: turn.attachments),
+      );
+      attachments.clear();
       messages.add(
         ConversationMessage(
           'assistant',
@@ -367,9 +547,23 @@ class AgentConversation extends ChangeNotifier {
           .where((m) => m.role == 'user');
       await controller.acceptConversationCards(
         message.reviewId,
-        previousInputs.map((m) => m.text).join('\n'),
+        previousInputs
+            .map(
+              (m) =>
+                  m.text +
+                  (m.attachments.isEmpty
+                      ? ''
+                      : '\n附件：${m.attachments.map((a) => a.name).join(', ')}'),
+            )
+            .join('\n'),
         message.suggestions,
         providerLabel: message.providerLabel,
+        originalIds: previousInputs
+            .expand((m) => m.attachments)
+            .map((a) => a.blobId)
+            .whereType<String>()
+            .toSet()
+            .toList(),
       );
       if (_disposed || generation != _generation || !controller.isUnlocked) {
         return;
@@ -402,6 +596,13 @@ class AgentConversation extends ChangeNotifier {
     _saveTimer?.cancel();
     _history.clear();
     _tokens.clear();
+    for (final a in [
+      ...attachments,
+      ...messages.expand((m) => m.attachments),
+    ]) {
+      a.wipe();
+    }
+    attachments.clear();
     messages.clear();
     marks.clear();
     draft = '';

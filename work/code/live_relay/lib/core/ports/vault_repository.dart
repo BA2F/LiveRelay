@@ -3,6 +3,8 @@ import 'dart:typed_data';
 import '../domain/entities.dart';
 
 abstract interface class VaultRepository {
+  Future<String?> readChunkedLocalValue(String key);
+  Future<void> writeChunkedLocalValue(String key, String value);
   Future<Uint8List> exportLocalState();
   Future<void> importLocalState(Uint8List bytes);
   Future<String?> readLocalValue(String key);
@@ -89,6 +91,7 @@ abstract interface class VaultRepository {
     String sourceText,
     List<CardDraft> drafts, {
     required String providerLabel,
+    List<String> originalIds = const [],
   });
 
   Future<List<CredentialEntry>> listCredentials({

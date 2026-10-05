@@ -23,10 +23,10 @@ class HttpConversationProvider implements AiConversationProvider {
     request.cancellation?.check();
     final current = <String, Object?>{
       'role': 'user',
-      'content': request.redactedText,
+      'content': request.inputContent ?? request.redactedText,
     };
     final input = [...history, current];
-    if (utf8.encode(jsonEncode(input)).length > 512 * 1024) {
+    if (utf8.encode(jsonEncode(input)).length > 12 * 1024 * 1024) {
       throw const FormatException('会话内容过长，请开始新会话');
     }
     final responses = request.protocol == AiProtocol.responses;

@@ -8,8 +8,11 @@ class AiProviderSettings {
     required this.model,
     required this.hasApiKey,
     this.protocol = AiProtocol.chatCompletions,
+    this.supportsImages = false,
+    this.supportsFiles = false,
   });
 
+  final bool supportsImages, supportsFiles;
   final AiProtocol protocol;
   final String endpoint;
   final String model;
@@ -42,6 +45,8 @@ class AiProviderSettingsStore {
       protocol: values[_protocolKey] == 'responses'
           ? AiProtocol.responses
           : AiProtocol.chatCompletions,
+      supportsImages: values['supports-images'] == 'true',
+      supportsFiles: values['supports-files'] == 'true',
       endpoint: values[_endpointKey] ?? '',
       model: values[_modelKey] ?? '',
       hasApiKey: (values[_apiKey] ?? '').isNotEmpty,
@@ -69,6 +74,14 @@ class AiProviderSettingsStore {
 
   Future<void> saveProtocol(AiProtocol protocol) =>
       _storage.write(key: _protocolKey, value: protocol.name);
+
+  Future<void> saveCapabilities({
+    required bool images,
+    required bool files,
+  }) async {
+    await _storage.write(key: 'supports-images', value: images.toString());
+    await _storage.write(key: 'supports-files', value: files.toString());
+  }
 
   Future<void> clear() => _storage.deleteAll();
 }

@@ -583,6 +583,8 @@ class AppController extends ChangeNotifier {
     required String model,
     String? apiKey,
     AiProtocol? protocol,
+    bool? supportsImages,
+    bool? supportsFiles,
   }) async {
     await _run(() async {
       await _aiSettingsStore.save(
@@ -591,6 +593,12 @@ class AppController extends ChangeNotifier {
         apiKey: apiKey,
       );
       if (protocol != null) await _aiSettingsStore.saveProtocol(protocol);
+      if (supportsImages != null || supportsFiles != null) {
+        await _aiSettingsStore.saveCapabilities(
+          images: supportsImages ?? aiSettings.supportsImages,
+          files: supportsFiles ?? aiSettings.supportsFiles,
+        );
+      }
       aiSettings = await _aiSettingsStore.read();
     });
   }
@@ -657,13 +665,14 @@ class AppController extends ChangeNotifier {
     marks,
   );
   Future<String?> readConversationState() =>
-      _requireRepository().readLocalValue('agent.conversation.v1');
-  Future<void> writeConversationState(String value) =>
-      _requireRepository().writeLocalValue('agent.conversation.v1', value);
+      _requireRepository().readChunkedLocalValue('agent.conversation.v1');
+  Future<void> writeConversationState(String value) => _requireRepository()
+      .writeChunkedLocalValue('agent.conversation.v1', value);
   Future<AiConversationResponse> converse(
     String text,
-    List<Map<String, Object?>> history,
-  ) async {
+    List<Map<String, Object?>> history, {
+    List<Map<String, Object?>>? inputContent,
+  }) async {
     late AiConversationResponse response;
     await _run(() async {
       if (!isUnlocked) throw StateError('请先解锁资料库');
@@ -689,6 +698,7 @@ class AppController extends ChangeNotifier {
             apiKey: key,
             protocol: aiSettings.protocol,
             redactedText: text,
+            inputContent: inputContent,
             cancellation: cancellation,
           ),
           history,
@@ -709,6 +719,7 @@ class AppController extends ChangeNotifier {
     String sourceText,
     List<AiCardSuggestion> suggestions, {
     required String providerLabel,
+    List<String> originalIds = const [],
   }) => _mutate(
     (r) => r.saveReviewedAgentSuggestions(
       reviewId,
@@ -720,11 +731,12 @@ class AppController extends ChangeNotifier {
               content: s.content,
               kind: s.kind,
               status: CardStatus.confirmed,
-              tags: ['AI', if (s.isInference) '推断'],
+              tags: ['AI', if (s.isInference) '推断', ...s.tags],
             ),
           )
           .toList(),
       providerLabel: providerLabel,
+      originalIds: originalIds,
     ),
   );
 

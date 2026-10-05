@@ -23,6 +23,8 @@ class AiSettingsDialogState extends State<AiSettingsDialog> {
   );
   final _apiKey = TextEditingController();
   late AiProtocol _protocol = widget.controller.aiSettings.protocol;
+  late bool _images = widget.controller.aiSettings.supportsImages;
+  late bool _files = widget.controller.aiSettings.supportsFiles;
   bool _busy = false;
   bool _showKey = false;
   String? _error;
@@ -44,6 +46,8 @@ class AiSettingsDialogState extends State<AiSettingsDialog> {
       await widget.controller.saveAiSettings(
         endpoint: _endpoint.text,
         protocol: _protocol,
+        supportsImages: _images,
+        supportsFiles: _files,
         model: _model.text,
         apiKey: _apiKey.text.isEmpty ? null : _apiKey.text,
       );
@@ -122,6 +126,22 @@ class AiSettingsDialogState extends State<AiSettingsDialog> {
             decoration: const InputDecoration(labelText: '模型名称'),
           ),
           const SizedBox(height: 12),
+          CheckboxListTile(
+            contentPadding: EdgeInsets.zero,
+            title: const Text('此模型支持图片输入'),
+            value: _images,
+            onChanged: _busy
+                ? null
+                : (v) => setState(() => _images = v ?? false),
+          ),
+          CheckboxListTile(
+            contentPadding: EdgeInsets.zero,
+            title: const Text('此 Responses 模型支持 PDF 输入'),
+            value: _files,
+            onChanged: _busy
+                ? null
+                : (v) => setState(() => _files = v ?? false),
+          ),
           TextField(
             controller: _apiKey,
             enabled: !_busy,

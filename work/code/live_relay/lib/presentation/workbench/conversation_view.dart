@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import '../../application/agent/agent_conversation.dart';
 import '../../core/domain/entities.dart';
 import '../dialogs/ai_settings_dialog.dart';
+import 'attachment_strip.dart';
+import '../model_labels.dart';
 
 class ConversationView extends StatelessWidget {
   const ConversationView({
@@ -39,6 +41,15 @@ class ConversationView extends StatelessWidget {
                   const Text('将发送以下本轮内容和已有对话历史。已标记的敏感行以占位符发送。'),
                   const SizedBox(height: 12),
                   SelectableText(turn.payload.redactedText),
+                  if (turn.attachments.isNotEmpty) ...[
+                    const Text('附件将以完整内容发送，敏感行标记仅适用于主输入文字：'),
+                    Wrap(
+                      children: [
+                        for (final a in turn.attachments)
+                          AttachmentTile(attachment: a, conversation: c),
+                      ],
+                    ),
+                  ],
                   if (c.disclosureHistory.isNotEmpty) ...[
                     const Divider(),
                     const Text('将重发的对话历史'),
@@ -156,11 +167,58 @@ class ConversationView extends StatelessWidget {
                           ),
                           const SizedBox(height: 8),
                           SelectableText(m.text),
+                          if (m.attachments.isNotEmpty)
+                            Wrap(
+                              children: [
+                                for (final a in m.attachments)
+                                  AttachmentTile(
+                                    attachment: a,
+                                    conversation: c,
+                                  ),
+                              ],
+                            ),
                           for (var i = 0; i < m.suggestions.length; i++)
                             Padding(
                               padding: const EdgeInsets.only(top: 12),
                               child: Column(
                                 children: [
+                                  DropdownButtonFormField<CardKind>(
+                                    key: ValueKey(
+                                      '${m.reviewId}/$i/${m.suggestions[i].kind.name}',
+                                    ),
+                                    initialValue: m.suggestions[i].kind,
+                                    decoration: const InputDecoration(
+                                      labelText: '建议类型',
+                                    ),
+                                    items: [
+                                      for (final kind in CardKind.values.where(
+                                        (k) => k != CardKind.bundle,
+                                      ))
+                                        DropdownMenuItem(
+                                          value: kind,
+                                          child: Text(kind.label),
+                                        ),
+                                    ],
+                                    onChanged: m.accepted || c.working
+                                        ? null
+                                        : (kind) => c.editSuggestion(
+                                            m,
+                                            i,
+                                            kind: kind,
+                                          ),
+                                  ),
+                                  CheckboxListTile(
+                                    contentPadding: EdgeInsets.zero,
+                                    title: const Text('内容包含推断'),
+                                    value: m.suggestions[i].isInference,
+                                    onChanged: m.accepted || c.working
+                                        ? null
+                                        : (value) => c.editSuggestion(
+                                            m,
+                                            i,
+                                            isInference: value,
+                                          ),
+                                  ),
                                   if (m.suggestions[i].isInference)
                                     const Text('包含推断，请核对'),
                                   _SharedField(
@@ -180,6 +238,23 @@ class ConversationView extends StatelessWidget {
                                     enabled: !m.accepted && !c.working,
                                     onChanged: (text) =>
                                         c.editSuggestion(m, i, content: text),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  _SharedField(
+                                    key: ValueKey('${m.reviewId}/$i/tags'),
+                                    label: '建议标签',
+                                    value: m.suggestions[i].tags.join('，'),
+                                    enabled: !m.accepted && !c.working,
+                                    onChanged: (text) => c.editSuggestion(
+                                      m,
+                                      i,
+                                      tags: text
+                                          .split(RegExp('[，,]'))
+                                          .map((t) => t.trim())
+                                          .where((t) => t.isNotEmpty)
+                                          .toSet()
+                                          .toList(),
+                                    ),
                                   ),
                                 ],
                               ),
@@ -222,6 +297,8 @@ class ConversationView extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   mainAxisSize: MainAxisSize.min,
                   children: [
+                    AttachmentStrip(conversation: c),
+                    const SizedBox(height: 8),
                     _SharedField(
                       label: '对话输入',
                       value: c.draft,
@@ -279,7 +356,10 @@ class ConversationView extends StatelessWidget {
                       spacing: 8,
                       children: [
                         FilledButton.icon(
-                          onPressed: c.working || c.draft.trim().isEmpty
+                          onPressed:
+                              c.working ||
+                                  (c.draft.trim().isEmpty &&
+                                      c.attachments.isEmpty)
                               ? null
                               : () => _send(context),
                           icon: const Icon(Icons.send_outlined),

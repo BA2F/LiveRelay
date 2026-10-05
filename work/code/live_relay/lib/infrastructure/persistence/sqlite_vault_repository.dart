@@ -51,6 +51,62 @@ class SqliteVaultRepository implements VaultRepository {
   }
 
   @override
+  Future<String?> readChunkedLocalValue(String key) =>
+      database.transaction(() async {
+        final raw = await readLocalValue(key);
+        if (raw == null) return null;
+        final data = jsonDecode(raw);
+        if (data is! Map || data['chunked'] != 1) return raw;
+        final count = data['count'];
+        if (count is! int || count < 1 || count > 65) {
+          throw const FormatException('会话分块无效');
+        }
+        final buffer = StringBuffer();
+        for (var i = 0; i < count; i++) {
+          final part = await readLocalValue('$key.part$i');
+          if (part == null) throw const FormatException('会话分块缺失');
+          buffer.write(part);
+        }
+        return buffer.toString();
+      });
+  @override
+  Future<void> writeChunkedLocalValue(String key, String value) {
+    if (key.length > 70 || value.length > 32 * 1024 * 1024) {
+      throw const FormatException('会话过大，请开始新会话');
+    }
+    return database.transaction(() async {
+      final old = await readLocalValue(key);
+      final previous = old == null ? null : jsonDecode(old);
+      final oldCount = previous is Map && previous['chunked'] == 1
+          ? previous['count'] as int
+          : 0;
+      var count = 0;
+      if (value.length <= 512 * 1024) {
+        await writeLocalValue(key, value);
+      } else {
+        var start = 0;
+        while (start < value.length) {
+          var end = (start + 512 * 1024).clamp(0, value.length);
+          if (end < value.length &&
+              value.codeUnitAt(end - 1) >= 0xd800 &&
+              value.codeUnitAt(end - 1) <= 0xdbff) {
+            end--;
+          }
+          await writeLocalValue('$key.part$count', value.substring(start, end));
+          count++;
+          start = end;
+        }
+        await writeLocalValue(key, jsonEncode({'chunked': 1, 'count': count}));
+      }
+      for (var i = count; i < oldCount; i++) {
+        await (database.delete(
+          database.vaultLocalState,
+        )..where((t) => t.name.equals('$key.part$i'))).go();
+      }
+    });
+  }
+
+  @override
   Future<Uint8List> exportLocalState() => database.transaction(() async {
     final state = <String, Object?>{};
     for (final table in _stateTables) {
@@ -1009,6 +1065,7 @@ class SqliteVaultRepository implements VaultRepository {
     String sourceText,
     List<CardDraft> drafts, {
     required String providerLabel,
+    List<String> originalIds = const [],
   }) {
     if (!RegExp(r'^[a-zA-Z0-9-]{1,64}$').hasMatch(reviewId) ||
         sourceText.length > 32000 ||
@@ -1043,6 +1100,12 @@ class SqliteVaultRepository implements VaultRepository {
             sourceText: sourceText,
           ),
         );
+      }
+      if (originalIds.isNotEmpty) {
+        for (var i = 0; i < cards.length; i++) {
+          await setCardOriginals(cards[i].id, originalIds);
+          cards[i] = (await getCard(cards[i].id))!;
+        }
       }
       await writeLocalValue(
         receiptKey,

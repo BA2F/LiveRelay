@@ -18,19 +18,21 @@ class AiCardSuggestion {
     required this.content,
     required this.kind,
     required this.isInference,
+    this.tags = const [],
   });
 
   final String title;
   final String content;
   final CardKind kind;
   final bool isInference;
+  final List<String> tags;
 
   CardDraft toDraft() => CardDraft(
     title: title,
     content: content,
     kind: kind,
     status: CardStatus.draft,
-    tags: ['AI', '待确认', if (isInference) '推断'],
+    tags: ['AI', '待确认', if (isInference) '推断', ...tags],
   );
 }
 

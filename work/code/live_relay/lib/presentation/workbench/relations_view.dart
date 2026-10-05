@@ -192,81 +192,97 @@ class _RelationsViewState extends State<RelationsView> {
             if (nodes.isEmpty) {
               return const Center(child: Text('添加资料后可以查看真实引用、来源和收纳关系'));
             }
-            return LayoutBuilder(
-              builder: (context, constraints) {
-                final width = math.max(700.0, constraints.maxWidth),
-                    height = math.max(520.0, constraints.maxHeight);
-                final points = <String, Offset>{};
-                for (var i = 0; i < nodes.length; i++) {
-                  final angle = 2 * math.pi * i / nodes.length;
-                  points[nodes[i].id] =
-                      _positions[nodes[i].id] ??
-                      Offset(
-                        width / 2 + math.cos(angle) * (width / 2 - 110),
-                        height / 2 + math.sin(angle) * (height / 2 - 70),
-                      );
-                }
-                return InteractiveViewer(
-                  constrained: false,
-                  minScale: .3,
-                  maxScale: 3,
-                  child: SizedBox(
-                    width: width,
-                    height: height,
-                    child: Stack(
-                      children: [
-                        Positioned.fill(
-                          child: CustomPaint(
-                            painter: _GraphPainter(
-                              points,
-                              edges,
-                              Theme.of(context).colorScheme,
-                            ),
-                          ),
-                        ),
-                        for (final node in nodes)
-                          Positioned(
-                            left: points[node.id]!.dx - 70,
-                            top: points[node.id]!.dy - 26,
-                            width: 140,
-                            child: GestureDetector(
-                              onPanUpdate: (d) => setState(
-                                () => _positions[node.id] =
-                                    points[node.id]! + d.delta,
-                              ),
-                              child: Tooltip(
-                                message: node.label,
-                                child: FilledButton.tonalIcon(
-                                  style: FilledButton.styleFrom(
-                                    backgroundColor: node.source
-                                        ? Theme.of(context)
-                                              .colorScheme
-                                              .tertiaryContainer
-                                        : null,
-                                  ),
-                                  onPressed: () => node.source
-                                      ? widget.onSource(node.id.substring(7))
-                                      : widget.onCard(node.id),
-                                  icon: Icon(
-                                    node.source
-                                        ? Icons.attach_file
-                                        : Icons.description_outlined,
-                                    size: 15,
-                                  ),
-                                  label: Text(
-                                    node.label,
-                                    maxLines: 2,
-                                    overflow: TextOverflow.ellipsis,
+            final visibleEdges = edges
+                .where(
+                  (e) => visible.contains(e.from) && visible.contains(e.to),
+                )
+                .toList();
+            return Column(
+              children: [
+                Text(
+                  '${nodes.length} 个节点 · ${visibleEdges.where((e) => e.kind == 'reference').length} 条引用 · ${visibleEdges.where((e) => e.kind == 'source').length} 条来源 · ${visibleEdges.where((e) => e.kind == 'collection').length} 条收纳',
+                ),
+                Expanded(
+                  child: LayoutBuilder(
+                    builder: (context, constraints) {
+                      final width = math.max(350.0, constraints.maxWidth),
+                          height = math.max(200.0, constraints.maxHeight);
+                      final points = <String, Offset>{};
+                      for (var i = 0; i < nodes.length; i++) {
+                        final angle = 2 * math.pi * i / nodes.length;
+                        points[nodes[i].id] =
+                            _positions[nodes[i].id] ??
+                            Offset(
+                              width / 2 + math.cos(angle) * (width / 2 - 110),
+                              height / 2 + math.sin(angle) * (height / 2 - 70),
+                            );
+                      }
+                      return InteractiveViewer(
+                        constrained: false,
+                        minScale: .3,
+                        maxScale: 3,
+                        child: SizedBox(
+                          width: width,
+                          height: height,
+                          child: Stack(
+                            children: [
+                              Positioned.fill(
+                                child: CustomPaint(
+                                  painter: _GraphPainter(
+                                    points,
+                                    edges,
+                                    Theme.of(context).colorScheme,
                                   ),
                                 ),
                               ),
-                            ),
+                              for (final node in nodes)
+                                Positioned(
+                                  left: points[node.id]!.dx - 70,
+                                  top: points[node.id]!.dy - 26,
+                                  width: 140,
+                                  child: GestureDetector(
+                                    onPanUpdate: (d) => setState(
+                                      () => _positions[node.id] =
+                                          points[node.id]! + d.delta,
+                                    ),
+                                    child: Tooltip(
+                                      message: node.label,
+                                      child: FilledButton.tonalIcon(
+                                        style: FilledButton.styleFrom(
+                                          backgroundColor: node.source
+                                              ? Theme.of(context)
+                                                    .colorScheme
+                                                    .tertiaryContainer
+                                              : null,
+                                        ),
+                                        onPressed: () => node.source
+                                            ? widget.onSource(
+                                                node.id.substring(7),
+                                              )
+                                            : widget.onCard(node.id),
+                                        icon: Icon(
+                                          node.source
+                                              ? Icons.attach_file
+                                              : Icons.description_outlined,
+                                          size: 15,
+                                        ),
+                                        label: Text(
+                                          node.label,
+                                          maxLines: 2,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                            ],
                           ),
-                      ],
-                    ),
+                        ),
+                      );
+                    },
                   ),
-                );
-              },
+                ),
+              ],
             );
           },
         ),

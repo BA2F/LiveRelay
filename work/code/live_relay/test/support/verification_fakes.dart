@@ -21,6 +21,7 @@ class NoBiometrics implements BiometricKeyStore {
 
 class TestAiSettings extends AiProviderSettingsStore {
   bool configured = false;
+  bool images = false, files = false;
   @override
   Future<AiProviderSettings> read() async => AiProviderSettings(
     endpoint: configured
@@ -28,6 +29,8 @@ class TestAiSettings extends AiProviderSettingsStore {
         : '',
     model: configured ? 'verification-model' : '',
     hasApiKey: configured,
+    supportsImages: images,
+    supportsFiles: files,
   );
   @override
   Future<String?> readApiKey() async => configured ? 'test-key' : null;
@@ -38,6 +41,15 @@ class TestAiSettings extends AiProviderSettingsStore {
     String? apiKey,
   }) async {
     configured = true;
+  }
+
+  @override
+  Future<void> saveCapabilities({
+    required bool images,
+    required bool files,
+  }) async {
+    this.images = images;
+    this.files = files;
   }
 
   @override

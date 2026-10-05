@@ -26,8 +26,10 @@ class AiProviderRequest {
     this.protocol = AiProtocol.chatCompletions,
     this.cancellation,
     this.commandSession,
+    this.inputContent,
   });
 
+  final List<Map<String, Object?>>? inputContent;
   final AiCancellation? cancellation;
   final AgentCommandSession? commandSession;
   final AiProtocol protocol;
