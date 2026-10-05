@@ -81,7 +81,10 @@ class _RelationsViewState extends State<RelationsView> {
     }
     final details = await Future.wait([
       for (final card in cards)
-        Future.wait<Object>([c.cardRelations(card.id), c.cardSources(card.id)]),
+        Future.wait<Object>([
+          c.cardRelations(card.id),
+          c.currentCardSources(card.id),
+        ]),
     ]);
     for (var i = 0; i < cards.length; i++) {
       for (final r in details[i][0] as List<CardRelation>) {

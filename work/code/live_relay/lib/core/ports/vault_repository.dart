@@ -39,8 +39,18 @@ abstract interface class VaultRepository {
   Future<List<CardRelation>> relationsForCard(String cardId);
 
   Future<void> trashCard(String id);
+  Future<CardDeletionPreview> previewCardDeletion(List<String> ids);
+  Future<void> trashCards(
+    List<String> ids, {
+    bool recycleUnsharedOriginals = false,
+  });
+  Future<List<String>> recycledOriginalIds();
+  Future<void> restoreOriginal(String id);
   Future<void> restoreCard(String id);
   Future<List<CardSource>> cardSources(String id);
+  Future<List<CardSource>> currentCardSources(String id);
+  Future<void> setCardOriginals(String id, List<String> blobIds);
+  Future<LifeCard> restoreCardRevision(String id, int number);
   Future<List<LifeCard>> cardsForBlob(String blobId);
   Future<LifeCard> createCardFromOriginal(
     String blobId,

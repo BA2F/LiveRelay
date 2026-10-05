@@ -1,0 +1,11 @@
+{
+  "apiVersion": 1,
+  "id": "liverelay.draft-review",
+  "name": "待确认审阅",
+  "version": "1.0.0",
+  "description": "集中查看待确认卡片，可选择只查看带有来源的资料。点击卡片进入真实编辑与确认流程。",
+  "capabilities": ["cards.summary", "workbench.views", "workbench.commands", "workbench.settings"],
+  "views": [{"id": "review", "title": "待确认审阅", "filter": {"status": "draft"}, "setting": "only-sourced"}],
+  "commands": [{"id": "open-review", "title": "打开待确认审阅", "view": "review"}],
+  "settings": [{"id": "only-sourced", "title": "只显示有原件来源的卡片", "type": "boolean", "default": false}]
+}

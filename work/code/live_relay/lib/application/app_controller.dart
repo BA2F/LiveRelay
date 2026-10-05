@@ -183,6 +183,7 @@ class AppController extends ChangeNotifier {
   List<CredentialEntry> recycledCredentials = const [];
   DateTime? lastBackupExport;
   List<VaultBlob> blobs = const [];
+  Set<String> recycledBlobIds = const {};
   List<CredentialEntry> credentials = const [];
   List<ReleasePolicy> releasePolicies = const [];
   List<LifeStateEvent> lifeStateHistory = const [];
@@ -347,6 +348,7 @@ class AppController extends ChangeNotifier {
     recycledCredentials = const [];
     lastBackupExport = null;
     blobs = const [];
+    recycledBlobIds = const {};
     credentials = const [];
     releasePolicies = const [];
     lifeStateHistory = const [];
@@ -438,11 +440,32 @@ class AppController extends ChangeNotifier {
       _requireRepository().cardsForBlob(blobId);
   Future<List<CardSource>> cardSources(String id) =>
       _requireRepository().cardSources(id);
+  Future<List<CardSource>> currentCardSources(String id) =>
+      _requireRepository().currentCardSources(id);
+  Future<void> setCardOriginals(String id, List<String> blobIds) =>
+      _mutate((r) => r.setCardOriginals(id, blobIds));
+  Future<void> restoreCardRevision(String id, int number) =>
+      _mutate((r) => r.restoreCardRevision(id, number));
+  Future<CardDeletionPreview> previewCardDeletion(List<String> ids) =>
+      _requireRepository().previewCardDeletion(ids);
+  Future<void> trashCards(
+    List<String> ids, {
+    bool recycleUnsharedOriginals = false,
+  }) => _mutate(
+    (r) =>
+        r.trashCards(ids, recycleUnsharedOriginals: recycleUnsharedOriginals),
+  );
+  Future<void> restoreOriginal(String id) =>
+      _mutate((r) => r.restoreOriginal(id));
   Future<LifeCard?> getCard(String id) => _requireRepository().getCard(id);
   Future<String?> readWorkbenchState() =>
       _requireRepository().readLocalValue('desktop.workbench.v1');
   Future<void> writeWorkbenchState(String value) =>
       _requireRepository().writeLocalValue('desktop.workbench.v1', value);
+  Future<String?> readWorkbenchExtensions() =>
+      _requireRepository().readLocalValue('workbench.extensions.v1');
+  Future<void> writeWorkbenchExtensions(String value) =>
+      _requireRepository().writeLocalValue('workbench.extensions.v1', value);
   Future<void> createCardFromOriginal(String blobId, CardDraft draft) =>
       _mutate((r) => r.createCardFromOriginal(blobId, draft));
 
@@ -773,6 +796,7 @@ class AppController extends ChangeNotifier {
     cards = results[0] as List<LifeCard>;
     cardReferences = await CardReferenceStore(repository).read();
     blobs = results[1] as List<VaultBlob>;
+    recycledBlobIds = (await repository.recycledOriginalIds()).toSet();
     credentials = results[2] as List<CredentialEntry>;
     releasePolicies = results[3] as List<ReleasePolicy>;
     lifeStateHistory = results[4] as List<LifeStateEvent>;

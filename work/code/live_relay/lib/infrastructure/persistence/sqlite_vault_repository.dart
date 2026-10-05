@@ -421,6 +421,247 @@ class SqliteVaultRepository implements VaultRepository {
         .toList(growable: false);
   }
 
+  static const _originalTrashKey = 'workbench.original-trash.v1';
+  String _bindingKey(String id) => 'card.originals.$id';
+  Future<Map<String, dynamic>?> _binding(String id) async {
+    final raw = await readLocalValue(_bindingKey(id));
+    if (raw == null) return null;
+    final data = jsonDecode(raw) as Map<String, dynamic>;
+    if (data['version'] != 1) throw const FormatException('来源引用版本不支持');
+    return data;
+  }
+
+  Future<List<String>> _historicalOriginals(String id, {int? number}) async {
+    final rows = await database
+        .customSelect(
+          'SELECT DISTINCT s.blob_id FROM sources s JOIN card_revisions r ON r.source_id=s.id '
+          'WHERE r.card_id=? AND s.blob_id IS NOT NULL AND r.number<=?',
+          variables: [
+            Variable<String>(id),
+            Variable<int>(number ?? 2147483647),
+          ],
+          readsFrom: {database.sources, database.cardRevisions},
+        )
+        .get();
+    return rows.map((r) => r.read<String>('blob_id')).toList();
+  }
+
+  @override
+  Future<List<CardSource>> currentCardSources(String id) async {
+    final binding = await _binding(id);
+    final all = await cardSources(id);
+    if (binding == null) return all;
+    final active = (binding['current'] as List).cast<String>().toSet();
+    return all
+        .where((s) => s.blobId == null || active.contains(s.blobId))
+        .toList();
+  }
+
+  @override
+  Future<void> setCardOriginals(
+    String id,
+    List<String> blobIds,
+  ) => database.transaction(() async {
+    final card = await getCard(id);
+    if (card == null || card.isDeleted) throw const FormatException('卡片不存在');
+    final selected = blobIds.toSet();
+    if (selected.length > 100) throw const FormatException('单卡最多引用100个原件');
+    final blobs = {for (final b in await listBlobs()) b.id: b};
+    if (selected.any((id) => !blobs.containsKey(id))) {
+      throw const FormatException('来源原件不存在');
+    }
+    final historical = await _historicalOriginals(id);
+    final binding =
+        await _binding(id) ??
+        {'version': 1, 'current': historical, 'revisions': <String, dynamic>{}};
+    final before = (binding['current'] as List).cast<String>().toSet();
+    if (before.length == selected.length && before.containsAll(selected)) {
+      return;
+    }
+    final snapshots = Map<String, dynamic>.from(binding['revisions'] as Map);
+    snapshots['${card.revisionNumber}'] = before.toList();
+    binding['current'] = selected.toList();
+    binding['revisions'] = snapshots;
+    await writeLocalValue(_bindingKey(id), jsonEncode(binding));
+    final added = selected.difference(historical.toSet());
+    for (final blobId in added) {
+      final sourceId = _uuid.v7();
+      final blob = blobs[blobId]!;
+      await database
+          .into(database.sources)
+          .insert(
+            SourcesCompanion.insert(
+              id: sourceId,
+              kind: SourceKind.ownerInput.name,
+              label: '本人引用 · ${blob.originalName}',
+              blobId: Value(blobId),
+              createdAt: _now,
+            ),
+          );
+      final updated = await updateCard(
+        id,
+        CardDraft(
+          title: card.title,
+          content: card.content,
+          kind: card.kind,
+          status: card.status,
+          tags: card.tags,
+        ),
+        changeNote: '添加原件引用 · ${blob.originalName}',
+      );
+      await (database.update(database.cardRevisions)..where(
+            (r) =>
+                r.cardId.equals(id) & r.number.equals(updated.revisionNumber),
+          ))
+          .write(
+            CardRevisionsCompanion(
+              sourceId: Value(sourceId),
+              sourceLabel: Value('本人引用 · ${blob.originalName}'),
+            ),
+          );
+    }
+    if (added.isEmpty) {
+      await updateCard(
+        id,
+        CardDraft(
+          title: card.title,
+          content: card.content,
+          kind: card.kind,
+          status: card.status,
+          tags: card.tags,
+        ),
+        changeNote: '调整原件引用（历史保留）',
+      );
+    }
+    final trash = (await recycledOriginalIds()).toSet()..removeAll(selected);
+    await writeLocalValue(
+      _originalTrashKey,
+      jsonEncode({'version': 1, 'ids': trash.toList()}),
+    );
+    await _audit('sources', 'card', id, '引用${selected.length}个原件；历史来源保留');
+  });
+  @override
+  Future<LifeCard> restoreCardRevision(
+    String id,
+    int number,
+  ) => database.transaction(() async {
+    final card = await getCard(id);
+    if (card == null || card.isDeleted) throw const FormatException('卡片不存在');
+    final revision = (await cardHistory(id))
+        .where((r) => r.number == number)
+        .firstOrNull;
+    if (revision == null) throw const FormatException('修订不存在');
+    final binding =
+        await _binding(id) ??
+        {
+          'version': 1,
+          'current': await _historicalOriginals(id),
+          'revisions': <String, dynamic>{},
+        };
+    final snapshots = Map<String, dynamic>.from(binding['revisions'] as Map);
+    snapshots['${card.revisionNumber}'] = binding['current'];
+    final originals =
+        snapshots['$number'] ?? await _historicalOriginals(id, number: number);
+    binding['current'] = originals;
+    binding['revisions'] = snapshots;
+    await writeLocalValue(_bindingKey(id), jsonEncode(binding));
+    final trash = (await recycledOriginalIds()).toSet()
+      ..removeAll((originals as List).cast<String>());
+    await writeLocalValue(
+      _originalTrashKey,
+      jsonEncode({'version': 1, 'ids': trash.toList()}),
+    );
+    return updateCard(
+      id,
+      CardDraft(
+        title: revision.title,
+        content: revision.content,
+        kind: card.kind,
+        status: card.status,
+        tags: revision.tags,
+      ),
+      changeNote: '恢复修订 $number 为新修订',
+    );
+  });
+  @override
+  Future<List<String>> recycledOriginalIds() async {
+    final raw = await readLocalValue(_originalTrashKey);
+    if (raw == null) return [];
+    final data = jsonDecode(raw) as Map<String, dynamic>;
+    if (data['version'] != 1) throw const FormatException('原件回收版本不支持');
+    return (data['ids'] as List).cast<String>();
+  }
+
+  @override
+  Future<void> restoreOriginal(String id) => database.transaction(() async {
+    if (!(await listBlobs()).any((b) => b.id == id)) {
+      throw const FormatException('原件不存在');
+    }
+    final ids = (await recycledOriginalIds()).toSet()..remove(id);
+    await writeLocalValue(
+      _originalTrashKey,
+      jsonEncode({'version': 1, 'ids': ids.toList()}),
+    );
+    await _audit('restore', 'blob', id, '恢复原件');
+  });
+  @override
+  Future<CardDeletionPreview> previewCardDeletion(List<String> ids) async {
+    final selected = ids.toSet();
+    if (selected.isEmpty || selected.length != ids.length) {
+      throw const FormatException('请选择不同的卡片');
+    }
+    final candidates = <String>{};
+    for (final id in selected) {
+      final card = await getCard(id);
+      if (card == null || card.isDeleted) throw const FormatException('卡片不存在');
+      candidates.addAll(await _historicalOriginals(id));
+    }
+    final eligible = <String>{}, protected = <String>{};
+    for (final blobId in candidates) {
+      // Include other cards' history AND recycled cards. No physical blob is
+      // destroyed, and an existing recovery path never loses its original.
+      final refs = await database
+          .customSelect(
+            'SELECT DISTINCT r.card_id FROM card_revisions r JOIN sources s ON r.source_id=s.id WHERE s.blob_id=?',
+            variables: [Variable<String>(blobId)],
+            readsFrom: {database.cardRevisions, database.sources},
+          )
+          .get();
+      if (refs.any((r) => !selected.contains(r.read<String>('card_id')))) {
+        protected.add(blobId);
+      } else {
+        eligible.add(blobId);
+      }
+    }
+    final blobs = await listBlobs();
+    return CardDeletionPreview(
+      recyclableOriginals: blobs.where((b) => eligible.contains(b.id)).toList(),
+      protectedOriginals: blobs.where((b) => protected.contains(b.id)).toList(),
+    );
+  }
+
+  @override
+  Future<void> trashCards(
+    List<String> ids, {
+    bool recycleUnsharedOriginals = false,
+  }) => database.transaction(() async {
+    final preview = await previewCardDeletion(ids);
+    for (final id in ids) {
+      await trashCard(id);
+    }
+    if (recycleUnsharedOriginals) {
+      final recycled = (await recycledOriginalIds()).toSet()
+        ..addAll(preview.recyclableOriginals.map((b) => b.id));
+      await writeLocalValue(
+        _originalTrashKey,
+        jsonEncode({'version': 1, 'ids': recycled.toList()}),
+      );
+      for (final blob in preview.recyclableOriginals) {
+        await _audit('trash', 'blob', blob.id, '随未共享卡片移入回收区，保留历史恢复');
+      }
+    }
+  });
+
   @override
   Future<void> trashCard(String id) async {
     final changed =
@@ -442,6 +683,13 @@ class SqliteVaultRepository implements VaultRepository {
           CardsCompanion(deletedAt: const Value(null), updatedAt: Value(_now)),
         );
     if (changed == 0) throw StateError('回收区中没有这张卡片');
+    final originals = await _historicalOriginals(id);
+    final recycled = (await recycledOriginalIds()).toSet()
+      ..removeAll(originals);
+    await writeLocalValue(
+      _originalTrashKey,
+      jsonEncode({'version': 1, 'ids': recycled.toList()}),
+    );
     await _audit('restore', 'card', id, '恢复卡片，保留内容、来源、历史和已有授权');
   });
 
@@ -1104,8 +1352,8 @@ class SqliteVaultRepository implements VaultRepository {
     String? sourceId,
     required String changeNote,
     required DateTime createdAt,
-  }) {
-    return database
+  }) async {
+    await database
         .into(database.cardRevisions)
         .insert(
           CardRevisionsCompanion.insert(
@@ -1122,6 +1370,13 @@ class SqliteVaultRepository implements VaultRepository {
             createdAt: createdAt,
           ),
         );
+    final binding = await _binding(cardId);
+    if (binding != null) {
+      final snapshots = Map<String, dynamic>.from(binding['revisions'] as Map);
+      snapshots['$number'] = binding['current'];
+      binding['revisions'] = snapshots;
+      await writeLocalValue(_bindingKey(cardId), jsonEncode(binding));
+    }
   }
 
   Future<void> _insertCredentialRevision(

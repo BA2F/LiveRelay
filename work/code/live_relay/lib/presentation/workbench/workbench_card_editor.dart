@@ -49,7 +49,7 @@ class _WorkbenchCardEditorState extends State<WorkbenchCardEditor> {
 
   void _loadSources() {
     _revision = widget.card.revisionNumber;
-    _sources = widget.controller.cardSources(widget.card.id);
+    _sources = widget.controller.currentCardSources(widget.card.id);
   }
 
   @override
@@ -192,41 +192,94 @@ class _WorkbenchCardEditorState extends State<WorkbenchCardEditor> {
         builder: (context, snapshot) {
           if (snapshot.hasError) return const Text('来源读取失败');
           final sources = snapshot.data ?? [];
-          return ExpansionTile(
-            tilePadding: EdgeInsets.zero,
-            title: Text('原始资料与来源 · ${sources.length}'),
+          final linked = sources
+              .where((s) => s.blobId != null)
+              .map((s) => s.blobId!)
+              .toSet();
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              for (final source in sources)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 8),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Row(
+              ExpansionTile(
+                title: const Text('管理原件引用'),
+                tilePadding: EdgeInsets.zero,
+                children: [
+                  for (final blob in widget.controller.blobs)
+                    CheckboxListTile(
+                      title: Text(blob.originalName),
+                      subtitle:
+                          widget.controller.recycledBlobIds.contains(blob.id)
+                          ? const Text('引用后恢复此原件')
+                          : null,
+                      value: linked.contains(blob.id),
+                      onChanged: widget.controller.isBusy
+                          ? null
+                          : (value) async {
+                              final selected = Set<String>.of(linked);
+                              if (value == true) {
+                                selected.add(blob.id);
+                              } else {
+                                selected.remove(blob.id);
+                              }
+                              await widget.edits.flush();
+                              if (widget.edits.hasUnsaved) return;
+                              try {
+                                await widget.controller.setCardOriginals(
+                                  widget.card.id,
+                                  selected.toList(),
+                                );
+                              } on Object {
+                                if (context.mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text(
+                                        widget.controller.lastError ?? '引用保存失败',
+                                      ),
+                                    ),
+                                  );
+                                }
+                              }
+                            },
+                    ),
+                ],
+              ),
+              ExpansionTile(
+                tilePadding: EdgeInsets.zero,
+                title: Text('原始资料与来源 · ${sources.length}'),
+                children: [
+                  for (final source in sources)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          Expanded(
-                            child: Text(
-                              source.label,
-                              style: Theme.of(context).textTheme.labelLarge,
-                            ),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  source.label,
+                                  style: Theme.of(context).textTheme.labelLarge,
+                                ),
+                              ),
+                              if (source.blobId != null)
+                                TextButton(
+                                  onPressed: () =>
+                                      widget.onSource(source.blobId!),
+                                  child: const Text('来源标签'),
+                                ),
+                            ],
                           ),
                           if (source.blobId != null)
-                            TextButton(
-                              onPressed: () => widget.onSource(source.blobId!),
-                              child: const Text('来源标签'),
-                            ),
+                            InlineOriginal(
+                              controller: widget.controller,
+                              blobId: source.blobId!,
+                            )
+                          else
+                            SelectableText(source.excerpt),
                         ],
                       ),
-                      if (source.blobId != null)
-                        InlineOriginal(
-                          controller: widget.controller,
-                          blobId: source.blobId!,
-                        )
-                      else
-                        SelectableText(source.excerpt),
-                    ],
-                  ),
-                ),
+                    ),
+                ],
+              ),
             ],
           );
         },

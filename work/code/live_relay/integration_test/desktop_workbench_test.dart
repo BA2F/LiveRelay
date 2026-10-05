@@ -156,4 +156,205 @@ void main() {
       }
     },
   );
+  testWidgets(
+    'native extension discovery, enable/disable, commands, remove and encrypted persistence',
+    (tester) async {
+      final root = await Directory.systemTemp.createTemp(
+        'liverelay-extension-test-',
+      );
+      final c = createAppController(
+        root,
+        NoBiometrics(),
+        TestOcr(),
+        RecordingAi(),
+        TestAiSettings(),
+      );
+      final p = AppPreferences();
+      try {
+        await c.initialize();
+        await c.setupVault(
+          password: 'fictional-extension-2026',
+          usesChinesePassphrase: false,
+        );
+        await c.createCard(
+          const CardDraft(
+            title: '扩展待确认卡片',
+            content: '虚构待确认摘要',
+            status: CardStatus.draft,
+          ),
+        );
+        await c.createCard(
+          const CardDraft(title: '扩展已确认卡片', content: '虚构已确认摘要'),
+        );
+        await p.finishOnboarding();
+        await p.setDesktopPreset('library');
+        await tester.pumpWidget(
+          MultiProvider(
+            providers: [
+              ChangeNotifierProvider.value(value: c),
+              ChangeNotifierProvider.value(value: p),
+            ],
+            child: const LiveRelayApp(),
+          ),
+        );
+        await tester.pumpAndSettle();
+        await tester.tap(find.byTooltip('扩展'));
+        await tester.pumpAndSettle();
+        await tester.ensureVisible(find.text('安装'));
+        await tester.tap(find.text('安装'));
+        await tester.pumpAndSettle();
+        expect(
+          await c.readWorkbenchExtensions(),
+          contains('liverelay.draft-review'),
+        );
+        await tester.tap(find.byType(Switch).first);
+        await tester.pumpAndSettle();
+        expect(await c.readWorkbenchExtensions(), contains('"enabled":false'));
+        await tester.tap(find.byType(Switch).first);
+        await tester.pumpAndSettle();
+        await tester.tap(find.byTooltip('命令面板 · Ctrl+Shift+P'));
+        await tester.pumpAndSettle();
+        await tester.enterText(
+          find.descendant(
+            of: find.byType(Dialog),
+            matching: find.byType(TextField),
+          ),
+          '待确认审阅',
+        );
+        await tester.pumpAndSettle();
+        await tester.tap(
+          find.descendant(
+            of: find.byType(Dialog),
+            matching: find.text('打开待确认审阅'),
+          ),
+        );
+        await tester.pumpAndSettle();
+        expect(find.text('扩展待确认卡片'), findsOneWidget);
+        expect(find.text('扩展已确认卡片'), findsNothing);
+        await tester.tap(find.byTooltip('扩展'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('移除扩展'));
+        await tester.pumpAndSettle();
+        expect(
+          await c.readWorkbenchExtensions(),
+          '{"version":1,"extensions":[]}',
+        );
+        await tester.pumpWidget(const SizedBox());
+        await c.lock();
+        await c.unlockWithPassword('fictional-extension-2026');
+        expect(
+          await c.readWorkbenchExtensions(),
+          '{"version":1,"extensions":[]}',
+        );
+      } finally {
+        await tester.pumpWidget(const SizedBox());
+        await c.lock();
+        c.dispose();
+        p.dispose();
+        await root.delete(recursive: true);
+      }
+    },
+  );
+  testWidgets(
+    'native shared original management keeps bytes and history recoverable',
+    (tester) async {
+      final root = await Directory.systemTemp.createTemp(
+        'liverelay-source-test-',
+      );
+      final c = createAppController(
+        root,
+        NoBiometrics(),
+        TestOcr(),
+        RecordingAi(),
+        TestAiSettings(),
+      );
+      final p = AppPreferences();
+      try {
+        await c.initialize();
+        await c.setupVault(
+          password: 'fictional-source-2026',
+          usesChinesePassphrase: false,
+        );
+        final original = await c.importOriginal(
+          bytes: utf8.encode('fictional-original-bytes'),
+          originalName: '虚构原件.txt',
+          mimeType: 'text/plain',
+          mediaKind: BlobMediaKind.document,
+        );
+        final blob = c.blobs.single;
+        await c.createCard(
+          const CardDraft(
+            title: '共享来源摘要',
+            content: '虚构摘要',
+            status: CardStatus.draft,
+          ),
+        );
+        final other = c.cards.firstWhere((card) => card.id != original.id);
+        await p.finishOnboarding();
+        await p.setDesktopPreset('library');
+        await tester.pumpWidget(
+          MultiProvider(
+            providers: [
+              ChangeNotifierProvider.value(value: c),
+              ChangeNotifierProvider.value(value: p),
+            ],
+            child: const LiveRelayApp(),
+          ),
+        );
+        await tester.pumpAndSettle();
+        final surface = tester.widget<DockSurface>(find.byType(DockSurface));
+        surface.layout.open('card/${other.id}/source-fixture');
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('管理原件引用'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('虚构原件.txt'));
+        await tester.pumpAndSettle();
+        expect(
+          (await c.currentCardSources(other.id))
+              .any((source) => source.blobId == blob.id),
+          isTrue,
+        );
+        await tester.tap(find.text('虚构原件.txt'));
+        await tester.pumpAndSettle();
+        expect(
+          (await c.currentCardSources(other.id))
+              .any((source) => source.blobId == blob.id),
+          isFalse,
+        );
+        expect(
+          (await c.previewCardDeletion([original.id]))
+              .protectedOriginals
+              .single
+              .id,
+          blob.id,
+        );
+        await c.restoreCardRevision(other.id, 2);
+        await c.trashCards([
+          original.id,
+          other.id,
+        ], recycleUnsharedOriginals: true);
+        expect(c.recycledBlobIds, contains(blob.id));
+        final retained = await c.readOriginal(blob.id);
+        expect(utf8.decode(retained), 'fictional-original-bytes');
+        retained.fillRange(0, retained.length, 0);
+        await tester.pumpWidget(const SizedBox());
+        await c.lock();
+        await c.unlockWithPassword('fictional-source-2026');
+        expect(c.recycledBlobIds, contains(blob.id));
+        await c.restoreCard(other.id);
+        expect(c.recycledBlobIds, isEmpty);
+        expect(
+          (await c.currentCardSources(other.id))
+              .any((source) => source.blobId == blob.id),
+          isTrue,
+        );
+      } finally {
+        await tester.pumpWidget(const SizedBox());
+        await c.lock();
+        c.dispose();
+        p.dispose();
+        await root.delete(recursive: true);
+      }
+    },
+  );
 }

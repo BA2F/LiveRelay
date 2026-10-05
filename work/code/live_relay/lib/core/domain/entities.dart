@@ -35,6 +35,14 @@ enum BlobMediaKind { image, audio, video, document, other }
 
 enum SensitiveFieldKind { account, secret, money, note }
 
+class CardDeletionPreview {
+  const CardDeletionPreview({
+    required this.recyclableOriginals,
+    required this.protectedOriginals,
+  });
+  final List<VaultBlob> recyclableOriginals, protectedOriginals;
+}
+
 class SensitiveMark {
   const SensitiveMark({required this.lineOrder, required this.kind});
 

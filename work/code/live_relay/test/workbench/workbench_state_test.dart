@@ -25,21 +25,38 @@ void main() {
     final repo = SqliteVaultRepository(AppDatabase.inMemory());
     final copy = SqliteVaultRepository(AppDatabase.inMemory());
     try {
-      final a = await repo.createCard(const CardDraft(title: 'A', content: '来源 A'));
-      final b = await repo.createCard(const CardDraft(title: 'B', content: '来源 B'));
+      final a = await repo.createCard(
+        const CardDraft(title: 'A', content: '来源 A'),
+      );
+      final b = await repo.createCard(
+        const CardDraft(title: 'B', content: '来源 B'),
+      );
       final links = CardReferenceStore(repo);
       await links.replace(a.id, [b.id, b.id]);
       expect((await links.read()).single.to, b.id);
       expect(await repo.relationsForCard(a.id), isEmpty);
       await expectLater(links.replace(a.id, [a.id]), throwsFormatException);
-      await expectLater(links.replace(a.id, ['missing']), throwsFormatException);
+      await expectLater(
+        links.replace(a.id, ['missing']),
+        throwsFormatException,
+      );
       expect((await links.read()).single.to, b.id);
       await copy.importLocalState(await repo.exportLocalState());
       expect((await CardReferenceStore(copy).read()).single.from, a.id);
-      await repo.trashCard(b.id); await repo.restoreCard(b.id);
+      await repo.trashCard(b.id);
+      await repo.restoreCard(b.id);
       expect((await links.read()).single.to, b.id);
-      expect((await repo.getReleasePolicy('card', a.id)).visibleAt(LifeState.deceased), VisibilityLevel.hidden);
-    } finally { await repo.close(); await copy.close(); }
+      expect(
+        (await repo.getReleasePolicy(
+          'card',
+          a.id,
+        )).visibleAt(LifeState.deceased),
+        VisibilityLevel.hidden,
+      );
+    } finally {
+      await repo.close();
+      await copy.close();
+    }
   });
   test('views survive split, merge, float and persisted reconstruction exactly once', () {
     final layout = WorkbenchLayout();

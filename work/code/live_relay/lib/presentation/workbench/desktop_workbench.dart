@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:provider/provider.dart';
 
@@ -9,6 +10,7 @@ import '../../application/app_controller.dart';
 import '../../application/app_preferences.dart';
 import '../../application/workbench/card_edit_sessions.dart';
 import '../../application/workbench/workbench_layout.dart';
+import '../../application/workbench/extension_registry.dart';
 import '../../core/domain/entities.dart';
 import '../pages/agent_page.dart';
 import '../pages/profile_page.dart';
@@ -19,6 +21,7 @@ import '../pages/recycle_page.dart';
 import 'dock_surface.dart';
 import 'workbench_card_editor.dart';
 import 'relations_view.dart';
+import 'extensions_view.dart';
 
 class DesktopWorkbench extends StatefulWidget {
   const DesktopWorkbench({super.key});
@@ -30,6 +33,7 @@ class _DesktopWorkbenchState extends State<DesktopWorkbench> {
   late final AppController _controller;
   late final WorkbenchLayout _layout;
   late final CardEditSessions _edits;
+  late final ExtensionRegistry _extensions;
   final _dragging = ValueNotifier<String?>(null);
   final _search = TextEditingController();
   final _selected = <String>{};
@@ -49,12 +53,18 @@ class _DesktopWorkbenchState extends State<DesktopWorkbench> {
     'handoff',
     'settings',
     'recycle',
+    'extensions',
   ];
   @override
   void initState() {
     super.initState();
     _controller = context.read<AppController>();
     _layout = WorkbenchLayout();
+    _extensions = ExtensionRegistry(
+      read: _controller.readWorkbenchExtensions,
+      write: _controller.writeWorkbenchExtensions,
+    );
+    _extensions.addListener(_extensionsChanged);
     _edits = CardEditSessions(
       save: (id, draft) =>
           _controller.updateCard(id, draft, changeNote: '工作台自动保存'),
@@ -66,6 +76,11 @@ class _DesktopWorkbenchState extends State<DesktopWorkbench> {
   }
 
   Future<void> _load() async {
+    try {
+      await _extensions.load();
+    } on Object {
+      _layoutError = '扩展配置读取失败，原有配置保留';
+    }
     try {
       final saved = await _controller.readWorkbenchState();
       if (!mounted) return;
@@ -93,6 +108,18 @@ class _DesktopWorkbenchState extends State<DesktopWorkbench> {
     } else {
       _edits.synchronize(_controller.cards);
     }
+  }
+
+  void _extensionsChanged() {
+    final active = _extensions.views.keys.toSet();
+    final obsolete = _layout.groups
+        .expand((g) => g.tabs)
+        .where((v) => v.startsWith('extension/') && !active.contains(v))
+        .toList();
+    for (final view in obsolete) {
+      _layout.close(view);
+    }
+    if (mounted && _loaded) setState(() {});
   }
 
   void _layoutChanged() {
@@ -125,6 +152,8 @@ class _DesktopWorkbenchState extends State<DesktopWorkbench> {
     _layout.removeListener(_layoutChanged);
     _layoutTimer?.cancel();
     _layout.dispose();
+    _extensions.removeListener(_extensionsChanged);
+    _extensions.dispose();
     _edits.dispose();
     _dragging.dispose();
     _search.dispose();
@@ -156,6 +185,62 @@ class _DesktopWorkbenchState extends State<DesktopWorkbench> {
     _layout.reset(assistant: preset == 'assistant');
     await _persistLayout();
   });
+  Future<void> _commands() async {
+    final entries = [
+      for (final view in _views)
+        (id: 'core.open.$view', title: '打开${_label(view)}', view: view),
+      (id: 'core.layout.reset', title: '恢复默认布局', view: '#reset'),
+      ..._extensions.commands,
+    ];
+    var query = '';
+    final selected = await showDialog<String>(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, refresh) => Dialog(
+          child: SizedBox(
+            width: 560,
+            height: 400,
+            child: Column(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: TextField(
+                    autofocus: true,
+                    decoration: const InputDecoration(
+                      hintText: '搜索命令',
+                      prefixIcon: Icon(Icons.search),
+                    ),
+                    onChanged: (v) => refresh(() => query = v.toLowerCase()),
+                  ),
+                ),
+                Expanded(
+                  child: ListView(
+                    children: [
+                      for (final entry in entries.where(
+                        (e) => e.title.toLowerCase().contains(query),
+                      ))
+                        ListTile(
+                          title: Text(entry.title),
+
+                          onTap: () => Navigator.pop(context, entry.view),
+                        ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+    if (selected == null || !mounted) return;
+    if (selected == '#reset') {
+      _layout.reset(assistant: _layout.assistant);
+    } else {
+      _layout.open(selected);
+    }
+  }
+
   String _cardId(String view) => view.split('/')[1];
   String _label(String view) => switch (view) {
     'cards' => '我的资料',
@@ -168,16 +253,18 @@ class _DesktopWorkbenchState extends State<DesktopWorkbench> {
     'handoff' => '交接',
     'settings' => '设置',
     'recycle' => '回收区',
+    'extensions' => '扩展',
     _ =>
-      view.startsWith('card/')
-          ? _controller.cards
-                    .where((c) => c.id == _cardId(view))
-                    .firstOrNull
-                    ?.title ??
-                '卡片'
-          : view.startsWith('source/')
-          ? '来源'
-          : '修订历史',
+      _extensions.views[view]?.title ??
+          (view.startsWith('card/')
+              ? _controller.cards
+                        .where((c) => c.id == _cardId(view))
+                        .firstOrNull
+                        ?.title ??
+                    '卡片'
+              : view.startsWith('source/')
+              ? '来源'
+              : '修订历史'),
   };
   IconData _icon(String view) => switch (view) {
     'cards' => Icons.dashboard_outlined,
@@ -190,6 +277,7 @@ class _DesktopWorkbenchState extends State<DesktopWorkbench> {
     'handoff' => Icons.how_to_reg_outlined,
     'settings' => Icons.settings_outlined,
     'recycle' => Icons.delete_outline,
+    'extensions' => Icons.extension_outlined,
     _ => Icons.description_outlined,
   };
   void _openCard(String id, {String? group}) =>
@@ -238,48 +326,109 @@ class _DesktopWorkbenchState extends State<DesktopWorkbench> {
     }
   });
   Future<void> _delete(List<LifeCard> cards) async {
+    CardDeletionPreview? preview;
+    await _action(() async {
+      await _edits.flush();
+      if (_edits.hasUnsaved) throw const FormatException('请先处理未保存的修改');
+      preview = await _controller.previewCardDeletion(
+        cards.map((c) => c.id).toList(),
+      );
+    });
+    if (preview == null || !mounted) return;
+    var recycleOriginals = false;
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: Text('删除 ${cards.length} 张卡片？'),
-        content: SizedBox(
-          width: 480,
-          child: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                for (final card in cards) Text('• ${card.title}'),
-                const SizedBox(height: 12),
-                const Text('卡片移入回收区，来源与历史保留，可恢复。'),
-              ],
+      builder: (context) => StatefulBuilder(
+        builder: (context, refresh) => AlertDialog(
+          title: Text('删除 ${cards.length} 张卡片？'),
+          content: SizedBox(
+            width: 480,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  for (final card in cards) Text('• ${card.title}'),
+                  const SizedBox(height: 12),
+                  const Text('卡片移入回收区，历史保留，可恢复。'),
+                  CheckboxListTile(
+                    contentPadding: EdgeInsets.zero,
+                    value: recycleOriginals,
+                    title: Text(
+                      '同时回收 ${preview!.recyclableOriginals.length} 个未共享原件',
+                    ),
+                    subtitle: const Text('原件保留，可随卡片恢复；其他卡片及其历史引用的原件受保护'),
+                    onChanged: preview!.recyclableOriginals.isEmpty
+                        ? null
+                        : (v) => refresh(() => recycleOriginals = v ?? false),
+                  ),
+                  for (final blob in preview!.recyclableOriginals)
+                    Text('可回收：${blob.originalName}'),
+                  for (final blob in preview!.protectedOriginals)
+                    Text('共享/历史保护：${blob.originalName}'),
+                ],
+              ),
             ),
           ),
-        ),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('取消'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('移入回收区'),
-          ),
-        ],
+          if (_controller.isBusy) const Padding(padding: EdgeInsets.all(14),
+            child: SizedBox.square(dimension: 18, child: CircularProgressIndicator(strokeWidth: 2))),
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('取消'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('移入回收区'),
+            ),
+          ],
+        ),
       ),
     );
     if (confirmed != true) return;
     await _action(() async {
       await _edits.flush();
       if (_edits.hasUnsaved) throw const FormatException('请先处理未保存的修改');
-      for (final card in cards) {
-        await _controller.trashCard(card.id);
-        _selected.remove(card.id);
-      }
+      await _controller.trashCards(
+        cards.map((c) => c.id).toList(),
+        recycleUnsharedOriginals: recycleOriginals,
+      );
+      _selected.removeAll(cards.map((c) => c.id));
       if (mounted) setState(() {});
     });
   }
 
+  Widget _recycle() => Column(
+    crossAxisAlignment: CrossAxisAlignment.stretch,
+    children: [
+      if (_controller.recycledBlobIds.isNotEmpty)
+        SizedBox(
+          height: 170,
+          child: ListView(
+            padding: const EdgeInsets.all(12),
+            children: [
+              const Text('回收原件（历史与加密文件保留）'),
+              for (final blob in _controller.blobs.where(
+                (b) => _controller.recycledBlobIds.contains(b.id),
+              ))
+                ListTile(
+                  title: Text(blob.originalName),
+                  trailing: IconButton(
+                    tooltip: '恢复原件',
+                    icon: const Icon(Icons.restore),
+                    onPressed: _controller.isBusy
+                        ? null
+                        : () => _action(
+                            () => _controller.restoreOriginal(blob.id),
+                          ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      const Expanded(child: RecyclePage()),
+    ],
+  );
   WorkbenchCardEditor _editor(LifeCard card, String group) =>
       WorkbenchCardEditor(
         key: ValueKey(card.id),
@@ -417,16 +566,9 @@ class _DesktopWorkbenchState extends State<DesktopWorkbench> {
                               if (card == null) {
                                 throw const FormatException('卡片已移入回收区');
                               }
-                              await _controller.updateCard(
+                              await _controller.restoreCardRevision(
                                 id,
-                                CardDraft(
-                                  title: r.title,
-                                  content: r.content,
-                                  tags: r.tags,
-                                  kind: card.kind,
-                                  status: card.status,
-                                ),
-                                changeNote: '恢复修订 ${r.number} 为新修订',
+                                r.number,
                               );
                             }),
                       child: const Text('恢复为新修订'),
@@ -440,6 +582,14 @@ class _DesktopWorkbenchState extends State<DesktopWorkbench> {
     },
   );
   Widget _view(String view, String group) {
+    if (view.startsWith('extension/')) {
+      return ContributedCardsView(
+        registry: _extensions,
+        viewId: view,
+        controller: _controller,
+        onOpen: (id) => _openCard(id, group: group),
+      );
+    }
     if (view.startsWith('card/')) {
       final card = _controller.cards
           .where((c) => c.id == _cardId(view))
@@ -467,11 +617,17 @@ class _DesktopWorkbenchState extends State<DesktopWorkbench> {
       'passwords' => const PasswordsPage(active: true),
       'handoff' => const HandoffPage(),
       'speech' => const SpeechInputPage(),
-      'recycle' => const RecyclePage(),
+      'recycle' => _recycle(),
+      'extensions' => ExtensionsView(
+        registry: _extensions,
+        onOpen: (view) => _layout.open(view, groupId: group),
+      ),
       'originals' => ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          for (final b in _controller.blobs)
+          for (final b in _controller.blobs.where(
+            (b) => !_controller.recycledBlobIds.contains(b.id),
+          ))
             ListTile(
               leading: Icon(_icon(view)),
               title: Text(b.originalName),
@@ -549,127 +705,152 @@ class _DesktopWorkbenchState extends State<DesktopWorkbench> {
       label: _label,
       icon: _icon,
     );
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('留灯 · 工作台'),
-        toolbarHeight: 48,
-        actions: [
-          TextButton(
-            onPressed: () => _preset('library'),
-            child: const Text('资料'),
-          ),
-          TextButton(
-            onPressed: () => _preset('assistant'),
-            child: const Text('助手'),
-          ),
-          PopupMenuButton<String>(
-            tooltip: '工作台布局',
-            onSelected: (v) => _action(() async {
-              if (v == 'choose') {
-                await preferences?.setDesktopPreset(null);
-              } else {
-                _layout.reset(
-                  assistant: preferences?.desktopPreset == 'assistant',
-                );
-                await _persistLayout();
-              }
-            }),
-            itemBuilder: (_) => const [
-              PopupMenuItem(value: 'reset', child: Text('恢复默认布局')),
-              PopupMenuItem(value: 'choose', child: Text('重新选择起始工作台')),
+    return CallbackShortcuts(
+      bindings: {
+        const SingleActivator(
+          LogicalKeyboardKey.keyP,
+          control: true,
+          shift: true,
+        ): _commands,
+      },
+      child: Focus(
+        autofocus: true,
+        child: Scaffold(
+          appBar: AppBar(
+            title: const Text('留灯 · 工作台'),
+            toolbarHeight: 48,
+            actions: [
+              IconButton(
+                tooltip: '命令面板 · Ctrl+Shift+P',
+                onPressed: _commands,
+                icon: const Icon(Icons.terminal),
+              ),
+              TextButton(
+                onPressed: () => _preset('library'),
+                child: const Text('资料'),
+              ),
+              TextButton(
+                onPressed: () => _preset('assistant'),
+                child: const Text('助手'),
+              ),
+              PopupMenuButton<String>(
+                tooltip: '工作台布局',
+                onSelected: (v) => _action(() async {
+                  if (v == 'choose') {
+                    await preferences?.setDesktopPreset(null);
+                  } else {
+                    _layout.reset(
+                      assistant: preferences?.desktopPreset == 'assistant',
+                    );
+                    await _persistLayout();
+                  }
+                }),
+                itemBuilder: (_) => const [
+                  PopupMenuItem(value: 'reset', child: Text('恢复默认布局')),
+                  PopupMenuItem(value: 'choose', child: Text('重新选择起始工作台')),
+                ],
+              ),
+              IconButton(
+                tooltip: '保存并锁定',
+                icon: const Icon(Icons.lock_outline),
+                onPressed: _controller.isBusy
+                    ? null
+                    : () => _action(() async {
+                        await _edits.flush();
+                        if (_edits.hasUnsaved) {
+                          throw const FormatException('仍有修改未保存，请重试保存后锁定');
+                        }
+                        await _persistLayout();
+                        await _controller.lock();
+                      }),
+              ),
             ],
           ),
-          IconButton(
-            tooltip: '保存并锁定',
-            icon: const Icon(Icons.lock_outline),
-            onPressed: _controller.isBusy
-                ? null
-                : () => _action(() async {
-                    await _edits.flush();
-                    if (_edits.hasUnsaved) {
-                      throw const FormatException('仍有修改未保存，请重试保存后锁定');
-                    }
-                    await _persistLayout();
-                    await _controller.lock();
-                  }),
-          ),
-        ],
-      ),
-      body: Column(
-        children: [
-          Expanded(
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                SizedBox(
-                  width: 52,
-                  child: SingleChildScrollView(
-                    child: Column(
-                      children: [
-                        for (final view in _views)
-                          surface.draggable(
-                            view,
-                            IconButton(
-                              tooltip: _label(view),
-                              icon: Icon(_icon(view)),
-                              onPressed: () => _layout.open(view),
-                            ),
-                          ),
-                        DragTarget<String>(
-                          onAcceptWithDetails: (d) =>
-                              _layout.move(d.data, '', DockPlacement.floating),
-                          builder: (context, candidates, _) => Container(
-                            color: candidates.isNotEmpty
-                                ? Theme.of(context).colorScheme.primaryContainer
-                                : null,
-                            child: const Padding(
-                              padding: EdgeInsets.all(12),
-                              child: Tooltip(
-                                message: '拖到这里在工作台内浮动',
-                                child: Icon(Icons.picture_in_picture_alt),
+          body: Column(
+            children: [
+              Expanded(
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    SizedBox(
+                      width: 52,
+                      child: SingleChildScrollView(
+                        child: Column(
+                          children: [
+                            for (final view in [
+                              ..._views,
+                              ..._extensions.views.keys,
+                            ])
+                              surface.draggable(
+                                view,
+                                IconButton(
+                                  tooltip: _label(view),
+                                  icon: Icon(_icon(view)),
+                                  onPressed: () => _layout.open(view),
+                                ),
+                              ),
+                            DragTarget<String>(
+                              onAcceptWithDetails: (d) => _layout.move(
+                                d.data,
+                                '',
+                                DockPlacement.floating,
+                              ),
+                              builder: (context, candidates, _) => Container(
+                                color: candidates.isNotEmpty
+                                    ? Theme.of(context)
+                                          .colorScheme
+                                          .primaryContainer
+                                    : null,
+                                child: const Padding(
+                                  padding: EdgeInsets.all(12),
+                                  child: Tooltip(
+                                    message: '拖到这里在工作台内浮动',
+                                    child: Icon(Icons.picture_in_picture_alt),
+                                  ),
+                                ),
                               ),
                             ),
-                          ),
+                          ],
                         ),
-                      ],
+                      ),
                     ),
-                  ),
+                    const VerticalDivider(width: 1),
+                    Expanded(child: surface),
+                  ],
                 ),
-                const VerticalDivider(width: 1),
-                Expanded(child: surface),
-              ],
-            ),
-          ),
-          Container(
-            height: 28,
-            color: Theme.of(context).colorScheme.surfaceContainerLow,
-            child: Row(
-              children: [
-                const SizedBox(width: 12),
-                const Icon(Icons.lock, size: 13),
-                const SizedBox(width: 6),
-                const Text('本地加密资料库', style: TextStyle(fontSize: 11)),
-                const Spacer(),
-                if (_layoutError != null)
-                  TextButton(
-                    onPressed: _persistLayout,
-                    child: Text(
-                      _layoutError!,
-                      style: const TextStyle(fontSize: 11),
+              ),
+              Container(
+                height: 28,
+                color: Theme.of(context).colorScheme.surfaceContainerLow,
+                child: Row(
+                  children: [
+                    const SizedBox(width: 12),
+                    const Icon(Icons.lock, size: 13),
+                    const SizedBox(width: 6),
+                    const Text('本地加密资料库', style: TextStyle(fontSize: 11)),
+                    const Spacer(),
+                    if (_layoutError != null)
+                      TextButton(
+                        onPressed: _persistLayout,
+                        child: Text(
+                          _layoutError!,
+                          style: const TextStyle(fontSize: 11),
+                        ),
+                      ),
+                    ListenableBuilder(
+                      listenable: _edits,
+                      builder: (context, _) => Text(
+                        _edits.hasUnsaved ? '有修改正在保存或需要处理' : '修改已保存',
+                        style: const TextStyle(fontSize: 11),
+                      ),
                     ),
-                  ),
-                ListenableBuilder(
-                  listenable: _edits,
-                  builder: (context, _) => Text(
-                    _edits.hasUnsaved ? '有修改正在保存或需要处理' : '修改已保存',
-                    style: const TextStyle(fontSize: 11),
-                  ),
+                    const SizedBox(width: 12),
+                  ],
                 ),
-                const SizedBox(width: 12),
-              ],
-            ),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
