@@ -5,7 +5,9 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:path/path.dart' as path;
-import 'package:path_provider/path_provider.dart';
+
+import '../../infrastructure/private_cache.dart';
+
 import 'package:provider/provider.dart';
 import 'package:record/record.dart';
 
@@ -390,7 +392,7 @@ class _AudioRecorderSheetState extends State<_AudioRecorderSheet> {
       if (!await _recorder.hasPermission()) {
         throw const FormatException('未获得麦克风权限');
       }
-      final directory = await getTemporaryDirectory();
+      final directory = await privateCacheDirectory();
       final output = path.join(
         directory.path,
         'recording-${DateTime.now().microsecondsSinceEpoch}.m4a',

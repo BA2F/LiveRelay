@@ -1,16 +1,19 @@
 import 'dart:async';
 import 'dart:io';
-import 'dart:typed_data';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
-import 'package:path_provider/path_provider.dart';
+import 'package:flutter/foundation.dart';
+
+import '../../infrastructure/private_cache.dart';
+
 import 'package:provider/provider.dart';
 import 'package:record/record.dart';
 
 import '../../application/app_controller.dart';
 import '../../core/domain/entities.dart';
 import '../../infrastructure/speech/local_sense_voice_provider.dart';
+import '../dialogs/speech_settings_dialog.dart';
 
 class SpeechInputPage extends StatefulWidget {
   const SpeechInputPage({super.key, this.onTranscript});
@@ -45,6 +48,7 @@ class _SpeechInputPageState extends State<SpeechInputPage> {
   void _sessionChanged() {
     if (!_controller.isUnlocked) {
       _generation++;
+      _controller.speech?.cancelTranscription();
       _text.clear();
       _sourceBlobId = null;
       if (_recording) unawaited(_discardRecording());
@@ -87,6 +91,7 @@ class _SpeechInputPageState extends State<SpeechInputPage> {
   @override
   void dispose() {
     _generation++;
+    _controller.speech?.cancelTranscription();
     _controller.removeListener(_sessionChanged);
     _controller.exitCleanups.remove(_discardRecording);
     _limit?.cancel();
@@ -102,7 +107,13 @@ class _SpeechInputPageState extends State<SpeechInputPage> {
     });
     try {
       await action();
-    } on Object catch (e) {
+    } on Object catch (e, stack) {
+      if (kDebugMode) {
+        debugPrintStack(
+          label: 'Speech operation failed (${e.runtimeType})',
+          stackTrace: stack,
+        );
+      }
       if (mounted) {
         setState(
           () => _error = e is FormatException
@@ -120,7 +131,7 @@ class _SpeechInputPageState extends State<SpeechInputPage> {
       throw const FormatException('请允许麦克风权限');
     }
     if (!mounted || !_controller.isUnlocked) return;
-    final cache = await getTemporaryDirectory();
+    final cache = await privateCacheDirectory();
     if (!mounted || !_controller.isUnlocked) return;
     _recordPath =
         '${cache.path}/speech-${DateTime.now().microsecondsSinceEpoch}.wav';
@@ -203,37 +214,71 @@ class _SpeechInputPageState extends State<SpeechInputPage> {
 
   Future<void> _recognizeFile(File file) async {
     final generation = _generation;
-    if (!mounted || !_controller.isUnlocked || generation != _generation) {
-      return;
-    }
+    final service = _controller.speech!;
+    final remoteGeneration = service.configurationGeneration;
+    final remote = service.usingRemote;
+    if (!mounted || !_controller.isUnlocked) return;
     if (await file.length() > 2 * 1024 * 1024) {
       throw const FormatException('请选择 60 秒以内的 WAV');
     }
-    String? blobId;
-    late final Uint8List bytes;
-    if (_saveOriginal) {
-      final original = await _controller.importOriginal(
-        bytes: await file.readAsBytes(),
-        originalName: '语音-${DateTime.now().millisecondsSinceEpoch}.wav',
-        mimeType: 'audio/wav',
-        mediaKind: BlobMediaKind.audio,
-      );
-      if (!mounted || !_controller.isUnlocked || generation != _generation) {
+    final bytes = await file.readAsBytes();
+    try {
+      if (remote) {
+        if (!mounted || !_controller.isUnlocked || generation != _generation) {
+          return;
+        }
+        final settings = service.remoteSettings;
+        final allowed = await showDialog<bool>(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('允许上传本次音频？'),
+            content: Text(
+              '${settings.name} · ${settings.model}\n${Uri.tryParse(settings.endpoint)?.host ?? ""}\n'
+              '将上传完整 WAV 音频（${bytes.length} 字节），音频不做敏感内容替换。文字回填不会自动发送给对话服务。',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('取消'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.pop(context, true),
+                child: const Text('允许本次音频上传'),
+              ),
+            ],
+          ),
+        );
+        if (allowed != true) return;
+      }
+      if (!mounted ||
+          !_controller.isUnlocked ||
+          generation != _generation ||
+          service.configurationGeneration != remoteGeneration) {
         return;
       }
-      blobId = (await _controller.cardSources(original.id)).first.blobId!;
-      bytes = await _controller.readOriginal(blobId);
-    } else {
-      bytes = await file.readAsBytes();
-    }
-    if (!mounted || !_controller.isUnlocked || generation != _generation) {
+      String? blobId;
+      if (_saveOriginal) {
+        final original = await _controller.importOriginal(
+          bytes: Uint8List.fromList(bytes),
+          originalName: '语音-${DateTime.now().millisecondsSinceEpoch}.wav',
+          mimeType: 'audio/wav',
+          mediaKind: BlobMediaKind.audio,
+        );
+        if (!mounted || !_controller.isUnlocked || generation != _generation) {
+          return;
+        }
+        blobId = (await _controller.cardSources(original.id)).first.blobId!;
+      }
+      final text = await service.transcribe(
+        bytes,
+        authorizedRemoteGeneration: remote ? remoteGeneration : null,
+      );
+      if (mounted && _controller.isUnlocked && generation == _generation) {
+        _sourceBlobId = blobId;
+        _text.text = text;
+      }
+    } finally {
       bytes.fillRange(0, bytes.length, 0);
-      return;
-    }
-    final text = await _controller.speech!.transcribe(bytes);
-    if (mounted && _controller.isUnlocked && generation == _generation) {
-      _sourceBlobId = blobId;
-      _text.text = text;
     }
   }
 
@@ -243,14 +288,18 @@ class _SpeechInputPageState extends State<SpeechInputPage> {
     final service = controller.speech;
     final busy = _working || (service?.busy ?? false);
     return Scaffold(
-      appBar: AppBar(title: const Text('本地语音输入')),
+      appBar: AppBar(
+        title: Text(service?.usingRemote == true ? '远程语音输入' : '本地语音输入'),
+      ),
       body: !controller.isUnlocked
           ? const Center(child: Text('请先解锁资料库'))
           : ListView(
               padding: const EdgeInsets.all(16),
               children: [
                 Text(
-                  widget.onTranscript == null
+                  service?.usingRemote == true
+                      ? '音频将发送给独立配置的语音服务，每次上传前确认；最长 60 秒，核对文字后回填或保存。'
+                      : widget.onTranscript == null
                       ? '录音原件加密保留，识别在本机完成，不上传音频。每次最长 60 秒，核对文字后保存关联草稿。'
                       : '识别在本机完成，不上传音频。每次最长 60 秒；核对后可填入助手，发送时另行确认。',
                 ),
@@ -265,58 +314,109 @@ class _SpeechInputPageState extends State<SpeechInputPage> {
                               setState(() => _saveOriginal = value ?? false),
                   ),
                 const SizedBox(height: 16),
-                if (service == null || !service.supported)
-                  const Text('当前平台尚未支持本地语音')
+                if (service == null)
+                  const Text('语音服务不可用')
                 else ...[
-                  ListTile(
-                    contentPadding: EdgeInsets.zero,
-                    leading: const Icon(Icons.download_for_offline_outlined),
-                    title: const Text('SenseVoice 本地模型'),
-                    subtitle: Text(
-                      service.installed
-                          ? '已安装 · 支持中文等多种语言'
-                          : '尚未安装 · 下载约 156 MB，安装请预留 1 GB 空间',
-                    ),
-                  ),
-                  if (!service.installed) ...[
-                    SelectableText(
-                      LocalSenseVoiceProvider.modelUrl,
-                      style: Theme.of(context).textTheme.bodySmall,
-                    ),
-                    const SizedBox(height: 8),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: [
-                        FilledButton.icon(
-                          onPressed: busy
+                  Row(
+                    children: [
+                      Expanded(
+                        child: DropdownButtonFormField<bool>(
+                          key: ValueKey(service.usingRemote),
+                          initialValue: service.usingRemote,
+                          decoration: const InputDecoration(
+                            labelText: '语音识别提供方',
+                          ),
+                          items: const [
+                            DropdownMenuItem(
+                              value: false,
+                              child: Text('本地 SenseVoice'),
+                            ),
+                            DropdownMenuItem(
+                              value: true,
+                              child: Text('远程语音服务'),
+                            ),
+                          ],
+                          onChanged: busy || _recording
                               ? null
-                              : () => _action(service.download),
-                          icon: const Icon(Icons.download),
-                          label: const Text('下载并安装模型'),
+                              : (remote) => _action(
+                                  () => service.chooseRemote(remote ?? false),
+                                ),
                         ),
-                        OutlinedButton(
-                          onPressed: busy ? null : () => _pick(true),
-                          child: const Text('导入官方模型包'),
-                        ),
-                      ],
-                    ),
-                    if (service.busy) ...[
-                      const SizedBox(height: 8),
-                      LinearProgressIndicator(
-                        value: service.total == null
+                      ),
+                      IconButton(
+                        tooltip: '远程语音服务设置',
+                        onPressed: busy || _recording
                             ? null
-                            : service.received / service.total!,
-                      ),
-                      Text(
-                        '已下载 ${(service.received / 1024 / 1024).toStringAsFixed(1)} MB；下载完成后安装',
-                      ),
-                      TextButton(
-                        onPressed: service.cancel,
-                        child: const Text('取消下载／安装'),
+                            : () => showDialog<void>(
+                                context: context,
+                                builder: (_) =>
+                                    SpeechSettingsDialog(service: service),
+                              ),
+                        icon: const Icon(Icons.settings_outlined),
                       ),
                     ],
-                  ] else ...[
+                  ),
+                  if (service.usingRemote)
+                    ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: const Icon(Icons.cloud_outlined),
+                      title: Text(service.remoteSettings.name),
+                      subtitle: Text(
+                        '${service.remoteSettings.model} · ${Uri.tryParse(service.remoteSettings.endpoint)?.host ?? ""}',
+                      ),
+                    )
+                  else if (!service.supported)
+                    const Text('当前平台尚未支持本地语音')
+                  else ...[
+                    ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: const Icon(Icons.download_for_offline_outlined),
+                      title: const Text('SenseVoice 本地模型'),
+                      subtitle: Text(
+                        service.installed
+                            ? '已安装 · 支持中文等多种语言'
+                            : '尚未安装 · 下载约 156 MB，安装请预留 1 GB 空间',
+                      ),
+                    ),
+                    if (!service.installed) ...[
+                      SelectableText(
+                        LocalSenseVoiceProvider.modelUrl,
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: [
+                          FilledButton.icon(
+                            onPressed: busy
+                                ? null
+                                : () => _action(service.download),
+                            icon: const Icon(Icons.download),
+                            label: const Text('下载并安装模型'),
+                          ),
+                          OutlinedButton(
+                            onPressed: busy ? null : () => _pick(true),
+                            child: const Text('导入官方模型包'),
+                          ),
+                        ],
+                      ),
+                      if (service.busy) ...[
+                        LinearProgressIndicator(
+                          value: service.total == null
+                              ? null
+                              : service.received / service.total!,
+                        ),
+                        Text(
+                          '已下载 ${(service.received / 1024 / 1024).toStringAsFixed(1)} MB；下载完成后安装',
+                        ),
+                        TextButton(
+                          onPressed: service.cancel,
+                          child: const Text('取消下载／安装'),
+                        ),
+                      ],
+                    ],
+                  ],
+                  if (service.ready) ...[
                     Wrap(
                       spacing: 8,
                       runSpacing: 8,
@@ -336,12 +436,18 @@ class _SpeechInputPageState extends State<SpeechInputPage> {
                               : () => _pick(false),
                           child: const Text('识别 WAV 文件'),
                         ),
-                        TextButton(
-                          onPressed: busy || _recording
-                              ? null
-                              : () => _action(service.remove),
-                          child: const Text('移除模型'),
-                        ),
+                        if (!service.usingRemote)
+                          TextButton(
+                            onPressed: busy || _recording
+                                ? null
+                                : () => _action(service.remove),
+                            child: const Text('移除模型'),
+                          ),
+                        if (busy && service.usingRemote)
+                          TextButton(
+                            onPressed: service.cancelTranscription,
+                            child: const Text('取消识别'),
+                          ),
                       ],
                     ),
                     if (_recording) ...[
@@ -373,6 +479,13 @@ class _SpeechInputPageState extends State<SpeechInputPage> {
                       ),
                     ],
                   ],
+                  if (service.error != null)
+                    Text(
+                      service.error!,
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.error,
+                      ),
+                    ),
                 ],
                 if (_error != null)
                   Padding(
@@ -384,7 +497,7 @@ class _SpeechInputPageState extends State<SpeechInputPage> {
                       ),
                     ),
                   ),
-                if (_working && (service?.installed ?? false))
+                if (_working && (service?.ready ?? false))
                   const LinearProgressIndicator(),
                 const SizedBox(height: 20),
                 TextField(

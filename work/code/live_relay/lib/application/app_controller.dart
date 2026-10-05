@@ -174,6 +174,8 @@ class AppController extends ChangeNotifier {
     model: '',
     hasApiKey: false,
   );
+  List<AiProviderSettings> aiProfiles = const [];
+  int aiConfigurationGeneration = 0;
   String? lastError;
   String? get recoveryNotice => _backup.recoveryNotice;
 
@@ -239,6 +241,7 @@ class AppController extends ChangeNotifier {
       await _prepareEnvironment();
       try {
         aiSettings = await _aiSettingsStore.read();
+        aiProfiles = await _aiSettingsStore.readProfiles();
       } on Object {
         aiSettings = const AiProviderSettings(
           endpoint: '',
@@ -334,6 +337,7 @@ class AppController extends ChangeNotifier {
 
   Future<void> lock() async {
     cancelAgentTask();
+    _speechService?.cancelTranscription();
     try {
       await _session.close();
     } finally {
@@ -585,27 +589,63 @@ class AppController extends ChangeNotifier {
     AiProtocol? protocol,
     bool? supportsImages,
     bool? supportsFiles,
+    String? profileId,
+    String? name,
+    List<String>? models,
+    bool create = false,
   }) async {
     await _run(() async {
-      await _aiSettingsStore.save(
-        endpoint: endpoint,
-        model: model,
-        apiKey: apiKey,
-      );
-      if (protocol != null) await _aiSettingsStore.saveProtocol(protocol);
-      if (supportsImages != null || supportsFiles != null) {
-        await _aiSettingsStore.saveCapabilities(
-          images: supportsImages ?? aiSettings.supportsImages,
-          files: supportsFiles ?? aiSettings.supportsFiles,
+      aiConfigurationGeneration++;
+      if (name != null) {
+        await _aiSettingsStore.saveProfile(
+          id: profileId,
+          create: create,
+          name: name,
+          endpoint: endpoint,
+          model: model,
+          models: models ?? [model],
+          protocol: protocol ?? aiSettings.protocol,
+          images: supportsImages ?? false,
+          files: supportsFiles ?? false,
+          apiKey: apiKey,
         );
+      } else {
+        await _aiSettingsStore.save(
+          endpoint: endpoint,
+          model: model,
+          apiKey: apiKey,
+        );
+        if (protocol != null) await _aiSettingsStore.saveProtocol(protocol);
+        if (supportsImages != null || supportsFiles != null) {
+          await _aiSettingsStore.saveCapabilities(
+            images: supportsImages ?? aiSettings.supportsImages,
+            files: supportsFiles ?? aiSettings.supportsFiles,
+          );
+        }
       }
       aiSettings = await _aiSettingsStore.read();
+      aiProfiles = await _aiSettingsStore.readProfiles();
     });
   }
+
+  Future<void> selectAiProfile(String id, String model) => _run(() async {
+    aiConfigurationGeneration++;
+    await _aiSettingsStore.select(id, model);
+    aiSettings = await _aiSettingsStore.read();
+    aiProfiles = await _aiSettingsStore.readProfiles();
+  });
+  Future<void> removeAiProfile(String id) => _run(() async {
+    aiConfigurationGeneration++;
+    await _aiSettingsStore.remove(id);
+    aiSettings = await _aiSettingsStore.read();
+    aiProfiles = await _aiSettingsStore.readProfiles();
+  });
 
   Future<void> clearAiSettings() async {
     await _run(() async {
       await _aiSettingsStore.clear();
+      aiConfigurationGeneration++;
+      aiProfiles = const [];
       aiSettings = const AiProviderSettings(
         endpoint: '',
         model: '',

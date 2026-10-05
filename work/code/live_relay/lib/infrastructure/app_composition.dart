@@ -2,7 +2,6 @@ import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/services.dart';
-import 'package:path/path.dart' as path;
 import 'package:path_provider/path_provider.dart';
 
 import '../application/app_controller.dart';
@@ -17,6 +16,7 @@ import '../core/ports/device_factor_protection.dart';
 import '../core/ports/ocr_provider.dart';
 import '../core/security/chinese_passphrase.dart';
 import 'ai/ai_provider_settings_store.dart';
+import 'private_cache.dart';
 import 'ai/configured_ai_provider.dart';
 import 'agent/linux_bash_command_provider.dart';
 import '../application/draft_agent_service.dart';
@@ -43,6 +43,7 @@ AppController createAppController([
   Future<void> Function(String stage)? restoreCheckpoint,
   DeviceFactorProtection? deviceFactorProtection,
   DateTime Function()? clock,
+  SpeechService? speechService,
 ]) {
   final session = VaultSession(
     resolveDirectory: () async {
@@ -76,13 +77,15 @@ AppController createAppController([
     ),
   );
   final selectedAi = aiProvider ?? ConfiguredAiProvider();
-  final speech = SpeechService(
-    LocalSenseVoiceProvider(() async {
-      final support =
-          applicationDirectory ?? await getApplicationSupportDirectory();
-      return Directory('${support.path}/live_relay/speech');
-    }),
-  );
+  final speech =
+      speechService ??
+      SpeechService(
+        LocalSenseVoiceProvider(() async {
+          final support =
+              applicationDirectory ?? await getApplicationSupportDirectory();
+          return Directory('${support.path}/live_relay/speech');
+        }),
+      );
   final commands = LinuxBashCommandProvider(
     resolveDirectory: () async {
       final support =
@@ -133,30 +136,7 @@ Future<void> _clearKnownPlaintextCache() async {
   try {
     final cache = await getTemporaryDirectory();
     if (!await cache.exists()) return;
-    const mediaExtensions = <String>{
-      '.jpg',
-      '.jpeg',
-      '.png',
-      '.webp',
-      '.heic',
-      '.mp3',
-      '.m4a',
-      '.wav',
-      '.aac',
-      '.mp4',
-      '.mov',
-      '.webm',
-    };
-    await for (final entity in cache.list(recursive: true)) {
-      if (entity is! File) continue;
-      final name = path.basename(entity.path).toLowerCase();
-      final isKnownTemporary =
-          name.startsWith('ocr-') ||
-          name.startsWith('recording-') ||
-          name.startsWith('view-') ||
-          mediaExtensions.contains(path.extension(name));
-      if (isKnownTemporary) await entity.delete();
-    }
+    await clearPrivateCache(cache);
   } on Object {
     // Cache is outside the authenticated Vault. Cleanup is retried on every
     // start and failure must not turn into data loss or an unlock failure.

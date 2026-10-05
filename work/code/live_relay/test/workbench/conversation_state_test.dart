@@ -74,6 +74,9 @@ void main() {
       final oldScope = q.prepare(q.draft, [
         const SensitiveMark(lineOrder: 0, kind: SensitiveFieldKind.secret),
       ]);
+      c.aiConfigurationGeneration++;
+      expect(await q.send(oldScope), false);
+      expect(q.error, contains('配置已变化'));
       c.aiSettings = const AiProviderSettings(
         endpoint: 'https://different.invalid/chat',
         model: 'different',

@@ -15,6 +15,50 @@ class ConversationView extends StatelessWidget {
   });
   final AgentConversation conversation;
   final VoidCallback openManual, openSpeech;
+  Future<void> _selectModel(
+    BuildContext context,
+    String id,
+    String model,
+  ) async {
+    final c = conversation;
+    if (id == c.controller.aiSettings.id &&
+        model == c.controller.aiSettings.model) {
+      return;
+    }
+    if (c.messages.isNotEmpty ||
+        c.draft.isNotEmpty ||
+        c.attachments.isNotEmpty) {
+      final allowed = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('切换服务或模型？'),
+          content: const Text('切换会清空当前会话和输入，已保存的卡片保留。已有历史不会自动发给新服务。'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('取消'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('切换并开始新会话'),
+            ),
+          ],
+        ),
+      );
+      if (allowed != true || !context.mounted) return;
+    }
+    try {
+      await c.controller.selectAiProfile(id, model);
+      await c.newConversation();
+    } on Object {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(c.controller.lastError ?? '切换失败，当前会话已保留')),
+        );
+      }
+    }
+  }
+
   Future<void> _send(BuildContext context) async {
     final c = conversation;
     final generationText = c.draft;
@@ -99,11 +143,33 @@ class ConversationView extends StatelessWidget {
               spacing: 8,
               crossAxisAlignment: WrapCrossAlignment.center,
               children: [
-                Text(
-                  c.controller.aiSettings.isConfigured
-                      ? c.controller.aiSettings.model
-                      : '尚未配置 AI 服务',
-                ),
+                if (c.controller.aiProfiles.isNotEmpty)
+                  DropdownButton<({String id, String model})>(
+                    key: const ValueKey('conversation-model'),
+                    value: (
+                      id: c.controller.aiSettings.id,
+                      model: c.controller.aiSettings.model,
+                    ),
+                    items: [
+                      for (final p in c.controller.aiProfiles)
+                        for (final model in p.models)
+                          DropdownMenuItem(
+                            value: (id: p.id, model: model),
+                            child: Text('${p.name} · $model'),
+                          ),
+                    ],
+                    onChanged: c.working
+                        ? null
+                        : (v) {
+                            if (v != null) _selectModel(context, v.id, v.model);
+                          },
+                  )
+                else
+                  Text(
+                    c.controller.aiSettings.isConfigured
+                        ? c.controller.aiSettings.model
+                        : '尚未配置 AI 服务',
+                  ),
                 IconButton(
                   tooltip: 'AI 服务设置',
                   onPressed: c.working

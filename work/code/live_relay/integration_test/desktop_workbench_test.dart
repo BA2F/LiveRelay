@@ -4,6 +4,18 @@ import 'dart:typed_data';
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
+import 'package:file_picker/file_picker.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
+import 'package:live_relay/application/speech_service.dart';
+import 'package:live_relay/core/ports/speech_provider.dart';
+import 'package:live_relay/infrastructure/speech/http_remote_speech_provider.dart';
+import 'package:live_relay/presentation/pages/speech_input_page.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart'
+    show FlutterSecureStorage;
+import 'package:cross_file/cross_file.dart';
+import 'package:live_relay/core/ports/ai_provider.dart';
+import 'package:live_relay/infrastructure/ai/ai_provider_settings_store.dart';
 import 'package:desktop_drop/desktop_drop.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -20,6 +32,7 @@ import 'package:live_relay/presentation/app.dart';
 import 'package:live_relay/presentation/workbench/dock_surface.dart';
 
 import '../test/support/verification_fakes.dart';
+import '../test/workbench/remote_speech_test.dart' show wave;
 
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
@@ -888,4 +901,344 @@ void main() {
       }
     },
   );
+  testWidgets(
+    'native provider/model choice protects current conversation and settings survive reopening',
+    (tester) async {
+      FlutterSecureStorage.setMockInitialValues({});
+      final root = await Directory.systemTemp.createTemp(
+        'liverelay-profiles-native-',
+      );
+      final store = AiProviderSettingsStore();
+      final c = createAppController(
+        root,
+        NoBiometrics(),
+        TestOcr(),
+        RecordingConversationAi(),
+        store,
+      );
+      final p = AppPreferences();
+      final screenshotKey = GlobalKey();
+      try {
+        await c.initialize();
+        await c.setupVault(
+          password: 'fixture-profiles-password',
+          usesChinesePassphrase: false,
+        );
+        await c.saveAiSettings(
+          name: '服务甲',
+          endpoint: 'https://a.invalid/chat',
+          model: '模型甲',
+          models: ['模型甲', '模型甲二'],
+          apiKey: 'fixture-key-a',
+        );
+        final first = c.aiSettings.id;
+        await c.saveAiSettings(
+          name: '服务乙',
+          create: true,
+          endpoint: 'https://b.invalid/responses',
+          model: '模型乙',
+          models: ['模型乙'],
+          apiKey: 'fixture-key-b',
+          protocol: AiProtocol.responses,
+        );
+        await c.selectAiProfile(first, '模型甲');
+        await p.finishOnboarding();
+        await p.setDesktopPreset('assistant');
+        await tester.pumpWidget(
+          MultiProvider(
+            providers: [
+              ChangeNotifierProvider.value(value: c),
+              ChangeNotifierProvider.value(value: p),
+            ],
+            child: RepaintBoundary(
+              key: screenshotKey,
+              child: const LiveRelayApp(),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        final conversation = tester
+            .widget<ConversationView>(find.byType(ConversationView))
+            .conversation;
+        conversation.updateDraft('仅给甲服务的虚构内容');
+        final selector = find.byKey(const ValueKey('conversation-model'));
+        await tester.tap(selector);
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('服务乙 · 模型乙').last);
+        await tester.pumpAndSettle();
+        expect(find.text('切换服务或模型？'), findsOneWidget);
+        await tester.tap(find.text('取消').last);
+        await tester.pumpAndSettle();
+        expect(c.aiSettings.id, first);
+        expect(conversation.draft, '仅给甲服务的虚构内容');
+        await tester.tap(selector);
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('服务乙 · 模型乙').last);
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('切换并开始新会话'));
+        await tester.pumpAndSettle();
+        expect(c.aiSettings.name, '服务乙');
+        expect(c.aiSettings.protocol, AiProtocol.responses);
+        expect(conversation.draft, isEmpty);
+        expect(conversation.messages, isEmpty);
+        expect(await store.readApiKey(), 'fixture-key-b');
+        expect((await AiProviderSettingsStore().read()).name, '服务乙');
+        await tester.tap(find.byTooltip('AI 服务设置'));
+        await tester.pumpAndSettle();
+        expect(find.text('编辑服务配置'), findsOneWidget);
+        await tester.tap(find.text('添加另一个服务'));
+        await tester.pumpAndSettle();
+        final name = find.byWidgetPredicate(
+          (w) => w is TextField && w.decoration?.labelText == '服务名称',
+        );
+        await tester.enterText(name, '服务丙');
+        final endpoint = find.byWidgetPredicate(
+          (w) =>
+              w is TextField &&
+              w.decoration?.labelText == 'HTTPS 服务地址（Chat Completions）',
+        );
+        await tester.enterText(endpoint, 'https://c.invalid/chat');
+        final model = find.byWidgetPredicate(
+          (w) => w is TextField && w.decoration?.labelText == '模型名称',
+        );
+        await tester.enterText(model, '模型丙');
+        final key = find.byWidgetPredicate(
+          (w) => w is TextField && w.decoration?.labelText == '服务密钥',
+        );
+        await tester.ensureVisible(key);
+        await tester.pumpAndSettle();
+        await tester.enterText(key, 'fixture-key-c');
+        await tester.tap(find.text('安全保存'));
+        await tester.pumpAndSettle();
+        expect(c.aiProfiles.length, 3);
+        expect(c.aiSettings.name, '服务丙');
+        final evidence = Platform.environment['LIVERELAY_WORKBENCH_EVIDENCE'];
+        if (evidence != null) {
+          final image =
+              await (screenshotKey.currentContext!.findRenderObject()
+                      as RenderRepaintBoundary)
+                  .toImage();
+          final data = await image.toByteData(format: ui.ImageByteFormat.png);
+          await File('$evidence/native-providers.png')
+              .writeAsBytes(data!.buffer.asUint8List());
+          image.dispose();
+        }
+      } finally {
+        await tester.pumpWidget(const SizedBox());
+        await c.lock();
+        c.dispose();
+        p.dispose();
+        await root.delete(recursive: true);
+      }
+    },
+  );
+  testWidgets(
+    'native remote speech configuration, per-upload consent and transcript backfill keep recording storage separate',
+    (tester) async {
+      FlutterSecureStorage.setMockInitialValues({});
+      final root = await Directory.systemTemp.createTemp(
+        'liverelay-remote-speech-native-',
+      );
+      final file = await File('${root.path}/fixture.wav').writeAsBytes(wave());
+      final oldPicker = FilePickerPlatform.instance;
+      FilePickerPlatform.instance = _FixturePicker(
+        file.path,
+        await file.length(),
+      );
+      var requests = 0;
+      final remote = HttpRemoteSpeechProvider(
+        client: MockClient((r) async {
+          requests++;
+          expect(r.url.host, 'asr.invalid');
+          return http.Response(
+            '{"text":"虚构远程转写"}',
+            200,
+            headers: {'content-type': 'application/json; charset=utf-8'},
+          );
+        }),
+      );
+      final speech = SpeechService(
+        _NoSpeechModel(),
+        supported: true,
+        remoteProvider: remote,
+      );
+      final c = createAppController(
+        root,
+        NoBiometrics(),
+        TestOcr(),
+        RecordingAi(),
+        TestAiSettings(),
+        null,
+        null,
+        null,
+        speech,
+      );
+      String? backfill;
+      final screenshotKey = GlobalKey();
+      try {
+        await c.initialize();
+        await c.setupVault(
+          password: 'fixture-speech-password',
+          usesChinesePassphrase: false,
+        );
+        await tester.pumpWidget(
+          ChangeNotifierProvider.value(
+            value: c,
+            child: MaterialApp(
+              home: RepaintBoundary(
+                key: screenshotKey,
+                child: SpeechInputPage(onTranscript: (v) => backfill = v),
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        await tester.tap(find.byTooltip('远程语音服务设置'));
+        await tester.pumpAndSettle();
+        Future<void> enter(String label, String text) async {
+          final field = find.byWidgetPredicate(
+            (w) => w is TextField && w.decoration?.labelText == label,
+          );
+          await tester.enterText(field, text);
+        }
+
+        await enter('语音服务名称', '独立语音甲');
+        await enter('HTTPS 音频转写地址', 'https://asr.invalid/audio/transcriptions');
+        await enter('语音识别模型', 'fixture-transcription');
+        await enter('语音密钥', 'fixture-native-key');
+        await tester.tap(find.text('安全保存'));
+        await tester.pumpAndSettle();
+        expect(speech.usingRemote, false);
+        final selector = find.byType(DropdownButtonFormField<bool>);
+        await tester.tap(selector);
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('远程语音服务').last);
+        await tester.pumpAndSettle();
+        expect(speech.usingRemote, true);
+        await tester.tap(find.text('识别 WAV 文件'));
+        for (
+          var i = 0;
+          i < 100 && find.text('允许上传本次音频？').evaluate().isEmpty;
+          i++
+        ) {
+          await tester.pump(const Duration(milliseconds: 100));
+        }
+        await tester.pump(const Duration(milliseconds: 300));
+        expect(
+          find.text('允许上传本次音频？'),
+          findsOneWidget,
+          reason: tester
+              .widgetList<Text>(find.byType(Text))
+              .map((w) => w.data)
+              .join(' | '),
+        );
+        await tester.tap(find.text('取消').last);
+        await tester.pumpAndSettle();
+        expect(requests, 0);
+        expect(c.blobs, isEmpty);
+        await tester.tap(find.text('识别 WAV 文件'));
+        for (
+          var i = 0;
+          i < 100 && find.text('允许上传本次音频？').evaluate().isEmpty;
+          i++
+        ) {
+          await tester.pump(const Duration(milliseconds: 100));
+        }
+        await tester.pump(const Duration(milliseconds: 300));
+        await tester.tap(find.text('允许本次音频上传'));
+        final transcript = find.byWidgetPredicate(
+          (w) => w is TextField && w.decoration?.labelText == '检查或修改识别文字',
+        );
+        for (var i = 0; i < 100; i++) {
+          await tester.pump(const Duration(milliseconds: 100));
+          if (tester.widget<TextField>(transcript).controller!.text ==
+              '虚构远程转写') {
+            break;
+          }
+        }
+        expect(requests, 1);
+        expect(tester.widget<TextField>(transcript).controller!.text, '虚构远程转写');
+        expect(c.blobs, isEmpty);
+        expect(c.cards, isEmpty);
+        await tester.ensureVisible(find.text('填入助手输入'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('填入助手输入'));
+        await tester.pumpAndSettle();
+        expect(backfill, '虚构远程转写');
+        expect(requests, 1);
+        final evidence = Platform.environment['LIVERELAY_WORKBENCH_EVIDENCE'];
+        if (evidence != null) {
+          final image =
+              await (screenshotKey.currentContext!.findRenderObject()
+                      as RenderRepaintBoundary)
+                  .toImage();
+          final data = await image.toByteData(format: ui.ImageByteFormat.png);
+          await File('$evidence/native-remote-speech.png')
+              .writeAsBytes(data!.buffer.asUint8List());
+          image.dispose();
+        }
+      } finally {
+        await tester.pumpWidget(const SizedBox());
+        await c.lock();
+        c.dispose();
+        remote.close();
+        FilePickerPlatform.instance = oldPicker;
+        await root.delete(recursive: true);
+      }
+    },
+  );
+}
+
+class _FixturePicker extends FilePickerPlatform {
+  _FixturePicker(this.path, this.size);
+  final String path;
+  final int size;
+  @override
+  Future<PlatformFile?> pickFile({
+    String? dialogTitle,
+    String? initialDirectory,
+    FileType type = FileType.any,
+    List<String>? allowedExtensions,
+    Function(FilePickerStatus)? onFileLoading,
+    int compressionQuality = 0,
+    AndroidOptions androidOptions = const AndroidOptions(),
+    DarwinOptions darwinOptions = const DarwinOptions(),
+    WindowsOptions windowsOptions = const WindowsOptions(),
+    LinuxOptions linuxOptions = const LinuxOptions(),
+    WebOptions webOptions = const WebOptions(),
+  }) async => _FixtureFile(path);
+}
+
+class _NoSpeechModel implements SpeechProvider {
+  @override
+  Future<bool> isModelInstalled() async => false;
+  @override
+  Future<void> downloadModel(SpeechDownloadProgress progress) async {}
+  @override
+  Future<void> installArchive(String path) async {}
+  @override
+  Future<void> removeModel() async {}
+  @override
+  Future<void> cancelDownload() async {}
+  @override
+  Future<String> transcribe(Uint8List wav) async =>
+      throw StateError('fixture local model absent');
+}
+
+final class _FixtureFile extends PlatformFile {
+  _FixtureFile(String path) : xFile = XFile(path);
+  @override
+  final XFile xFile;
+  @override
+  String get name => 'fixture.wav';
+  @override
+  Uri get uri => Uri.file(xFile.path);
+  @override
+  int? lengthSync() => null;
+  @override
+  Future<int?> length() => xFile.length();
+  @override
+  Future<Uint8List> readAsBytes() => xFile.readAsBytes();
+  @override
+  Stream<Uint8List> readAsByteStream() => xFile.openRead();
 }

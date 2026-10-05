@@ -3,7 +3,9 @@ import 'dart:typed_data';
 
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
 import 'package:path/path.dart' as path;
-import 'package:path_provider/path_provider.dart';
+
+import '../private_cache.dart';
+
 import 'package:uuid/uuid.dart';
 
 import '../../core/domain/entities.dart';
@@ -22,7 +24,7 @@ class GoogleMlKitOcrProvider implements OcrProvider {
     if (!Platform.isAndroid && !Platform.isIOS) {
       throw UnsupportedError('当前桌面平台尚未接入本地 OCR Provider');
     }
-    final cache = await getTemporaryDirectory();
+    final cache = await privateCacheDirectory();
     final extension = path.extension(originalName).toLowerCase();
     final safeExtension = RegExp(r'^\.[a-z0-9]{1,8}$').hasMatch(extension)
         ? extension

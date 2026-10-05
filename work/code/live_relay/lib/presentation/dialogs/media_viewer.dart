@@ -5,7 +5,9 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:path/path.dart' as path;
-import 'package:path_provider/path_provider.dart';
+
+import '../../infrastructure/private_cache.dart';
+
 import 'package:video_player/video_player.dart';
 
 import '../../application/app_controller.dart';
@@ -107,7 +109,7 @@ Future<File> _writeTemporaryMedia(
   Uint8List clearBytes,
   String fallbackExtension,
 ) async {
-  final cache = await getTemporaryDirectory();
+  final cache = await privateCacheDirectory();
   final candidate = path.extension(blob.originalName).toLowerCase();
   final extension = RegExp(r'^\.[a-z0-9]{1,8}$').hasMatch(candidate)
       ? candidate

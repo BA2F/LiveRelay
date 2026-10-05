@@ -21,9 +21,11 @@ class PreparedConversationTurn {
     this.turn,
     this.provider,
     this.attachments,
+    this.configurationGeneration,
   );
   final List<ConversationAttachment> attachments;
   final int generation, turn;
+  final int configurationGeneration;
   final String provider;
   final String text;
   final AiTokenizedPayload payload;
@@ -55,12 +57,14 @@ class AgentConversation extends ChangeNotifier {
     if (!controller.isUnlocked) {
       clear();
       if (!_disposed) notifyListeners();
+    } else if (!_disposed) {
+      notifyListeners();
     }
   }
 
   String get _configuration {
     final s = controller.aiSettings;
-    return '${s.protocol.name}:${s.endpoint}:${s.model}:${s.supportsImages}:${s.supportsFiles}';
+    return '${s.id}:${s.protocol.name}:${s.endpoint}:${s.model}:${s.supportsImages}:${s.supportsFiles}';
   }
 
   final AppController controller;
@@ -105,6 +109,7 @@ class AgentConversation extends ChangeNotifier {
       _turn,
       _configuration,
       selected,
+      controller.aiConfigurationGeneration,
     );
   }
 
@@ -337,8 +342,12 @@ class AgentConversation extends ChangeNotifier {
     final settings = controller.aiSettings;
     final oldConfiguration =
         '${settings.protocol.name}:${settings.endpoint}:${settings.model}';
+    final withCapabilities =
+        '$oldConfiguration:${settings.supportsImages}:${settings.supportsFiles}';
     _providerFingerprint = provider == oldConfiguration
-        ? '$provider:false:false'
+        ? '${settings.id}:$provider:false:false'
+        : provider == withCapabilities
+        ? '${settings.id}:$provider'
         : provider;
     draft = loadedDraft;
     marks.addAll(loadedMarks);
@@ -411,6 +420,8 @@ class AgentConversation extends ChangeNotifier {
           turn.generation != _generation ||
           turn.turn != _turn ||
           turn.provider != fingerprint ||
+          turn.configurationGeneration !=
+              controller.aiConfigurationGeneration ||
           turn.attachments.map((a) => a.id).join(',') != attachmentStamp) {
         throw const FormatException('会话或服务配置已变化，请重新检查本轮发送范围');
       }

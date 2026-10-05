@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../application/app_controller.dart';
 import '../../core/ports/ai_provider.dart';
+import '../../infrastructure/ai/ai_provider_settings_store.dart';
 
 class AiSettingsDialog extends StatefulWidget {
   const AiSettingsDialog({super.key, required this.controller});
@@ -22,6 +23,14 @@ class AiSettingsDialogState extends State<AiSettingsDialog> {
     text: widget.controller.aiSettings.model,
   );
   final _apiKey = TextEditingController();
+  late final _name = TextEditingController(
+    text: widget.controller.aiSettings.name,
+  );
+  late final _models = TextEditingController(
+    text: widget.controller.aiSettings.models.join("\n"),
+  );
+  String? _profileId;
+  bool _create = false;
   late AiProtocol _protocol = widget.controller.aiSettings.protocol;
   late bool _images = widget.controller.aiSettings.supportsImages;
   late bool _files = widget.controller.aiSettings.supportsFiles;
@@ -30,7 +39,32 @@ class AiSettingsDialogState extends State<AiSettingsDialog> {
   String? _error;
 
   @override
+  void initState() {
+    super.initState();
+    _profileId = widget.controller.aiSettings.id;
+  }
+
+  void _edit(AiProviderSettings? settings) {
+    setState(() {
+      _create = settings == null;
+      _profileId = settings?.id;
+      _name.text = settings?.name ?? '';
+      _endpoint.text =
+          settings?.endpoint ?? 'https://api.openai.com/v1/chat/completions';
+      _model.text = settings?.model ?? '';
+      _models.text = settings?.models.join('\n') ?? '';
+      _protocol = settings?.protocol ?? AiProtocol.chatCompletions;
+      _images = settings?.supportsImages ?? false;
+      _files = settings?.supportsFiles ?? false;
+      _apiKey.clear();
+      _error = null;
+    });
+  }
+
+  @override
   void dispose() {
+    _name.dispose();
+    _models.dispose();
     _endpoint.dispose();
     _model.dispose();
     _apiKey.dispose();
@@ -44,6 +78,10 @@ class AiSettingsDialogState extends State<AiSettingsDialog> {
     });
     try {
       await widget.controller.saveAiSettings(
+        profileId: _profileId,
+        create: _create,
+        name: _name.text,
+        models: _models.text.split(RegExp(r"[,，\n]")),
         endpoint: _endpoint.text,
         protocol: _protocol,
         supportsImages: _images,
@@ -72,7 +110,36 @@ class AiSettingsDialogState extends State<AiSettingsDialog> {
         children: [
           const Text('默认关闭。配置不代表授权；每次外发前仍会展示范围并要求单次确认。'),
           const SizedBox(height: 16),
+          if (widget.controller.aiProfiles.isNotEmpty)
+            DropdownButtonFormField<String>(
+              key: ValueKey(_profileId),
+              initialValue: _create ? null : _profileId,
+              decoration: const InputDecoration(labelText: '编辑服务配置'),
+              items: [
+                for (final p in widget.controller.aiProfiles)
+                  DropdownMenuItem(value: p.id, child: Text(p.name)),
+              ],
+              onChanged: _busy
+                  ? null
+                  : (id) => _edit(
+                      widget.controller.aiProfiles.firstWhere(
+                        (p) => p.id == id,
+                      ),
+                    ),
+            ),
+          TextButton.icon(
+            onPressed: _busy ? null : () => _edit(null),
+            icon: const Icon(Icons.add),
+            label: const Text('添加另一个服务'),
+          ),
+          TextField(
+            controller: _name,
+            enabled: !_busy,
+            decoration: const InputDecoration(labelText: '服务名称'),
+          ),
+          const SizedBox(height: 12),
           DropdownButtonFormField<AiProtocol>(
+            key: ValueKey("protocol-$_profileId-$_protocol"),
             initialValue: _protocol,
             decoration: const InputDecoration(labelText: '服务协议'),
             items: const [
@@ -126,6 +193,16 @@ class AiSettingsDialogState extends State<AiSettingsDialog> {
             decoration: const InputDecoration(labelText: '模型名称'),
           ),
           const SizedBox(height: 12),
+          TextField(
+            controller: _models,
+            enabled: !_busy,
+            minLines: 1,
+            maxLines: 4,
+            decoration: const InputDecoration(
+              labelText: '可选模型（每行一个）',
+              helperText: '输入此服务支持的模型；能力声明适用于这里列出的模型。',
+            ),
+          ),
           CheckboxListTile(
             contentPadding: EdgeInsets.zero,
             title: const Text('此模型支持图片输入'),
@@ -147,7 +224,11 @@ class AiSettingsDialogState extends State<AiSettingsDialog> {
             enabled: !_busy,
             obscureText: !_showKey,
             decoration: InputDecoration(
-              labelText: widget.controller.aiSettings.hasApiKey
+              labelText:
+                  (!_create &&
+                      widget.controller.aiProfiles.any(
+                        (p) => p.id == _profileId && p.hasApiKey,
+                      ))
                   ? '服务密钥（留空则保留原值）'
                   : '服务密钥',
               suffixIcon: IconButton(
@@ -168,15 +249,16 @@ class AiSettingsDialogState extends State<AiSettingsDialog> {
       ),
     ),
     actions: [
-      if (widget.controller.aiSettings.isConfigured)
+      if (!_create &&
+          widget.controller.aiProfiles.any((p) => p.id == _profileId))
         TextButton(
           onPressed: _busy
               ? null
               : () async {
-                  await widget.controller.clearAiSettings();
+                  await widget.controller.removeAiProfile(_profileId!);
                   if (context.mounted) Navigator.pop(context);
                 },
-          child: const Text('清除配置'),
+          child: const Text('移除此服务'),
         ),
       TextButton(
         onPressed: _busy ? null : () => Navigator.pop(context),

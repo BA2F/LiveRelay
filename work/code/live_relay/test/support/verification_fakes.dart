@@ -29,11 +29,16 @@ class TestAiSettings extends AiProviderSettingsStore {
         : '',
     model: configured ? 'verification-model' : '',
     hasApiKey: configured,
+    models: configured ? const ['verification-model'] : const [],
     supportsImages: images,
     supportsFiles: files,
   );
   @override
   Future<String?> readApiKey() async => configured ? 'test-key' : null;
+  @override
+  Future<List<AiProviderSettings>> readProfiles() async => [
+    if (configured) await read(),
+  ];
   @override
   Future<void> save({
     required String endpoint,
