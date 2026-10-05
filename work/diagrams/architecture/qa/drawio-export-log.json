@@ -1,0 +1,470 @@
+[
+  {
+    "page": 1,
+    "format": "png",
+    "exitCode": 0,
+    "command": [
+      "/usr/bin/drawio",
+      "--export",
+      "--format",
+      "png",
+      "--page-index",
+      "1",
+      "--output",
+      "/home/tahzun/Development/Projects/LiveRelay/work/diagrams/architecture/png/01-context.png",
+      "--scale",
+      "1.5",
+      "/home/tahzun/Development/Projects/LiveRelay/work/diagrams/architecture/LiveRelay-MVP0.4-system-architecture.drawio"
+    ],
+    "log": "/home/tahzun/Development/Projects/LiveRelay/work/diagrams/architecture/LiveRelay-MVP0.4-system-architecture.drawio -> /home/tahzun/Development/Projects/LiveRelay/work/diagrams/architecture/png/01-context.png\n[54635:1004/211745.329328:ERROR:ui/ozone/platform/wayland/gpu/wayland_surface_factory.cc:252] '--ozone-platform=wayland' is not compatible with Vulkan. Consider switching to '--ozone-platform=x11' or disabling Vulkan\n[54591:1004/211745.461075:ERROR:ui/ozone/platform/wayland/host/wayland_wp_color_manager.cc:277] Unable to set image transfer function.\n[54591:1004/211745.461082:ERROR:ui/ozone/platform/wayland/host/wayland_wp_color_manager.cc:195] Failed to populate image description for color space {primaries:BT709, transfer:SRGB, matrix:RGB, range:FULL}\n[54591:1004/211745.461534:ERROR:ui/ozone/platform/wayland/host/wayland_wp_color_manager.cc:277] Unable to set image transfer function.\n[54591:1004/211745.461544:ERROR:ui/ozone/platform/wayland/host/wayland_wp_color_manager.cc:195] Failed to populate image description for color space {primaries:BT709, transfer:SRGB, matrix:RGB, range:FULL}\n[54591:1004/211745.611397:ERROR:ui/ozone/platform/wayland/host/wayland_wp_color_manager.cc:277] Unable to set image transfer function.\n[54591:1004/211745.611407:ERROR:ui/ozone/platform/wayland/host/wayland_wp_color_manager.cc:195] Failed to populate image description for color space {primaries:BT709, transfer:SRGB, matrix:RGB, range:FULL}\n[54591:1004/211747.702547:ERROR:content/browser/browser_main_loop.cc:274] GLib: g_main_context_pop_thread_default: assertion 'stack != NULL' failed\n"
+  },
+  {
+    "page": 1,
+    "format": "svg",
+    "exitCode": 0,
+    "command": [
+      "/usr/bin/drawio",
+      "--export",
+      "--format",
+      "svg",
+      "--page-index",
+      "1",
+      "--output",
+      "/home/tahzun/Development/Projects/LiveRelay/work/diagrams/architecture/svg/01-context.svg",
+      "--embed-diagram",
+      "--embed-svg-fonts",
+      "false",
+      "--svg-theme",
+      "light",
+      "/home/tahzun/Development/Projects/LiveRelay/work/diagrams/architecture/LiveRelay-MVP0.4-system-architecture.drawio"
+    ],
+    "log": "/home/tahzun/Development/Projects/LiveRelay/work/diagrams/architecture/LiveRelay-MVP0.4-system-architecture.drawio -> /home/tahzun/Development/Projects/LiveRelay/work/diagrams/architecture/svg/01-context.svg\n[54803:1004/211748.554909:ERROR:ui/ozone/platform/wayland/gpu/wayland_surface_factory.cc:252] '--ozone-platform=wayland' is not compatible with Vulkan. Consider switching to '--ozone-platform=x11' or disabling Vulkan\n[54755:1004/211748.667302:ERROR:ui/ozone/platform/wayland/host/wayland_wp_color_manager.cc:277] Unable to set image transfer function.\n[54755:1004/211748.667310:ERROR:ui/ozone/platform/wayland/host/wayland_wp_color_manager.cc:195] Failed to populate image description for color space {primaries:BT709, transfer:SRGB, matrix:RGB, range:FULL}\n[54755:1004/211748.667741:ERROR:ui/ozone/platform/wayland/host/wayland_wp_color_manager.cc:277] Unable to set image transfer function.\n[54755:1004/211748.667745:ERROR:ui/ozone/platform/wayland/host/wayland_wp_color_manager.cc:195] Failed to populate image description for color space {primaries:BT709, transfer:SRGB, matrix:RGB, range:FULL}\n[54755:1004/211749.858675:ERROR:content/browser/browser_main_loop.cc:274] GLib: g_main_context_pop_thread_default: assertion 'stack != NULL' failed\n"
+  },
+  {
+    "page": 2,
+    "format": "png",
+    "exitCode": 0,
+    "command": [
+      "/usr/bin/drawio",
+      "--export",
+      "--format",
+      "png",
+      "--page-index",
+      "2",
+      "--output",
+      "/home/tahzun/Development/Projects/LiveRelay/work/diagrams/architecture/png/02-containers.png",
+      "--scale",
+      "1.5",
+      "/home/tahzun/Development/Projects/LiveRelay/work/diagrams/architecture/LiveRelay-MVP0.4-system-architecture.drawio"
+    ],
+    "log": "/home/tahzun/Development/Projects/LiveRelay/work/diagrams/architecture/LiveRelay-MVP0.4-system-architecture.drawio -> /home/tahzun/Development/Projects/LiveRelay/work/diagrams/architecture/png/02-containers.png\n[54947:1004/211750.664791:ERROR:ui/ozone/platform/wayland/gpu/wayland_surface_factory.cc:252] '--ozone-platform=wayland' is not compatible with Vulkan. Consider switching to '--ozone-platform=x11' or disabling Vulkan\n[54894:1004/211750.781510:ERROR:ui/ozone/platform/wayland/host/wayland_wp_color_manager.cc:277] Unable to set image transfer function.\n[54894:1004/211750.781518:ERROR:ui/ozone/platform/wayland/host/wayland_wp_color_manager.cc:195] Failed to populate image description for color space {primaries:BT709, transfer:SRGB, matrix:RGB, range:FULL}\n[54894:1004/211750.781972:ERROR:ui/ozone/platform/wayland/host/wayland_wp_color_manager.cc:277] Unable to set image transfer function.\n[54894:1004/211750.781977:ERROR:ui/ozone/platform/wayland/host/wayland_wp_color_manager.cc:195] Failed to populate image description for color space {primaries:BT709, transfer:SRGB, matrix:RGB, range:FULL}\n[54894:1004/211750.928189:ERROR:ui/ozone/platform/wayland/host/wayland_wp_color_manager.cc:277] Unable to set image transfer function.\n[54894:1004/211750.928198:ERROR:ui/ozone/platform/wayland/host/wayland_wp_color_manager.cc:195] Failed to populate image description for color space {primaries:BT709, transfer:SRGB, matrix:RGB, range:FULL}\n[54894:1004/211753.006673:ERROR:content/browser/browser_main_loop.cc:274] GLib: g_main_context_pop_thread_default: assertion 'stack != NULL' failed\n"
+  },
+  {
+    "page": 2,
+    "format": "svg",
+    "exitCode": 0,
+    "command": [
+      "/usr/bin/drawio",
+      "--export",
+      "--format",
+      "svg",
+      "--page-index",
+      "2",
+      "--output",
+      "/home/tahzun/Development/Projects/LiveRelay/work/diagrams/architecture/svg/02-containers.svg",
+      "--embed-diagram",
+      "--embed-svg-fonts",
+      "false",
+      "--svg-theme",
+      "light",
+      "/home/tahzun/Development/Projects/LiveRelay/work/diagrams/architecture/LiveRelay-MVP0.4-system-architecture.drawio"
+    ],
+    "log": "/home/tahzun/Development/Projects/LiveRelay/work/diagrams/architecture/LiveRelay-MVP0.4-system-architecture.drawio -> /home/tahzun/Development/Projects/LiveRelay/work/diagrams/architecture/svg/02-containers.svg\n[55098:1004/211753.843407:ERROR:ui/ozone/platform/wayland/gpu/wayland_surface_factory.cc:252] '--ozone-platform=wayland' is not compatible with Vulkan. Consider switching to '--ozone-platform=x11' or disabling Vulkan\n[55050:1004/211753.966725:ERROR:ui/ozone/platform/wayland/host/wayland_wp_color_manager.cc:277] Unable to set image transfer function.\n[55050:1004/211753.966736:ERROR:ui/ozone/platform/wayland/host/wayland_wp_color_manager.cc:195] Failed to populate image description for color space {primaries:BT709, transfer:SRGB, matrix:RGB, range:FULL}\n[55050:1004/211753.967096:ERROR:ui/ozone/platform/wayland/host/wayland_wp_color_manager.cc:277] Unable to set image transfer function.\n[55050:1004/211753.967104:ERROR:ui/ozone/platform/wayland/host/wayland_wp_color_manager.cc:195] Failed to populate image description for color space {primaries:BT709, transfer:SRGB, matrix:RGB, range:FULL}\n[55050:1004/211755.192612:ERROR:content/browser/browser_main_loop.cc:274] GLib: g_main_context_pop_thread_default: assertion 'stack != NULL' failed\n"
+  },
+  {
+    "page": 3,
+    "format": "png",
+    "exitCode": 0,
+    "command": [
+      "/usr/bin/drawio",
+      "--export",
+      "--format",
+      "png",
+      "--page-index",
+      "3",
+      "--output",
+      "/home/tahzun/Development/Projects/LiveRelay/work/diagrams/architecture/png/03-components.png",
+      "--scale",
+      "1.5",
+      "/home/tahzun/Development/Projects/LiveRelay/work/diagrams/architecture/LiveRelay-MVP0.4-system-architecture.drawio"
+    ],
+    "log": "/home/tahzun/Development/Projects/LiveRelay/work/diagrams/architecture/LiveRelay-MVP0.4-system-architecture.drawio -> /home/tahzun/Development/Projects/LiveRelay/work/diagrams/architecture/png/03-components.png\n[55230:1004/211755.998582:ERROR:ui/ozone/platform/wayland/gpu/wayland_surface_factory.cc:252] '--ozone-platform=wayland' is not compatible with Vulkan. Consider switching to '--ozone-platform=x11' or disabling Vulkan\n[55186:1004/211756.118675:ERROR:ui/ozone/platform/wayland/host/wayland_wp_color_manager.cc:277] Unable to set image transfer function.\n[55186:1004/211756.118684:ERROR:ui/ozone/platform/wayland/host/wayland_wp_color_manager.cc:195] Failed to populate image description for color space {primaries:BT709, transfer:SRGB, matrix:RGB, range:FULL}\n[55186:1004/211756.119115:ERROR:ui/ozone/platform/wayland/host/wayland_wp_color_manager.cc:277] Unable to set image transfer function.\n[55186:1004/211756.119117:ERROR:ui/ozone/platform/wayland/host/wayland_wp_color_manager.cc:195] Failed to populate image description for color space {primaries:BT709, transfer:SRGB, matrix:RGB, range:FULL}\n[55186:1004/211756.271662:ERROR:ui/ozone/platform/wayland/host/wayland_wp_color_manager.cc:277] Unable to set image transfer function.\n[55186:1004/211756.271675:ERROR:ui/ozone/platform/wayland/host/wayland_wp_color_manager.cc:195] Failed to populate image description for color space {primaries:BT709, transfer:SRGB, matrix:RGB, range:FULL}\n[55186:1004/211758.367314:ERROR:content/browser/browser_main_loop.cc:274] GLib: g_main_context_pop_thread_default: assertion 'stack != NULL' failed\n"
+  },
+  {
+    "page": 3,
+    "format": "svg",
+    "exitCode": 0,
+    "command": [
+      "/usr/bin/drawio",
+      "--export",
+      "--format",
+      "svg",
+      "--page-index",
+      "3",
+      "--output",
+      "/home/tahzun/Development/Projects/LiveRelay/work/diagrams/architecture/svg/03-components.svg",
+      "--embed-diagram",
+      "--embed-svg-fonts",
+      "false",
+      "--svg-theme",
+      "light",
+      "/home/tahzun/Development/Projects/LiveRelay/work/diagrams/architecture/LiveRelay-MVP0.4-system-architecture.drawio"
+    ],
+    "log": "/home/tahzun/Development/Projects/LiveRelay/work/diagrams/architecture/LiveRelay-MVP0.4-system-architecture.drawio -> /home/tahzun/Development/Projects/LiveRelay/work/diagrams/architecture/svg/03-components.svg\n[55383:1004/211759.202240:ERROR:ui/ozone/platform/wayland/gpu/wayland_surface_factory.cc:252] '--ozone-platform=wayland' is not compatible with Vulkan. Consider switching to '--ozone-platform=x11' or disabling Vulkan\n[55341:1004/211759.340885:ERROR:ui/ozone/platform/wayland/host/wayland_wp_color_manager.cc:277] Unable to set image transfer function.\n[55341:1004/211759.340898:ERROR:ui/ozone/platform/wayland/host/wayland_wp_color_manager.cc:195] Failed to populate image description for color space {primaries:BT709, transfer:SRGB, matrix:RGB, range:FULL}\n[55341:1004/211759.341369:ERROR:ui/ozone/platform/wayland/host/wayland_wp_color_manager.cc:277] Unable to set image transfer function.\n[55341:1004/211759.341376:ERROR:ui/ozone/platform/wayland/host/wayland_wp_color_manager.cc:195] Failed to populate image description for color space {primaries:BT709, transfer:SRGB, matrix:RGB, range:FULL}\n[55341:1004/211800.560166:ERROR:content/browser/browser_main_loop.cc:274] GLib: g_main_context_pop_thread_default: assertion 'stack != NULL' failed\n"
+  },
+  {
+    "page": 4,
+    "format": "png",
+    "exitCode": 0,
+    "command": [
+      "/usr/bin/drawio",
+      "--export",
+      "--format",
+      "png",
+      "--page-index",
+      "4",
+      "--output",
+      "/home/tahzun/Development/Projects/LiveRelay/work/diagrams/architecture/png/04-deployment.png",
+      "--scale",
+      "1.5",
+      "/home/tahzun/Development/Projects/LiveRelay/work/diagrams/architecture/LiveRelay-MVP0.4-system-architecture.drawio"
+    ],
+    "log": "/home/tahzun/Development/Projects/LiveRelay/work/diagrams/architecture/LiveRelay-MVP0.4-system-architecture.drawio -> /home/tahzun/Development/Projects/LiveRelay/work/diagrams/architecture/png/04-deployment.png\n[55523:1004/211801.393745:ERROR:ui/ozone/platform/wayland/gpu/wayland_surface_factory.cc:252] '--ozone-platform=wayland' is not compatible with Vulkan. Consider switching to '--ozone-platform=x11' or disabling Vulkan\n[55473:1004/211801.507607:ERROR:ui/ozone/platform/wayland/host/wayland_wp_color_manager.cc:277] Unable to set image transfer function.\n[55473:1004/211801.507615:ERROR:ui/ozone/platform/wayland/host/wayland_wp_color_manager.cc:195] Failed to populate image description for color space {primaries:BT709, transfer:SRGB, matrix:RGB, range:FULL}\n[55473:1004/211801.508187:ERROR:ui/ozone/platform/wayland/host/wayland_wp_color_manager.cc:277] Unable to set image transfer function.\n[55473:1004/211801.508198:ERROR:ui/ozone/platform/wayland/host/wayland_wp_color_manager.cc:195] Failed to populate image description for color space {primaries:BT709, transfer:SRGB, matrix:RGB, range:FULL}\n[55473:1004/211801.652604:ERROR:ui/ozone/platform/wayland/host/wayland_wp_color_manager.cc:277] Unable to set image transfer function.\n[55473:1004/211801.652618:ERROR:ui/ozone/platform/wayland/host/wayland_wp_color_manager.cc:195] Failed to populate image description for color space {primaries:BT709, transfer:SRGB, matrix:RGB, range:FULL}\n[55473:1004/211803.741160:ERROR:content/browser/browser_main_loop.cc:274] GLib: g_main_context_pop_thread_default: assertion 'stack != NULL' failed\n"
+  },
+  {
+    "page": 4,
+    "format": "svg",
+    "exitCode": 0,
+    "command": [
+      "/usr/bin/drawio",
+      "--export",
+      "--format",
+      "svg",
+      "--page-index",
+      "4",
+      "--output",
+      "/home/tahzun/Development/Projects/LiveRelay/work/diagrams/architecture/svg/04-deployment.svg",
+      "--embed-diagram",
+      "--embed-svg-fonts",
+      "false",
+      "--svg-theme",
+      "light",
+      "/home/tahzun/Development/Projects/LiveRelay/work/diagrams/architecture/LiveRelay-MVP0.4-system-architecture.drawio"
+    ],
+    "log": "/home/tahzun/Development/Projects/LiveRelay/work/diagrams/architecture/LiveRelay-MVP0.4-system-architecture.drawio -> /home/tahzun/Development/Projects/LiveRelay/work/diagrams/architecture/svg/04-deployment.svg\n[55676:1004/211804.664831:ERROR:ui/ozone/platform/wayland/gpu/wayland_surface_factory.cc:252] '--ozone-platform=wayland' is not compatible with Vulkan. Consider switching to '--ozone-platform=x11' or disabling Vulkan\n[55628:1004/211804.780032:ERROR:ui/ozone/platform/wayland/host/wayland_wp_color_manager.cc:277] Unable to set image transfer function.\n[55628:1004/211804.780042:ERROR:ui/ozone/platform/wayland/host/wayland_wp_color_manager.cc:195] Failed to populate image description for color space {primaries:BT709, transfer:SRGB, matrix:RGB, range:FULL}\n[55628:1004/211804.780249:ERROR:ui/ozone/platform/wayland/host/wayland_wp_color_manager.cc:277] Unable to set image transfer function.\n[55628:1004/211804.780251:ERROR:ui/ozone/platform/wayland/host/wayland_wp_color_manager.cc:195] Failed to populate image description for color space {primaries:BT709, transfer:SRGB, matrix:RGB, range:FULL}\n[55628:1004/211805.985156:ERROR:content/browser/browser_main_loop.cc:274] GLib: g_main_context_pop_thread_default: assertion 'stack != NULL' failed\n"
+  },
+  {
+    "page": 5,
+    "format": "png",
+    "exitCode": 0,
+    "command": [
+      "/usr/bin/drawio",
+      "--export",
+      "--format",
+      "png",
+      "--page-index",
+      "5",
+      "--output",
+      "/home/tahzun/Development/Projects/LiveRelay/work/diagrams/architecture/png/05-data-security.png",
+      "--scale",
+      "1.5",
+      "/home/tahzun/Development/Projects/LiveRelay/work/diagrams/architecture/LiveRelay-MVP0.4-system-architecture.drawio"
+    ],
+    "log": "/home/tahzun/Development/Projects/LiveRelay/work/diagrams/architecture/LiveRelay-MVP0.4-system-architecture.drawio -> /home/tahzun/Development/Projects/LiveRelay/work/diagrams/architecture/png/05-data-security.png\n[55821:1004/211806.805276:ERROR:ui/ozone/platform/wayland/gpu/wayland_surface_factory.cc:252] '--ozone-platform=wayland' is not compatible with Vulkan. Consider switching to '--ozone-platform=x11' or disabling Vulkan\n[55771:1004/211806.935846:ERROR:ui/ozone/platform/wayland/host/wayland_wp_color_manager.cc:277] Unable to set image transfer function.\n[55771:1004/211806.935860:ERROR:ui/ozone/platform/wayland/host/wayland_wp_color_manager.cc:195] Failed to populate image description for color space {primaries:BT709, transfer:SRGB, matrix:RGB, range:FULL}\n[55771:1004/211806.936275:ERROR:ui/ozone/platform/wayland/host/wayland_wp_color_manager.cc:277] Unable to set image transfer function.\n[55771:1004/211806.936281:ERROR:ui/ozone/platform/wayland/host/wayland_wp_color_manager.cc:195] Failed to populate image description for color space {primaries:BT709, transfer:SRGB, matrix:RGB, range:FULL}\n[55771:1004/211807.082227:ERROR:ui/ozone/platform/wayland/host/wayland_wp_color_manager.cc:277] Unable to set image transfer function.\n[55771:1004/211807.082238:ERROR:ui/ozone/platform/wayland/host/wayland_wp_color_manager.cc:195] Failed to populate image description for color space {primaries:BT709, transfer:SRGB, matrix:RGB, range:FULL}\n[55771:1004/211809.185900:ERROR:content/browser/browser_main_loop.cc:274] GLib: g_main_context_pop_thread_default: assertion 'stack != NULL' failed\n"
+  },
+  {
+    "page": 5,
+    "format": "svg",
+    "exitCode": 0,
+    "command": [
+      "/usr/bin/drawio",
+      "--export",
+      "--format",
+      "svg",
+      "--page-index",
+      "5",
+      "--output",
+      "/home/tahzun/Development/Projects/LiveRelay/work/diagrams/architecture/svg/05-data-security.svg",
+      "--embed-diagram",
+      "--embed-svg-fonts",
+      "false",
+      "--svg-theme",
+      "light",
+      "/home/tahzun/Development/Projects/LiveRelay/work/diagrams/architecture/LiveRelay-MVP0.4-system-architecture.drawio"
+    ],
+    "log": "/home/tahzun/Development/Projects/LiveRelay/work/diagrams/architecture/LiveRelay-MVP0.4-system-architecture.drawio -> /home/tahzun/Development/Projects/LiveRelay/work/diagrams/architecture/svg/05-data-security.svg\n[55973:1004/211810.056157:ERROR:ui/ozone/platform/wayland/gpu/wayland_surface_factory.cc:252] '--ozone-platform=wayland' is not compatible with Vulkan. Consider switching to '--ozone-platform=x11' or disabling Vulkan\n[55925:1004/211810.172093:ERROR:ui/ozone/platform/wayland/host/wayland_wp_color_manager.cc:277] Unable to set image transfer function.\n[55925:1004/211810.172105:ERROR:ui/ozone/platform/wayland/host/wayland_wp_color_manager.cc:195] Failed to populate image description for color space {primaries:BT709, transfer:SRGB, matrix:RGB, range:FULL}\n[55925:1004/211810.172172:ERROR:ui/ozone/platform/wayland/host/wayland_wp_color_manager.cc:277] Unable to set image transfer function.\n[55925:1004/211810.172177:ERROR:ui/ozone/platform/wayland/host/wayland_wp_color_manager.cc:195] Failed to populate image description for color space {primaries:BT709, transfer:SRGB, matrix:RGB, range:FULL}\n[55925:1004/211811.373999:ERROR:content/browser/browser_main_loop.cc:274] GLib: g_main_context_pop_thread_default: assertion 'stack != NULL' failed\n"
+  },
+  {
+    "page": 6,
+    "format": "png",
+    "exitCode": 0,
+    "command": [
+      "/usr/bin/drawio",
+      "--export",
+      "--format",
+      "png",
+      "--page-index",
+      "6",
+      "--output",
+      "/home/tahzun/Development/Projects/LiveRelay/work/diagrams/architecture/png/06-capture-speech.png",
+      "--scale",
+      "1.5",
+      "/home/tahzun/Development/Projects/LiveRelay/work/diagrams/architecture/LiveRelay-MVP0.4-system-architecture.drawio"
+    ],
+    "log": "/home/tahzun/Development/Projects/LiveRelay/work/diagrams/architecture/LiveRelay-MVP0.4-system-architecture.drawio -> /home/tahzun/Development/Projects/LiveRelay/work/diagrams/architecture/png/06-capture-speech.png\n[56111:1004/211812.163197:ERROR:ui/ozone/platform/wayland/gpu/wayland_surface_factory.cc:252] '--ozone-platform=wayland' is not compatible with Vulkan. Consider switching to '--ozone-platform=x11' or disabling Vulkan\n[56060:1004/211812.279501:ERROR:ui/ozone/platform/wayland/host/wayland_wp_color_manager.cc:277] Unable to set image transfer function.\n[56060:1004/211812.279513:ERROR:ui/ozone/platform/wayland/host/wayland_wp_color_manager.cc:195] Failed to populate image description for color space {primaries:BT709, transfer:SRGB, matrix:RGB, range:FULL}\n[56060:1004/211812.279574:ERROR:ui/ozone/platform/wayland/host/wayland_wp_color_manager.cc:277] Unable to set image transfer function.\n[56060:1004/211812.279579:ERROR:ui/ozone/platform/wayland/host/wayland_wp_color_manager.cc:195] Failed to populate image description for color space {primaries:BT709, transfer:SRGB, matrix:RGB, range:FULL}\n[56060:1004/211812.431627:ERROR:ui/ozone/platform/wayland/host/wayland_wp_color_manager.cc:277] Unable to set image transfer function.\n[56060:1004/211812.431636:ERROR:ui/ozone/platform/wayland/host/wayland_wp_color_manager.cc:195] Failed to populate image description for color space {primaries:BT709, transfer:SRGB, matrix:RGB, range:FULL}\n[56060:1004/211814.614965:ERROR:content/browser/browser_main_loop.cc:274] GLib: g_main_context_pop_thread_default: assertion 'stack != NULL' failed\n"
+  },
+  {
+    "page": 6,
+    "format": "svg",
+    "exitCode": 0,
+    "command": [
+      "/usr/bin/drawio",
+      "--export",
+      "--format",
+      "svg",
+      "--page-index",
+      "6",
+      "--output",
+      "/home/tahzun/Development/Projects/LiveRelay/work/diagrams/architecture/svg/06-capture-speech.svg",
+      "--embed-diagram",
+      "--embed-svg-fonts",
+      "false",
+      "--svg-theme",
+      "light",
+      "/home/tahzun/Development/Projects/LiveRelay/work/diagrams/architecture/LiveRelay-MVP0.4-system-architecture.drawio"
+    ],
+    "log": "/home/tahzun/Development/Projects/LiveRelay/work/diagrams/architecture/LiveRelay-MVP0.4-system-architecture.drawio -> /home/tahzun/Development/Projects/LiveRelay/work/diagrams/architecture/svg/06-capture-speech.svg\n[56269:1004/211815.450216:ERROR:ui/ozone/platform/wayland/gpu/wayland_surface_factory.cc:252] '--ozone-platform=wayland' is not compatible with Vulkan. Consider switching to '--ozone-platform=x11' or disabling Vulkan\n[56221:1004/211815.571037:ERROR:ui/ozone/platform/wayland/host/wayland_wp_color_manager.cc:277] Unable to set image transfer function.\n[56221:1004/211815.571050:ERROR:ui/ozone/platform/wayland/host/wayland_wp_color_manager.cc:195] Failed to populate image description for color space {primaries:BT709, transfer:SRGB, matrix:RGB, range:FULL}\n[56221:1004/211815.571265:ERROR:ui/ozone/platform/wayland/host/wayland_wp_color_manager.cc:277] Unable to set image transfer function.\n[56221:1004/211815.571272:ERROR:ui/ozone/platform/wayland/host/wayland_wp_color_manager.cc:195] Failed to populate image description for color space {primaries:BT709, transfer:SRGB, matrix:RGB, range:FULL}\n[56221:1004/211816.785025:ERROR:content/browser/browser_main_loop.cc:274] GLib: g_main_context_pop_thread_default: assertion 'stack != NULL' failed\n"
+  },
+  {
+    "page": 7,
+    "format": "png",
+    "exitCode": 0,
+    "command": [
+      "/usr/bin/drawio",
+      "--export",
+      "--format",
+      "png",
+      "--page-index",
+      "7",
+      "--output",
+      "/home/tahzun/Development/Projects/LiveRelay/work/diagrams/architecture/png/07-agent-privacy.png",
+      "--scale",
+      "1.5",
+      "/home/tahzun/Development/Projects/LiveRelay/work/diagrams/architecture/LiveRelay-MVP0.4-system-architecture.drawio"
+    ],
+    "log": "/home/tahzun/Development/Projects/LiveRelay/work/diagrams/architecture/LiveRelay-MVP0.4-system-architecture.drawio -> /home/tahzun/Development/Projects/LiveRelay/work/diagrams/architecture/png/07-agent-privacy.png\n[56416:1004/211817.615304:ERROR:ui/ozone/platform/wayland/gpu/wayland_surface_factory.cc:252] '--ozone-platform=wayland' is not compatible with Vulkan. Consider switching to '--ozone-platform=x11' or disabling Vulkan\n[56366:1004/211817.743578:ERROR:ui/ozone/platform/wayland/host/wayland_wp_color_manager.cc:277] Unable to set image transfer function.\n[56366:1004/211817.743587:ERROR:ui/ozone/platform/wayland/host/wayland_wp_color_manager.cc:195] Failed to populate image description for color space {primaries:BT709, transfer:SRGB, matrix:RGB, range:FULL}\n[56366:1004/211817.743764:ERROR:ui/ozone/platform/wayland/host/wayland_wp_color_manager.cc:277] Unable to set image transfer function.\n[56366:1004/211817.743767:ERROR:ui/ozone/platform/wayland/host/wayland_wp_color_manager.cc:195] Failed to populate image description for color space {primaries:BT709, transfer:SRGB, matrix:RGB, range:FULL}\n[56366:1004/211817.883556:ERROR:ui/ozone/platform/wayland/host/wayland_wp_color_manager.cc:277] Unable to set image transfer function.\n[56366:1004/211817.883568:ERROR:ui/ozone/platform/wayland/host/wayland_wp_color_manager.cc:195] Failed to populate image description for color space {primaries:BT709, transfer:SRGB, matrix:RGB, range:FULL}\n[56366:1004/211819.959944:ERROR:content/browser/browser_main_loop.cc:274] GLib: g_main_context_pop_thread_default: assertion 'stack != NULL' failed\n"
+  },
+  {
+    "page": 7,
+    "format": "svg",
+    "exitCode": 0,
+    "command": [
+      "/usr/bin/drawio",
+      "--export",
+      "--format",
+      "svg",
+      "--page-index",
+      "7",
+      "--output",
+      "/home/tahzun/Development/Projects/LiveRelay/work/diagrams/architecture/svg/07-agent-privacy.svg",
+      "--embed-diagram",
+      "--embed-svg-fonts",
+      "false",
+      "--svg-theme",
+      "light",
+      "/home/tahzun/Development/Projects/LiveRelay/work/diagrams/architecture/LiveRelay-MVP0.4-system-architecture.drawio"
+    ],
+    "log": "/home/tahzun/Development/Projects/LiveRelay/work/diagrams/architecture/LiveRelay-MVP0.4-system-architecture.drawio -> /home/tahzun/Development/Projects/LiveRelay/work/diagrams/architecture/svg/07-agent-privacy.svg\n[56573:1004/211820.803813:ERROR:ui/ozone/platform/wayland/gpu/wayland_surface_factory.cc:252] '--ozone-platform=wayland' is not compatible with Vulkan. Consider switching to '--ozone-platform=x11' or disabling Vulkan\n[56522:1004/211820.948555:ERROR:ui/ozone/platform/wayland/host/wayland_wp_color_manager.cc:277] Unable to set image transfer function.\n[56522:1004/211820.948569:ERROR:ui/ozone/platform/wayland/host/wayland_wp_color_manager.cc:195] Failed to populate image description for color space {primaries:BT709, transfer:SRGB, matrix:RGB, range:FULL}\n[56522:1004/211820.948971:ERROR:ui/ozone/platform/wayland/host/wayland_wp_color_manager.cc:277] Unable to set image transfer function.\n[56522:1004/211820.948976:ERROR:ui/ozone/platform/wayland/host/wayland_wp_color_manager.cc:195] Failed to populate image description for color space {primaries:BT709, transfer:SRGB, matrix:RGB, range:FULL}\n[56522:1004/211822.167538:ERROR:content/browser/browser_main_loop.cc:274] GLib: g_main_context_pop_thread_default: assertion 'stack != NULL' failed\n"
+  },
+  {
+    "page": 8,
+    "format": "png",
+    "exitCode": 0,
+    "command": [
+      "/usr/bin/drawio",
+      "--export",
+      "--format",
+      "png",
+      "--page-index",
+      "8",
+      "--output",
+      "/home/tahzun/Development/Projects/LiveRelay/work/diagrams/architecture/png/08-identity-binding.png",
+      "--scale",
+      "1.5",
+      "/home/tahzun/Development/Projects/LiveRelay/work/diagrams/architecture/LiveRelay-MVP0.4-system-architecture.drawio"
+    ],
+    "log": "/home/tahzun/Development/Projects/LiveRelay/work/diagrams/architecture/LiveRelay-MVP0.4-system-architecture.drawio -> /home/tahzun/Development/Projects/LiveRelay/work/diagrams/architecture/png/08-identity-binding.png\n[56707:1004/211822.972926:ERROR:ui/ozone/platform/wayland/gpu/wayland_surface_factory.cc:252] '--ozone-platform=wayland' is not compatible with Vulkan. Consider switching to '--ozone-platform=x11' or disabling Vulkan\n[56663:1004/211823.090639:ERROR:ui/ozone/platform/wayland/host/wayland_wp_color_manager.cc:277] Unable to set image transfer function.\n[56663:1004/211823.090648:ERROR:ui/ozone/platform/wayland/host/wayland_wp_color_manager.cc:195] Failed to populate image description for color space {primaries:BT709, transfer:SRGB, matrix:RGB, range:FULL}\n[56663:1004/211823.091216:ERROR:ui/ozone/platform/wayland/host/wayland_wp_color_manager.cc:277] Unable to set image transfer function.\n[56663:1004/211823.091219:ERROR:ui/ozone/platform/wayland/host/wayland_wp_color_manager.cc:195] Failed to populate image description for color space {primaries:BT709, transfer:SRGB, matrix:RGB, range:FULL}\n[56663:1004/211823.229206:ERROR:ui/ozone/platform/wayland/host/wayland_wp_color_manager.cc:277] Unable to set image transfer function.\n[56663:1004/211823.229224:ERROR:ui/ozone/platform/wayland/host/wayland_wp_color_manager.cc:195] Failed to populate image description for color space {primaries:BT709, transfer:SRGB, matrix:RGB, range:FULL}\n[56663:1004/211825.310939:ERROR:content/browser/browser_main_loop.cc:274] GLib: g_main_context_pop_thread_default: assertion 'stack != NULL' failed\n"
+  },
+  {
+    "page": 8,
+    "format": "svg",
+    "exitCode": 0,
+    "command": [
+      "/usr/bin/drawio",
+      "--export",
+      "--format",
+      "svg",
+      "--page-index",
+      "8",
+      "--output",
+      "/home/tahzun/Development/Projects/LiveRelay/work/diagrams/architecture/svg/08-identity-binding.svg",
+      "--embed-diagram",
+      "--embed-svg-fonts",
+      "false",
+      "--svg-theme",
+      "light",
+      "/home/tahzun/Development/Projects/LiveRelay/work/diagrams/architecture/LiveRelay-MVP0.4-system-architecture.drawio"
+    ],
+    "log": "/home/tahzun/Development/Projects/LiveRelay/work/diagrams/architecture/LiveRelay-MVP0.4-system-architecture.drawio -> /home/tahzun/Development/Projects/LiveRelay/work/diagrams/architecture/svg/08-identity-binding.svg\n[56859:1004/211826.140603:ERROR:ui/ozone/platform/wayland/gpu/wayland_surface_factory.cc:252] '--ozone-platform=wayland' is not compatible with Vulkan. Consider switching to '--ozone-platform=x11' or disabling Vulkan\n[56815:1004/211826.255953:ERROR:ui/ozone/platform/wayland/host/wayland_wp_color_manager.cc:277] Unable to set image transfer function.\n[56815:1004/211826.255963:ERROR:ui/ozone/platform/wayland/host/wayland_wp_color_manager.cc:195] Failed to populate image description for color space {primaries:BT709, transfer:SRGB, matrix:RGB, range:FULL}\n[56815:1004/211826.256302:ERROR:ui/ozone/platform/wayland/host/wayland_wp_color_manager.cc:277] Unable to set image transfer function.\n[56815:1004/211826.256308:ERROR:ui/ozone/platform/wayland/host/wayland_wp_color_manager.cc:195] Failed to populate image description for color space {primaries:BT709, transfer:SRGB, matrix:RGB, range:FULL}\n[56815:1004/211827.461130:ERROR:content/browser/browser_main_loop.cc:274] GLib: g_main_context_pop_thread_default: assertion 'stack != NULL' failed\n"
+  },
+  {
+    "page": 9,
+    "format": "png",
+    "exitCode": 0,
+    "command": [
+      "/usr/bin/drawio",
+      "--export",
+      "--format",
+      "png",
+      "--page-index",
+      "9",
+      "--output",
+      "/home/tahzun/Development/Projects/LiveRelay/work/diagrams/architecture/png/09-scoped-delivery.png",
+      "--scale",
+      "1.5",
+      "/home/tahzun/Development/Projects/LiveRelay/work/diagrams/architecture/LiveRelay-MVP0.4-system-architecture.drawio"
+    ],
+    "log": "/home/tahzun/Development/Projects/LiveRelay/work/diagrams/architecture/LiveRelay-MVP0.4-system-architecture.drawio -> /home/tahzun/Development/Projects/LiveRelay/work/diagrams/architecture/png/09-scoped-delivery.png\n[57000:1004/211828.289220:ERROR:ui/ozone/platform/wayland/gpu/wayland_surface_factory.cc:252] '--ozone-platform=wayland' is not compatible with Vulkan. Consider switching to '--ozone-platform=x11' or disabling Vulkan\n[56952:1004/211828.407932:ERROR:ui/ozone/platform/wayland/host/wayland_wp_color_manager.cc:277] Unable to set image transfer function.\n[56952:1004/211828.407941:ERROR:ui/ozone/platform/wayland/host/wayland_wp_color_manager.cc:195] Failed to populate image description for color space {primaries:BT709, transfer:SRGB, matrix:RGB, range:FULL}\n[56952:1004/211828.408358:ERROR:ui/ozone/platform/wayland/host/wayland_wp_color_manager.cc:277] Unable to set image transfer function.\n[56952:1004/211828.408363:ERROR:ui/ozone/platform/wayland/host/wayland_wp_color_manager.cc:195] Failed to populate image description for color space {primaries:BT709, transfer:SRGB, matrix:RGB, range:FULL}\n[56952:1004/211828.553026:ERROR:ui/ozone/platform/wayland/host/wayland_wp_color_manager.cc:277] Unable to set image transfer function.\n[56952:1004/211828.553037:ERROR:ui/ozone/platform/wayland/host/wayland_wp_color_manager.cc:195] Failed to populate image description for color space {primaries:BT709, transfer:SRGB, matrix:RGB, range:FULL}\n[56952:1004/211830.649101:ERROR:content/browser/browser_main_loop.cc:274] GLib: g_main_context_pop_thread_default: assertion 'stack != NULL' failed\n"
+  },
+  {
+    "page": 9,
+    "format": "svg",
+    "exitCode": 0,
+    "command": [
+      "/usr/bin/drawio",
+      "--export",
+      "--format",
+      "svg",
+      "--page-index",
+      "9",
+      "--output",
+      "/home/tahzun/Development/Projects/LiveRelay/work/diagrams/architecture/svg/09-scoped-delivery.svg",
+      "--embed-diagram",
+      "--embed-svg-fonts",
+      "false",
+      "--svg-theme",
+      "light",
+      "/home/tahzun/Development/Projects/LiveRelay/work/diagrams/architecture/LiveRelay-MVP0.4-system-architecture.drawio"
+    ],
+    "log": "/home/tahzun/Development/Projects/LiveRelay/work/diagrams/architecture/LiveRelay-MVP0.4-system-architecture.drawio -> /home/tahzun/Development/Projects/LiveRelay/work/diagrams/architecture/svg/09-scoped-delivery.svg\n[57188:1004/211831.483305:ERROR:ui/ozone/platform/wayland/gpu/wayland_surface_factory.cc:252] '--ozone-platform=wayland' is not compatible with Vulkan. Consider switching to '--ozone-platform=x11' or disabling Vulkan\n[57111:1004/211831.596892:ERROR:ui/ozone/platform/wayland/host/wayland_wp_color_manager.cc:277] Unable to set image transfer function.\n[57111:1004/211831.596903:ERROR:ui/ozone/platform/wayland/host/wayland_wp_color_manager.cc:195] Failed to populate image description for color space {primaries:BT709, transfer:SRGB, matrix:RGB, range:FULL}\n[57111:1004/211831.597325:ERROR:ui/ozone/platform/wayland/host/wayland_wp_color_manager.cc:277] Unable to set image transfer function.\n[57111:1004/211831.597330:ERROR:ui/ozone/platform/wayland/host/wayland_wp_color_manager.cc:195] Failed to populate image description for color space {primaries:BT709, transfer:SRGB, matrix:RGB, range:FULL}\n[57111:1004/211832.801775:ERROR:content/browser/browser_main_loop.cc:274] GLib: g_main_context_pop_thread_default: assertion 'stack != NULL' failed\n"
+  },
+  {
+    "page": 10,
+    "format": "png",
+    "exitCode": 0,
+    "command": [
+      "/usr/bin/drawio",
+      "--export",
+      "--format",
+      "png",
+      "--page-index",
+      "10",
+      "--output",
+      "/home/tahzun/Development/Projects/LiveRelay/work/diagrams/architecture/png/10-backup-restore.png",
+      "--scale",
+      "1.5",
+      "/home/tahzun/Development/Projects/LiveRelay/work/diagrams/architecture/LiveRelay-MVP0.4-system-architecture.drawio"
+    ],
+    "log": "/home/tahzun/Development/Projects/LiveRelay/work/diagrams/architecture/LiveRelay-MVP0.4-system-architecture.drawio -> /home/tahzun/Development/Projects/LiveRelay/work/diagrams/architecture/png/10-backup-restore.png\n[57364:1004/211833.615143:ERROR:ui/ozone/platform/wayland/gpu/wayland_surface_factory.cc:252] '--ozone-platform=wayland' is not compatible with Vulkan. Consider switching to '--ozone-platform=x11' or disabling Vulkan\n[57285:1004/211833.725851:ERROR:ui/ozone/platform/wayland/host/wayland_wp_color_manager.cc:277] Unable to set image transfer function.\n[57285:1004/211833.725859:ERROR:ui/ozone/platform/wayland/host/wayland_wp_color_manager.cc:195] Failed to populate image description for color space {primaries:BT709, transfer:SRGB, matrix:RGB, range:FULL}\n[57285:1004/211833.726093:ERROR:ui/ozone/platform/wayland/host/wayland_wp_color_manager.cc:277] Unable to set image transfer function.\n[57285:1004/211833.726095:ERROR:ui/ozone/platform/wayland/host/wayland_wp_color_manager.cc:195] Failed to populate image description for color space {primaries:BT709, transfer:SRGB, matrix:RGB, range:FULL}\n[57285:1004/211833.865765:ERROR:ui/ozone/platform/wayland/host/wayland_wp_color_manager.cc:277] Unable to set image transfer function.\n[57285:1004/211833.865774:ERROR:ui/ozone/platform/wayland/host/wayland_wp_color_manager.cc:195] Failed to populate image description for color space {primaries:BT709, transfer:SRGB, matrix:RGB, range:FULL}\n[57285:1004/211835.952632:ERROR:content/browser/browser_main_loop.cc:274] GLib: g_main_context_pop_thread_default: assertion 'stack != NULL' failed\n"
+  },
+  {
+    "page": 10,
+    "format": "svg",
+    "exitCode": 0,
+    "command": [
+      "/usr/bin/drawio",
+      "--export",
+      "--format",
+      "svg",
+      "--page-index",
+      "10",
+      "--output",
+      "/home/tahzun/Development/Projects/LiveRelay/work/diagrams/architecture/svg/10-backup-restore.svg",
+      "--embed-diagram",
+      "--embed-svg-fonts",
+      "false",
+      "--svg-theme",
+      "light",
+      "/home/tahzun/Development/Projects/LiveRelay/work/diagrams/architecture/LiveRelay-MVP0.4-system-architecture.drawio"
+    ],
+    "log": "/home/tahzun/Development/Projects/LiveRelay/work/diagrams/architecture/LiveRelay-MVP0.4-system-architecture.drawio -> /home/tahzun/Development/Projects/LiveRelay/work/diagrams/architecture/svg/10-backup-restore.svg\n[57517:1004/211836.758493:ERROR:ui/ozone/platform/wayland/gpu/wayland_surface_factory.cc:252] '--ozone-platform=wayland' is not compatible with Vulkan. Consider switching to '--ozone-platform=x11' or disabling Vulkan\n[57469:1004/211836.869238:ERROR:ui/ozone/platform/wayland/host/wayland_wp_color_manager.cc:277] Unable to set image transfer function.\n[57469:1004/211836.869246:ERROR:ui/ozone/platform/wayland/host/wayland_wp_color_manager.cc:195] Failed to populate image description for color space {primaries:BT709, transfer:SRGB, matrix:RGB, range:FULL}\n[57469:1004/211836.869569:ERROR:ui/ozone/platform/wayland/host/wayland_wp_color_manager.cc:277] Unable to set image transfer function.\n[57469:1004/211836.869571:ERROR:ui/ozone/platform/wayland/host/wayland_wp_color_manager.cc:195] Failed to populate image description for color space {primaries:BT709, transfer:SRGB, matrix:RGB, range:FULL}\n[57469:1004/211838.048650:ERROR:content/browser/browser_main_loop.cc:274] GLib: g_main_context_pop_thread_default: assertion 'stack != NULL' failed\n"
+  },
+  {
+    "page": 11,
+    "format": "png",
+    "exitCode": 0,
+    "command": [
+      "/usr/bin/drawio",
+      "--export",
+      "--format",
+      "png",
+      "--page-index",
+      "11",
+      "--output",
+      "/home/tahzun/Development/Projects/LiveRelay/work/diagrams/architecture/png/11-security-recovery.png",
+      "--scale",
+      "1.5",
+      "/home/tahzun/Development/Projects/LiveRelay/work/diagrams/architecture/LiveRelay-MVP0.4-system-architecture.drawio"
+    ],
+    "log": "/home/tahzun/Development/Projects/LiveRelay/work/diagrams/architecture/LiveRelay-MVP0.4-system-architecture.drawio -> /home/tahzun/Development/Projects/LiveRelay/work/diagrams/architecture/png/11-security-recovery.png\n[57651:1004/211838.868818:ERROR:ui/ozone/platform/wayland/gpu/wayland_surface_factory.cc:252] '--ozone-platform=wayland' is not compatible with Vulkan. Consider switching to '--ozone-platform=x11' or disabling Vulkan\n[57601:1004/211838.982055:ERROR:ui/ozone/platform/wayland/host/wayland_wp_color_manager.cc:277] Unable to set image transfer function.\n[57601:1004/211838.982062:ERROR:ui/ozone/platform/wayland/host/wayland_wp_color_manager.cc:195] Failed to populate image description for color space {primaries:BT709, transfer:SRGB, matrix:RGB, range:FULL}\n[57601:1004/211838.982404:ERROR:ui/ozone/platform/wayland/host/wayland_wp_color_manager.cc:277] Unable to set image transfer function.\n[57601:1004/211838.982413:ERROR:ui/ozone/platform/wayland/host/wayland_wp_color_manager.cc:195] Failed to populate image description for color space {primaries:BT709, transfer:SRGB, matrix:RGB, range:FULL}\n[57601:1004/211839.118704:ERROR:ui/ozone/platform/wayland/host/wayland_wp_color_manager.cc:277] Unable to set image transfer function.\n[57601:1004/211839.118714:ERROR:ui/ozone/platform/wayland/host/wayland_wp_color_manager.cc:195] Failed to populate image description for color space {primaries:BT709, transfer:SRGB, matrix:RGB, range:FULL}\n[57601:1004/211841.218277:ERROR:content/browser/browser_main_loop.cc:274] GLib: g_main_context_pop_thread_default: assertion 'stack != NULL' failed\n"
+  },
+  {
+    "page": 11,
+    "format": "svg",
+    "exitCode": 0,
+    "command": [
+      "/usr/bin/drawio",
+      "--export",
+      "--format",
+      "svg",
+      "--page-index",
+      "11",
+      "--output",
+      "/home/tahzun/Development/Projects/LiveRelay/work/diagrams/architecture/svg/11-security-recovery.svg",
+      "--embed-diagram",
+      "--embed-svg-fonts",
+      "false",
+      "--svg-theme",
+      "light",
+      "/home/tahzun/Development/Projects/LiveRelay/work/diagrams/architecture/LiveRelay-MVP0.4-system-architecture.drawio"
+    ],
+    "log": "/home/tahzun/Development/Projects/LiveRelay/work/diagrams/architecture/LiveRelay-MVP0.4-system-architecture.drawio -> /home/tahzun/Development/Projects/LiveRelay/work/diagrams/architecture/svg/11-security-recovery.svg\n[57839:1004/211842.101073:ERROR:ui/ozone/platform/wayland/gpu/wayland_surface_factory.cc:252] '--ozone-platform=wayland' is not compatible with Vulkan. Consider switching to '--ozone-platform=x11' or disabling Vulkan\n[57790:1004/211842.222314:ERROR:ui/ozone/platform/wayland/host/wayland_wp_color_manager.cc:277] Unable to set image transfer function.\n[57790:1004/211842.222328:ERROR:ui/ozone/platform/wayland/host/wayland_wp_color_manager.cc:195] Failed to populate image description for color space {primaries:BT709, transfer:SRGB, matrix:RGB, range:FULL}\n[57790:1004/211842.222748:ERROR:ui/ozone/platform/wayland/host/wayland_wp_color_manager.cc:277] Unable to set image transfer function.\n[57790:1004/211842.222756:ERROR:ui/ozone/platform/wayland/host/wayland_wp_color_manager.cc:195] Failed to populate image description for color space {primaries:BT709, transfer:SRGB, matrix:RGB, range:FULL}\n[57790:1004/211843.421861:ERROR:content/browser/browser_main_loop.cc:274] GLib: g_main_context_pop_thread_default: assertion 'stack != NULL' failed\n"
+  },
+  {
+    "format": "pdf",
+    "exitCode": 0,
+    "command": [
+      "/usr/bin/drawio",
+      "--export",
+      "--format",
+      "pdf",
+      "--all-pages",
+      "--crop",
+      "--embed-diagram",
+      "--output",
+      "/home/tahzun/Development/Projects/LiveRelay/work/diagrams/architecture/LiveRelay-MVP0.4-system-architecture.pdf",
+      "/home/tahzun/Development/Projects/LiveRelay/work/diagrams/architecture/LiveRelay-MVP0.4-system-architecture.drawio"
+    ],
+    "log": "/home/tahzun/Development/Projects/LiveRelay/work/diagrams/architecture/LiveRelay-MVP0.4-system-architecture.drawio -> /home/tahzun/Development/Projects/LiveRelay/work/diagrams/architecture/LiveRelay-MVP0.4-system-architecture.pdf\n[57994:1004/211844.244652:ERROR:ui/ozone/platform/wayland/gpu/wayland_surface_factory.cc:252] '--ozone-platform=wayland' is not compatible with Vulkan. Consider switching to '--ozone-platform=x11' or disabling Vulkan\n[57938:1004/211844.360329:ERROR:ui/ozone/platform/wayland/host/wayland_wp_color_manager.cc:277] Unable to set image transfer function.\n[57938:1004/211844.360338:ERROR:ui/ozone/platform/wayland/host/wayland_wp_color_manager.cc:195] Failed to populate image description for color space {primaries:BT709, transfer:SRGB, matrix:RGB, range:FULL}\n[57938:1004/211844.360917:ERROR:ui/ozone/platform/wayland/host/wayland_wp_color_manager.cc:277] Unable to set image transfer function.\n[57938:1004/211844.360922:ERROR:ui/ozone/platform/wayland/host/wayland_wp_color_manager.cc:195] Failed to populate image description for color space {primaries:BT709, transfer:SRGB, matrix:RGB, range:FULL}\n[57938:1004/211846.188324:ERROR:content/browser/browser_main_loop.cc:274] GLib: g_main_context_pop_thread_default: assertion 'stack != NULL' failed\n"
+  }
+]

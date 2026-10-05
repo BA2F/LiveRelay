@@ -1,0 +1,23 @@
+{
+  "status": "manual reconstruction; design draft; not adopted in application",
+  "source": "ChatGPT生成7暂定稿.png",
+  "coordinate_system": "viewBox 0 0 512 512",
+  "colors": {
+    "ink": "#272620",
+    "gold": "#F3C477",
+    "paper": "#F8F5ED",
+    "micro_gold": "#DBA042"
+  },
+  "layers": [
+    "left-shell",
+    "right-shell",
+    "flame"
+  ],
+  "micro_use": "16–24 logical pixels: 15% enlargement, wider flame, stronger gold, wider gap",
+  "motion_ms": {
+    "loading_loop": 1800,
+    "complete_once": 700,
+    "handoff_once": 1600
+  },
+  "application_files_modified": false
+}

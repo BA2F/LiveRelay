@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="description" content="LiveRelay 桌面资料与助手工作台交互 Demo。">
+  <title>留灯 · LiveRelay 工作台</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23e2b47a'/%3E%3Ctext x='16' y='23' text-anchor='middle' font-size='22' fill='%23141718'%3E留%3C/text%3E%3C/svg%3E">
+  <link rel="stylesheet" href="styles.css">
+  <script src="app.js" defer></script>
+</head>
+<body>
+  <div id="app">
+    <header class="titlebar">
+      <div class="brand"><span class="brand-mark">留</span><span>留灯 <span class="brand-en">LiveRelay</span></span></div>
+      <span class="demo-label">交互 Demo · 示例资料</span>
+      <div class="title-actions">
+        <label class="workspace-select"><span class="sr-only">工作台布局</span><select id="workspaceMode"><option value="library">资料工作台</option><option value="assistant">助手工作台</option></select></label>
+        <button class="icon-button" id="themeButton" aria-label="切换明暗主题"></button>
+        <button class="icon-button" id="settingsButton" aria-label="设置"></button>
+        <button class="icon-button" id="lockButton" aria-label="锁定示例工作台"></button>
+      </div>
+    </header>
+    <div class="shell" id="shell">
+      <nav class="activity-bar" aria-label="工作区视图" id="activityBar"></nav>
+      <aside class="navigator" id="navigator">
+        <div class="navigator-heading"><strong>我的资料</strong><button class="icon-button" id="hideNavigator" aria-label="收起资料导航"></button></div>
+        <label class="searchbox"><span id="searchIcon"></span><input id="searchInput" type="search" placeholder="搜索卡片与资料" aria-label="搜索卡片与资料"></label>
+        <div class="navigator-content" id="navigatorContent"></div>
+        <button class="import-button" id="importButton"></button>
+        <div class="vault-label"><span class="vault-dot"></span> 示例资料库 <span>仅本人</span></div>
+      </aside>
+      <main class="workarea" id="workarea">
+        <div class="workrow" id="workrow">
+          <div id="leftDock" class="agent-slot side" hidden></div>
+          <div class="resize-handle" id="leftResize" hidden role="separator" aria-label="调整助手宽度"></div>
+          <div class="editor-groups" id="editorGroups"></div>
+          <div class="resize-handle" id="rightResize" role="separator" aria-label="调整助手宽度"></div>
+          <div id="rightDock" class="agent-slot side"></div>
+        </div>
+        <div id="bottomDock" class="agent-slot bottom" hidden></div>
+      </main>
+      <footer class="statusbar"><span>示例资料 · 仅在本浏览器中演示</span><span id="statusInfo">准备就绪</span><button id="startupButton">起始工作台</button></footer>
+    </div>
+  </div>
+  <section class="agent-pane" id="agentPane" aria-label="Agent 会话">
+    <header class="pane-heading" id="agentHeading"><strong><span id="agentIcon"></span> 助手</strong><div><button class="icon-button" id="newConversation" aria-label="新建会话"></button><button class="icon-button" id="agentLayoutButton" aria-label="移动助手面板"></button><button class="icon-button" id="agentPopoutButton" aria-label="在独立窗口打开助手"></button><button class="icon-button" id="agentCloseButton" aria-label="收起助手面板"></button></div></header>
+    <div class="conversation-heading"><span>资料整理</span><span class="subtle-tag">模拟会话</span></div>
+    <div class="messages" id="messages" aria-live="polite"></div>
+    <div class="composer-area">
+      <div class="context-chips" id="contextChips"></div>
+      <div class="voice-strip" id="voiceStrip" hidden><button id="cancelVoice" aria-label="取消语音演示">取消</button><div class="voice-wave" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div><span id="voiceTime">00:00</span><button id="stopVoice">停止</button></div>
+      <label class="sr-only" for="composer">向助手描述目的</label><textarea id="composer" rows="3" placeholder="描述你的目的，或把资料卡片拖到这里…"></textarea>
+      <div class="composer-toolbar"><button class="model-button" id="modelButton"></button><div><button class="icon-button" id="attachButton" aria-label="引用当前卡片"></button><button class="icon-button" id="micButton" aria-label="演示语音输入"></button><button class="send-button" id="sendButton" aria-label="发送演示消息"></button></div></div>
+      <div class="composer-note">语音与模型调用为交互演示</div>
+    </div>
+  </section>
+  <div class="agent-parking" id="agentParking" hidden></div>
+  <div class="floating-window" id="floatingWindow" hidden></div>
+  <div class="popover" id="popover" hidden></div>
+  <dialog class="modal" id="modal"><div id="modalContent"></div></dialog>
+  <dialog class="startup-modal" id="startupModal" aria-labelledby="startupTitle">
+    <div class="startup-brand"><span class="brand-mark">留</span><span>LiveRelay</span></div>
+    <h1 id="startupTitle">从你习惯的工作方式开始</h1>
+    <p>选择起始工作台。之后可以随时切换、调整窗口。</p>
+    <div class="startup-options">
+      <button class="startup-choice" data-start="library"><span class="layout-mini library-mini"><i></i><i></i><i></i><i></i></span><strong>资料工作台</strong><span>浏览卡片与来源，助手在侧边协助</span></button>
+      <button class="startup-choice" data-start="assistant"><span class="layout-mini assistant-mini"><i></i><i></i><i></i><i></i></span><strong>助手工作台</strong><span>从对话开始，资料在旁边随时核对</span></button>
+    </div>
+    <label class="checkbox-row"><input id="rememberStartup" type="checkbox" checked>记住我的选择</label>
+  </dialog>
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  <input id="fileInput" type="file" accept="image/*,audio/*,video/*,.txt,.md" multiple hidden>
+</body>
+</html>

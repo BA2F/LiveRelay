@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>留灯 · 图案与动效草案</title>
+<style>
+:root {color-scheme:light; --paper:#f5f3ed; --panel:#fffefa; --ink:#272620; --muted:#727168; --line:#e0ddd3; --accent:#946522; --gold:#f3c477;}
+* {box-sizing:border-box}
+body {margin:0;background:var(--paper);color:var(--ink);font-family:system-ui,-apple-system,"Noto Sans CJK SC",sans-serif;line-height:1.6}
+body.dark {color-scheme:dark;--paper:#1c1e1b;--panel:#252823;--ink:#f8f5ed;--muted:#b5b7ac;--line:#41463c;--accent:#e8bc72}
+main {max-width:1120px;margin:auto;padding:42px 30px 60px}
+header {display:flex;justify-content:space-between;gap:24px;align-items:start;margin-bottom:30px}
+.eyebrow {letter-spacing:.15em;text-transform:uppercase;font-size:12px;color:var(--muted);margin-bottom:8px}
+h1 {font-size:30px;line-height:1.25;margin:0 0 10px;font-weight:650;letter-spacing:-.02em}
+h2 {font-size:19px;margin:0 0 16px;font-weight:600}
+h3 {font-size:16px;margin:0;font-weight:600}
+p {margin:8px 0;color:var(--muted);font-size:14px}
+.tag {font-size:12px;border:1px solid var(--line);padding:4px 9px;border-radius:6px;color:var(--muted);display:inline-block}
+section {margin-top:28px}
+.panel {background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:24px}
+.compare {display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--line);border:1px solid var(--line);border-radius:16px;overflow:hidden}
+.compare figure {margin:0;background:var(--panel);padding:22px;display:grid;justify-items:center}
+.compare .art {height:230px;width:230px;display:block}
+.original {background:#fff;border-radius:8px}
+figcaption {font-size:13px;color:var(--muted);margin-top:8px;text-align:center}
+.master .shell-left,.master .shell-right {fill:var(--ink)}
+.section-head {display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:16px}
+.section-head h2 {margin:0}
+button,select {font:inherit;font-size:13px;background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:8px 13px;cursor:pointer}
+button:hover {border-color:var(--accent)}
+button:focus-visible,select:focus-visible,a:focus-visible {outline:2px solid var(--accent);outline-offset:3px}
+button.primary {background:var(--ink);color:var(--panel);border-color:var(--ink)}
+.sizes {display:flex;align-items:end;justify-content:space-between;gap:18px;flex-wrap:wrap;min-height:138px;padding:16px 6px}
+.size {display:flex;flex-direction:column;align-items:center;justify-content:end;gap:14px;min-width:62px}
+.size img {display:block}
+.size label {font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}
+.sizes.dark-sizes {background:#242620;border-radius:10px}
+.variants {display:flex;gap:14px;border-top:1px solid var(--line);padding-top:18px;margin-top:12px;flex-wrap:wrap}
+.variant {display:flex;align-items:center;gap:12px;padding-right:18px;color:var(--muted);font-size:13px}
+.variant img {width:52px;height:52px;padding:3px;border-radius:8px;background:#f8f5ed}
+.variant .inverse {background:#272620}
+.motion-grid {display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+.motion-card {border:1px solid var(--line);border-radius:14px;background:var(--panel);padding:20px;display:flex;flex-direction:column}
+.motion-card p {min-height:45px;margin:8px 0 12px;font-size:13px}
+.motion-stage {height:170px;display:flex;align-items:center;justify-content:center}
+.motion-stage svg {width:172px;height:172px;overflow:visible}
+.motion-stage .shell-left,.motion-stage .shell-right {fill:var(--ink)}
+.motion-stage .flame {fill:var(--gold)}
+.motion-footer {display:flex;justify-content:space-between;gap:10px;align-items:center;margin-top:12px}
+.status {font-size:12px;color:var(--muted)}
+.reduce {display:flex;align-items:center;gap:7px;font-size:13px;color:var(--muted)}
+.reduce input {accent-color:var(--accent)}
+.platforms {display:grid;grid-template-columns:1fr 1fr;gap:20px}
+.masks {display:flex;gap:24px;flex-wrap:wrap;align-items:center;margin:18px 0}
+.mask {width:96px;height:96px;background:#f8f5ed;display:grid;place-items:center;overflow:hidden}
+.mask img {width:100%;height:100%;transform:scale(.68)}
+.circle {border-radius:50%}
+.rounded {border-radius:24%}
+.squircle {border-radius:36%}
+.mask-label {font-size:12px;color:var(--muted);text-align:center;margin-top:8px}
+.links {display:flex;gap:18px;flex-wrap:wrap;margin-top:12px}
+a {color:var(--accent);font-size:13px;text-underline-offset:4px}
+.note {font-size:13px;color:var(--muted);margin-top:20px;max-width:84ch}
+.reduced .flame,.reduced .shell-left,.reduced .shell-right,.reduced .traveler {animation:none!important}
+{{MOTION_CSS}}
+@media(max-width:730px) {main {padding:25px 18px} header {flex-direction:column;gap:12px} h1 {font-size:25px} .compare .art {height:170px;width:170px} .compare figure {padding:14px 8px} .motion-grid,.platforms {grid-template-columns:1fr} .motion-card p {min-height:0} .motion-stage {height:145px} .section-head {align-items:start;flex-wrap:wrap} .sizes {justify-content:start;gap:20px} .panel {padding:18px} }
+@media(max-width:390px) {.compare .art {width:140px;height:140px}.compare figure {padding:12px 3px}}
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <div><div class="eyebrow">LiveRelay / Brand studies 01</div><h1>留灯 · 图案与动效草案</h1><p>沿用两侧黑色主体与中央金色灯芯，仅提取图案。</p><span class="tag">人工矢量重绘 · 待确认</span></div>
+    <label><span class="sr-only">预览主题</span><select id="theme" aria-label="预览主题"><option value="light">浅色预览</option><option value="dark">深色预览</option></select></label>
+  </header>
+
+  <div class="compare">
+    <figure><svg class="art original" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="原图中的图案，文字被裁出视野"><defs><clipPath id="reference-window"><rect x="110" y="70" width="295" height="380"/></clipPath></defs><image href="reference/original.png" x="-258.02" y="-146.68" width="1028.28" height="1028.28" clip-path="url(#reference-window)"/></svg><figcaption>原图图案</figcaption></figure>
+    <figure class="master">{{MASTER_MARK}}<figcaption>三层矢量母版 · 平整边缘与色块</figcaption></figure>
+  </div>
+
+  <section class="panel">
+    <div class="section-head"><h2>尺寸与颜色</h2><select id="size-mode" aria-label="小尺寸方案"><option value="optical">16／24px 使用小尺寸修正版</option><option value="master">全部使用标准母版</option></select></div>
+    <div class="sizes" id="sizes">{{SIZES}}</div>
+    <p id="size-caption">小尺寸略放大图案、加宽灯芯、拉开右侧间隙，并加深金色。</p>
+    <div class="variants"><div class="variant"><img src="svg/mark-master.svg" alt="标准双色图案">标准双色</div><div class="variant"><img src="svg/mark-inverse.svg" class="inverse" alt="深色背景上的反白图案">深色反白</div><div class="variant"><img src="svg/mark-monochrome.svg" alt="单色图案">单色／主题图标</div></div>
+  </section>
+
+  <section>
+    <div class="section-head"><h2>让灯芯表达状态</h2><label class="reduce"><input type="checkbox" id="reduce">减少动态</label></div>
+    <div class="motion-grid">
+      <article class="motion-card"><h3>加载 · 呼吸</h3><p>灯芯缓慢明暗变化，主体保持稳定。<br>1.8 秒一轮 · 未知进度</p><div class="motion-stage" id="loading-stage">{{LOADING_MARK}}</div><div class="motion-footer"><span class="status" id="loading-status" role="status">静止预览</span><button type="button" id="loading-button">播放</button></div></article>
+      <article class="motion-card"><h3>完成 · 点亮</h3><p>灯芯亮起，轻微回落到原尺寸。<br>700 毫秒 · 播放一次</p><div class="motion-stage" id="complete-stage">{{COMPLETE_MARK}}</div><div class="motion-footer"><span class="status" id="complete-status" role="status">静止预览</span><button type="button" id="complete-button">播放</button></div></article>
+      <article class="motion-card"><h3>交接 · 传光</h3><p>光从左侧经过灯芯，传向右侧。<br>1.6 秒 · 播放一次</p><div class="motion-stage" id="relay-stage">{{RELAY_MARK}}</div><div class="motion-footer"><span class="status" id="relay-status" role="status">静止预览</span><button type="button" id="relay-button">播放</button></div></article>
+    </div>
+    <p class="note">这里仅演示视觉语言。正式软件的完成动画由真实成功结果触发；本地生成交接包时提示“资料包已生成”，收到接收确认后才提示“对方已接收”。</p>
+  </section>
+
+  <section class="platforms">
+    <div class="panel"><h2>Android · 系统裁切示意</h2><p>前景与背景独立，核心图案保留安全边距。</p><div class="masks"><div><div class="mask circle"><img src="svg/mark-master.svg" alt="圆形裁切"></div><div class="mask-label">圆形</div></div><div><div class="mask rounded"><img src="svg/mark-master.svg" alt="圆角方形裁切"></div><div class="mask-label">圆角方形</div></div><div><div class="mask squircle"><img src="svg/mark-master.svg" alt="大圆角裁切"></div><div class="mask-label">大圆角</div></div></div><p>以上是设计示意，实际效果由启动器决定。</p></div>
+    <div class="panel"><h2>软件图标与母版</h2><p>方形背景用于平台导出；圆角预览由外部裁切。小尺寸由专用版本导出。</p><div class="masks"><div><img class="mask rounded" src="software/icon-square.svg" alt="浅色软件图标"><div class="mask-label">浅色背景</div></div><div><img class="mask rounded" src="software/icon-square-dark.svg" alt="深色软件图标"><div class="mask-label">深色背景</div></div></div><div class="links"><a href="svg/mark-master.svg" download>SVG 母版</a><a href="software/png/icon-1024.png" download>1024px 图标</a><a href="software/windows/app_icon.ico" download>Windows ICO</a><a href="LiveRelay-icon-draft.zip" download>整套草案</a></div></div>
+  </section>
+  <p class="note">草案保留源图比例，舍去纸面纹理。最终轮廓、色值与小尺寸版本仍可微调。所有素材独立存放，尚未接入应用。</p>
+</main>
+<script>
+(() => {
+  const theme = document.getElementById('theme');
+  const reduced = document.getElementById('reduce');
+  const systemReduced = window.matchMedia('(prefers-reduced-motion: reduce)');
+  const modes = ['loading', 'complete', 'relay'];
+  const timers = {};
+  function updateSizeImages() {
+    const optical = document.getElementById('size-mode').value === 'optical';
+    const inverse = theme.value === 'dark' ? '-inverse' : '';
+    document.querySelectorAll('#sizes img').forEach(img => {
+      const variant = optical && Number(img.dataset.size) <= 24 ? 'micro' : (inverse ? 'inverse' : 'master');
+      img.src = 'svg/mark-' + variant + (variant === 'micro' ? inverse : '') + '.svg';
+    });
+    document.getElementById('size-caption').textContent = optical ? '小尺寸略放大图案、加宽灯芯、拉开右侧间隙，并加深金色。' : '直接缩放母版：对比 16／24px 的灯芯和留白。';
+  }
+  theme.addEventListener('change', () => {document.body.classList.toggle('dark', theme.value === 'dark');updateSizeImages()});
+  document.getElementById('size-mode').addEventListener('change', updateSizeImages);
+  function reset(mode) {
+    clearTimeout(timers[mode]);
+    const stage = document.getElementById(mode + '-stage');
+    stage.classList.remove(mode);
+    document.getElementById(mode + '-status').textContent = '静止预览';
+    document.getElementById(mode + '-button').textContent = '播放';
+  }
+  function applyReduction() {
+    document.body.classList.toggle('reduced', reduced.checked);
+    modes.forEach(reset);
+  }
+  reduced.checked = systemReduced.matches;
+  applyReduction();
+  reduced.addEventListener('change', applyReduction);
+  systemReduced.addEventListener('change', e => {reduced.checked = e.matches; applyReduction()});
+  modes.forEach(mode => {
+    document.getElementById(mode + '-button').addEventListener('click', () => {
+      const stage = document.getElementById(mode + '-stage');
+      if (mode === 'loading' && stage.classList.contains(mode)) {reset(mode); return}
+      reset(mode);
+      if (reduced.checked) {
+        document.getElementById(mode + '-status').textContent = mode === 'loading' ? '处理中 · 静态' : '结果状态 · 静态';
+        return;
+      }
+      void stage.offsetWidth;
+      stage.classList.add(mode);
+      document.getElementById(mode + '-status').textContent = '播放中';
+      document.getElementById(mode + '-button').textContent = mode === 'loading' ? '停止' : '重播';
+      if (mode !== 'loading') timers[mode] = setTimeout(() => {
+        document.getElementById(mode + '-status').textContent = '播放结束';
+      }, mode === 'complete' ? 700 : 1600);
+    });
+  });
+})();
+</script>
+</body>
+</html>

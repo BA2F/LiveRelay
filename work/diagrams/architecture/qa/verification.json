@@ -1,0 +1,167 @@
+{
+  "tool": "draw.io 30.2.4 + Poppler + pypdf",
+  "nativePages": 11,
+  "nativeRasterCount": 0,
+  "pdfPages": 11,
+  "pdfFontsEmbeddedWithUnicode": true,
+  "sourceCommit": "6fbee32819fdc50413f80ec8e8561c450a0b4735",
+  "documentationCommit": "a586349b9b5693084d74deeac5317d5a0ae7df0b",
+  "pages": [
+    {
+      "page": 1,
+      "title": "系统上下文与外部参与者",
+      "pdfSizePoints": [
+        1296.95996,
+        806.88
+      ],
+      "pngDimensions": [
+        2702,
+        1682
+      ],
+      "extractedChineseCharacters": 371,
+      "titleAndVersionMatch": true
+    },
+    {
+      "page": 2,
+      "title": "应用与存储的运行边界",
+      "pdfSizePoints": [
+        1296.95996,
+        806.88
+      ],
+      "pngDimensions": [
+        2702,
+        1682
+      ],
+      "extractedChineseCharacters": 328,
+      "titleAndVersionMatch": true
+    },
+    {
+      "page": 3,
+      "title": "逻辑分层、组件、内部端口与组合根",
+      "pdfSizePoints": [
+        1296.95996,
+        806.88
+      ],
+      "pngDimensions": [
+        2702,
+        1682
+      ],
+      "extractedChineseCharacters": 344,
+      "titleAndVersionMatch": true
+    },
+    {
+      "page": 4,
+      "title": "部署结构与平台能力",
+      "pdfSizePoints": [
+        1296.95996,
+        806.88
+      ],
+      "pngDimensions": [
+        2702,
+        1682
+      ],
+      "extractedChineseCharacters": 372,
+      "titleAndVersionMatch": true
+    },
+    {
+      "page": 5,
+      "title": "数据、来源、VMK 所有权与信任边界",
+      "pdfSizePoints": [
+        1296.95996,
+        806.88
+      ],
+      "pngDimensions": [
+        2702,
+        1682
+      ],
+      "extractedChineseCharacters": 451,
+      "titleAndVersionMatch": true
+    },
+    {
+      "page": 6,
+      "title": "采集、本地语音与来源保留",
+      "pdfSizePoints": [
+        1296.95996,
+        806.88
+      ],
+      "pngDimensions": [
+        2702,
+        1682
+      ],
+      "extractedChineseCharacters": 411,
+      "titleAndVersionMatch": true
+    },
+    {
+      "page": 7,
+      "title": "Agent 隐私、单次授权与结果确认",
+      "pdfSizePoints": [
+        1296.95996,
+        806.88
+      ],
+      "pngDimensions": [
+        2702,
+        1682
+      ],
+      "extractedChineseCharacters": 327,
+      "titleAndVersionMatch": true
+    },
+    {
+      "page": 8,
+      "title": "独立身份、指纹核对与双钥挑战",
+      "pdfSizePoints": [
+        1296.95996,
+        806.88
+      ],
+      "pngDimensions": [
+        2702,
+        1682
+      ],
+      "extractedChineseCharacters": 342,
+      "titleAndVersionMatch": true
+    },
+    {
+      "page": 9,
+      "title": "限定范围交接与独立接收查看",
+      "pdfSizePoints": [
+        1296.95996,
+        806.88
+      ],
+      "pngDimensions": [
+        2702,
+        1682
+      ],
+      "extractedChineseCharacters": 481,
+      "titleAndVersionMatch": true
+    },
+    {
+      "page": 10,
+      "title": "完整／分层备份与原件补充恢复",
+      "pdfSizePoints": [
+        1296.95996,
+        806.88
+      ],
+      "pngDimensions": [
+        2702,
+        1682
+      ],
+      "extractedChineseCharacters": 448,
+      "titleAndVersionMatch": true
+    },
+    {
+      "page": 11,
+      "title": "独立恢复、全库换钥与中断恢复",
+      "pdfSizePoints": [
+        1296.95996,
+        806.88
+      ],
+      "pngDimensions": [
+        2702,
+        1682
+      ],
+      "extractedChineseCharacters": 486,
+      "titleAndVersionMatch": true
+    }
+  ],
+  "visualInspection": "See visual-review.md for the completed review.",
+  "pdfSHA256": "034ad1a6e3ad4d104b3490bd4e79bb71d5c14253521d451957d4fbc446560118"
+}

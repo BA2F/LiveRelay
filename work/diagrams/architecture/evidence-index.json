@@ -1,0 +1,1991 @@
+{
+  "version": "1.0",
+  "date": "2026-10-04",
+  "sourceCommit": "6fbee32819fdc50413f80ec8e8561c450a0b4735",
+  "documentationCommit": "a586349b9b5693084d74deeac5317d5a0ae7df0b",
+  "sources": {
+    "D01": {
+      "title": "当前系统架构",
+      "path": "docs/30_design/architecture/00_系统架构总览.md",
+      "line": 9,
+      "endLine": 9,
+      "anchor": "## 当前结论"
+    },
+    "D02": {
+      "title": "分层与内部端口",
+      "path": "docs/30_design/architecture/01_系统分层与模块边界.md",
+      "line": 9,
+      "endLine": 9,
+      "anchor": "## MVP 实际分层"
+    },
+    "D03": {
+      "title": "平台实现与验收边界",
+      "path": "docs/30_design/platform/00_应用实现架构总览.md",
+      "line": 9,
+      "endLine": 9,
+      "anchor": "## MVP 技术基线"
+    },
+    "D04": {
+      "title": "Header v3／恢复／换钥规格",
+      "path": "docs/30_design/security/10_本机安全流程与格式v3.md",
+      "line": 7,
+      "endLine": 7,
+      "anchor": "独立 Header v3 suite"
+    },
+    "D05": {
+      "title": "身份／范围／分层备份规格",
+      "path": "docs/30_design/security/11_本机交接与分层备份格式.md",
+      "line": 7,
+      "endLine": 7,
+      "anchor": "## 独立身份与信任"
+    },
+    "D06": {
+      "title": "10月4日实际联调",
+      "path": "docs/60_quality/2026-10-04_实际联调验证.md",
+      "line": 20,
+      "endLine": 20,
+      "anchor": "## 已验证"
+    },
+    "D07": {
+      "title": "已确认的后续方向",
+      "path": "docs/20_product/16_正式版演进与已确认范围.md",
+      "line": 40,
+      "endLine": 40,
+      "anchor": "## 摇篮服务、备份与服务器"
+    },
+    "D08": {
+      "title": "Agent密码录入已知缺口",
+      "path": "docs/60_quality/2026-10-04_实际联调验证.md",
+      "line": 55,
+      "endLine": 55,
+      "anchor": "## Agent账号密码卡片录入缺口"
+    },
+    "C01": {
+      "title": "集中组合根",
+      "path": "work/code/live_relay/lib/infrastructure/app_composition.dart",
+      "line": 37,
+      "endLine": 37,
+      "anchor": "AppController createAppController("
+    },
+    "C02": {
+      "title": "Controller初始化与启动恢复",
+      "path": "work/code/live_relay/lib/application/app_controller.dart",
+      "line": 230,
+      "endLine": 230,
+      "anchor": "Future<void> initialize()"
+    },
+    "C03": {
+      "title": "会话密钥临时副本",
+      "path": "work/code/live_relay/lib/application/vault_session.dart",
+      "line": 172,
+      "endLine": 172,
+      "anchor": "Future<T> withMasterKey<T>"
+    },
+    "C04": {
+      "title": "受限恢复会话",
+      "path": "work/code/live_relay/lib/application/vault_session.dart",
+      "line": 328,
+      "endLine": 328,
+      "anchor": "Future<void> unlockWithRecovery"
+    },
+    "C05": {
+      "title": "全库换钥与提交",
+      "path": "work/code/live_relay/lib/application/vault_security_service.dart",
+      "line": 25,
+      "endLine": 25,
+      "anchor": "Future<void> configure("
+    },
+    "C06": {
+      "title": "备份认证与恢复",
+      "path": "work/code/live_relay/lib/application/vault_backup_service.dart",
+      "line": 66,
+      "endLine": 66,
+      "anchor": "Future<void> restore("
+    },
+    "C07": {
+      "title": "配对导出与补充恢复",
+      "path": "work/code/live_relay/lib/application/vault_backup_service.dart",
+      "line": 222,
+      "endLine": 222,
+      "anchor": "Future<({Uint8List database, Uint8List attachments})> exportSplit("
+    },
+    "C08": {
+      "title": "恢复目录安装事务",
+      "path": "work/code/live_relay/lib/infrastructure/backup/vault_restore_transaction.dart",
+      "line": 231,
+      "endLine": 231,
+      "anchor": "Future<String?> install("
+    },
+    "C09": {
+      "title": "启动中断恢复",
+      "path": "work/code/live_relay/lib/infrastructure/backup/vault_restore_transaction.dart",
+      "line": 112,
+      "endLine": 112,
+      "anchor": "Future<String?> _recover("
+    },
+    "C10": {
+      "title": "Owner挑战与限定快照",
+      "path": "work/code/live_relay/lib/application/local_handoff_service.dart",
+      "line": 104,
+      "endLine": 104,
+      "anchor": "Future<Uint8List> createChallenge("
+    },
+    "C11": {
+      "title": "限定范围导出",
+      "path": "work/code/live_relay/lib/application/local_handoff_service.dart",
+      "line": 200,
+      "endLine": 200,
+      "anchor": "Future<Uint8List> exportScope("
+    },
+    "C12": {
+      "title": "Recipient独立接收验证",
+      "path": "work/code/live_relay/lib/application/recipient_service.dart",
+      "line": 305,
+      "endLine": 305,
+      "anchor": "Future<void> receive("
+    },
+    "C13": {
+      "title": "Recipient独立密码身份",
+      "path": "work/code/live_relay/lib/application/recipient_service.dart",
+      "line": 106,
+      "endLine": 106,
+      "anchor": "Future<void> unlock(String password)"
+    },
+    "C14": {
+      "title": "身份指纹与双钥",
+      "path": "work/code/live_relay/lib/core/identity/local_identity.dart",
+      "line": 9,
+      "endLine": 9,
+      "anchor": "class LocalIdentity"
+    },
+    "C15": {
+      "title": "HPKE实现",
+      "path": "work/code/live_relay/lib/core/identity/hpke.dart",
+      "line": 11,
+      "endLine": 11,
+      "anchor": "class LocalHpke"
+    },
+    "C16": {
+      "title": "Agent单次授权UI",
+      "path": "work/code/live_relay/lib/presentation/pages/agent_page.dart",
+      "line": 49,
+      "endLine": 49,
+      "anchor": "Future<void> _runAgent()"
+    },
+    "C17": {
+      "title": "Agent Tokenization与请求",
+      "path": "work/code/live_relay/lib/application/draft_agent_service.dart",
+      "line": 19,
+      "endLine": 19,
+      "anchor": "class DraftAgentService"
+    },
+    "C18": {
+      "title": "Token校验与本机回填",
+      "path": "work/code/live_relay/lib/core/ai/ai_privacy.dart",
+      "line": 37,
+      "endLine": 37,
+      "anchor": "class AiPrivacyProcessor"
+    },
+    "C19": {
+      "title": "Agent结果保存",
+      "path": "work/code/live_relay/lib/application/app_controller.dart",
+      "line": 618,
+      "endLine": 618,
+      "anchor": "Future<void> saveAgentDrafts("
+    },
+    "C20": {
+      "title": "Linux命令隔离",
+      "path": "work/code/live_relay/lib/infrastructure/agent/linux_bash_command_provider.dart",
+      "line": 42,
+      "endLine": 42,
+      "anchor": "Future<AgentCommandSession> open("
+    },
+    "C21": {
+      "title": "本地转写与isolate",
+      "path": "work/code/live_relay/lib/infrastructure/speech/local_sense_voice_provider.dart",
+      "line": 157,
+      "endLine": 157,
+      "anchor": "Future<String> transcribe("
+    },
+    "C22": {
+      "title": "语音来源草稿",
+      "path": "work/code/live_relay/lib/application/app_controller.dart",
+      "line": 626,
+      "endLine": 626,
+      "anchor": "Future<void> saveSpeechDraft("
+    },
+    "C23": {
+      "title": "数据库实体映射",
+      "path": "work/code/live_relay/lib/infrastructure/persistence/app_database.dart",
+      "line": 9,
+      "endLine": 9,
+      "anchor": "class Sources extends Table"
+    },
+    "C24": {
+      "title": "SQLCipher打开／schema v5",
+      "path": "work/code/live_relay/lib/infrastructure/persistence/app_database.dart",
+      "line": 191,
+      "endLine": 191,
+      "anchor": "static Future<AppDatabase> openEncrypted("
+    },
+    "C25": {
+      "title": "原件AES-GCM／换钥",
+      "path": "work/code/live_relay/lib/infrastructure/blob/encrypted_blob_store.dart",
+      "line": 23,
+      "endLine": 23,
+      "anchor": "class EncryptedBlobStore"
+    },
+    "C26": {
+      "title": "采集与OCR应用用例",
+      "path": "work/code/live_relay/lib/application/app_controller.dart",
+      "line": 478,
+      "endLine": 478,
+      "anchor": "Future<LifeCard> runOcr("
+    },
+    "C27": {
+      "title": "Provider配置的系统安全存储",
+      "path": "work/code/live_relay/lib/infrastructure/ai/ai_provider_settings_store.dart",
+      "line": 22,
+      "endLine": 22,
+      "anchor": "class AiProviderSettingsStore"
+    },
+    "C28": {
+      "title": "纯领域生命状态规则",
+      "path": "work/code/live_relay/lib/core/domain/lifecycle.dart",
+      "line": 15,
+      "endLine": 15,
+      "anchor": "class LifeStateMachine"
+    },
+    "C29": {
+      "title": "接收入口先锁Owner",
+      "path": "work/code/live_relay/lib/presentation/pages/recipient_page.dart",
+      "line": 18,
+      "endLine": 18,
+      "anchor": "if (controller.isUnlocked) await controller.lock();"
+    },
+    "C30": {
+      "title": "Header任一／全部密码学",
+      "path": "work/code/live_relay/lib/core/security/vault_header_v3.dart",
+      "line": 13,
+      "endLine": 13,
+      "anchor": "class VaultHeaderV3"
+    },
+    "C31": {
+      "title": "设备因素MethodChannel",
+      "path": "work/code/live_relay/lib/infrastructure/security/android_device_factor_protection.dart",
+      "line": 7,
+      "endLine": 7,
+      "anchor": "class AndroidDeviceFactorProtection"
+    },
+    "C32": {
+      "title": "Android Keystore强生物识别",
+      "path": "work/code/live_relay/android/app/src/main/kotlin/app/liverelay/live_relay/DeviceFactorChannel.kt",
+      "line": 26,
+      "endLine": 26,
+      "anchor": "class DeviceFactorChannel"
+    },
+    "C33": {
+      "title": "正常入口",
+      "path": "work/code/live_relay/lib/main.dart",
+      "line": 12,
+      "endLine": 12,
+      "anchor": "Future<void> main()"
+    },
+    "C34": {
+      "title": "虚构演示入口",
+      "path": "work/code/live_relay/lib/main_debug_demo.dart",
+      "line": 23,
+      "endLine": 23,
+      "anchor": "Future<void> main()"
+    },
+    "C35": {
+      "title": "Responses工具循环",
+      "path": "work/code/live_relay/lib/infrastructure/ai/responses_agent_provider.dart",
+      "line": 11,
+      "endLine": 11,
+      "anchor": "class ResponsesAgentProvider"
+    },
+    "C36": {
+      "title": "数据来源查询",
+      "path": "work/code/live_relay/lib/infrastructure/persistence/sqlite_vault_repository.dart",
+      "line": 449,
+      "endLine": 449,
+      "anchor": "Future<List<CardSource>> cardSources("
+    }
+  },
+  "pages": [
+    {
+      "number": 1,
+      "title": "系统上下文与外部参与者",
+      "slug": "context",
+      "cells": [
+        {
+          "id": "p01-systemLabel",
+          "kind": "note",
+          "label": "当前系统边界：本地优先 LiveRelay 客户端",
+          "refs": [
+            "D01"
+          ]
+        },
+        {
+          "id": "p01-owner",
+          "kind": "node",
+          "label": "<div style=\"font-size:22px;font-weight:bold;line-height:1.25\">所有者 Owner</div><div style=\"font-size:18px;line-height:1.5;margin-top:10px\">录入、核对、保存；保管恢复材料<br/>逐次批准 AI 外发与指定范围交付</div><div style=\"font-size:14px;color:#667788;margin-top:8px\">[现场]</div>",
+          "refs": [
+            "D01",
+            "D05"
+          ]
+        },
+        {
+          "id": "p01-app",
+          "kind": "node",
+          "label": "<div style=\"font-size:22px;font-weight:bold;line-height:1.25\">LiveRelay 客户端</div><div style=\"font-size:18px;line-height:1.5;margin-top:10px\">加密资料库 · 记录／卡片／密码库<br/>本地语音 · 受控 Agent · 手动交接<br/>完整／分层备份 · 独立恢复</div><div style=\"font-size:14px;color:#667788;margin-top:8px\">[实现／现场]</div>",
+          "refs": [
+            "D01",
+            "C01"
+          ]
+        },
+        {
+          "id": "p01-recipient",
+          "kind": "node",
+          "label": "<div style=\"font-size:22px;font-weight:bold;line-height:1.25\">独立接收者 Recipient</div><div style=\"font-size:18px;line-height:1.5;margin-top:10px\">自有身份、密码与目录<br/>核对身份；只读查看获授权快照</div><div style=\"font-size:14px;color:#667788;margin-top:8px\">[现场]</div>",
+          "refs": [
+            "D05",
+            "C12"
+          ]
+        },
+        {
+          "id": "p01-ai",
+          "kind": "node",
+          "label": "<div style=\"font-size:22px;font-weight:bold;line-height:1.25\">本人配置的网络 AI</div><div style=\"font-size:18px;line-height:1.5;margin-top:10px\">HTTPS · Chat Completions／Responses<br/>只接收获准文本；属于外部信任域</div><div style=\"font-size:14px;color:#667788;margin-top:8px\">[实现／受控Provider现场]</div>",
+          "refs": [
+            "C17",
+            "C35",
+            "C27"
+          ]
+        },
+        {
+          "id": "p01-os",
+          "kind": "node",
+          "label": "<div style=\"font-size:22px;font-weight:bold;line-height:1.25\">操作系统／本地能力</div><div style=\"font-size:18px;line-height:1.5;margin-top:10px\">摄像／录音／文件选择<br/>强生物识别、Keystore／Secret Service</div><div style=\"font-size:14px;color:#667788;margin-top:8px\">[实现／按平台]</div>",
+          "refs": [
+            "D03",
+            "C31"
+          ]
+        },
+        {
+          "id": "p01-files",
+          "kind": "node",
+          "label": "<div style=\"font-size:22px;font-weight:bold;line-height:1.25\">本人控制的文件媒介</div><div style=\"font-size:18px;line-height:1.5;margin-top:10px\">设备外冷备份 .lvault<br/>公开身份、挑战响应、.lrshare</div><div style=\"font-size:14px;color:#667788;margin-top:8px\">[实现]</div>",
+          "refs": [
+            "D05",
+            "C06",
+            "C11"
+          ]
+        },
+        {
+          "id": "p01-ownerUse",
+          "kind": "edge:auth",
+          "label": "解锁／编辑／授权",
+          "source": "p01-owner",
+          "target": "p01-app",
+          "refs": [
+            "D01"
+          ]
+        },
+        {
+          "id": "p01-recipientUse",
+          "kind": "edge:flow",
+          "label": "独立接收入口／快照",
+          "source": "p01-app",
+          "target": "p01-recipient",
+          "refs": [
+            "C29",
+            "C12"
+          ]
+        },
+        {
+          "id": "p01-useOS",
+          "kind": "edge:flow",
+          "label": "平台能力",
+          "source": "p01-app",
+          "target": "p01-os",
+          "refs": [
+            "C01"
+          ]
+        },
+        {
+          "id": "p01-sendAi",
+          "kind": "edge:auth",
+          "label": "单次预览后发送",
+          "source": "p01-app",
+          "target": "p01-ai",
+          "refs": [
+            "C16",
+            "C17"
+          ]
+        },
+        {
+          "id": "p01-manualFiles",
+          "kind": "edge:flow",
+          "label": "手动导出／导入",
+          "source": "p01-app",
+          "target": "p01-files",
+          "refs": [
+            "C06",
+            "C11"
+          ]
+        },
+        {
+          "id": "p01-plans",
+          "kind": "node",
+          "label": "<div style=\"font-size:22px;font-weight:bold;line-height:1.25\">[规划] 后续外部系统</div><div style=\"font-size:18px;line-height:1.5;margin-top:10px\">同步／WebDAV／云备份 · 摇篮通知与自动条件释放 · 外部 Agent／CLI／MCP。当前没有运行连接。</div>",
+          "refs": [
+            "D07"
+          ]
+        }
+      ]
+    },
+    {
+      "number": 2,
+      "title": "应用与存储的运行边界",
+      "slug": "containers",
+      "cells": [
+        {
+          "id": "p02-clientLabel",
+          "kind": "note",
+          "label": "同一 Flutter package：应用进程 + 运行时工作 isolate",
+          "refs": [
+            "D01",
+            "D03"
+          ]
+        },
+        {
+          "id": "p02-ui",
+          "kind": "node",
+          "label": "<div style=\"font-size:22px;font-weight:bold;line-height:1.25\">Material 3 表现层</div><div style=\"font-size:18px;line-height:1.5;margin-top:10px\">记录／卡片／密码库／交接／我的<br/>首次使用、锁定、独立接收入口</div><div style=\"font-size:14px;color:#667788;margin-top:8px\">[实现]</div>",
+          "refs": [
+            "D02",
+            "C29"
+          ]
+        },
+        {
+          "id": "p02-uses",
+          "kind": "node",
+          "label": "<div style=\"font-size:22px;font-weight:bold;line-height:1.25\">Application 用例协调</div><div style=\"font-size:18px;line-height:1.5;margin-top:10px\">AppController 页面状态；VaultSession 会话<br/>安全、备份、身份、交接、Agent、语音服务</div><div style=\"font-size:14px;color:#667788;margin-top:8px\">[实现]</div>",
+          "refs": [
+            "C01",
+            "D02"
+          ]
+        },
+        {
+          "id": "p02-native",
+          "kind": "node",
+          "label": "<div style=\"font-size:22px;font-weight:bold;line-height:1.25\">基础设施／原生适配</div><div style=\"font-size:18px;line-height:1.5;margin-top:10px\">SQLCipher 数据库工作 isolate；sherpa_onnx 转写 isolate／FFI<br/>Android MethodChannel／插件；具体 Provider 与文件适配</div><div style=\"font-size:14px;color:#667788;margin-top:8px\">[实现]</div>",
+          "refs": [
+            "C01",
+            "C21",
+            "C24"
+          ]
+        },
+        {
+          "id": "p02-ownerDisk",
+          "kind": "node",
+          "label": "<div style=\"font-size:22px;font-weight:bold;line-height:1.25\">Owner 资料目录</div><div style=\"font-size:18px;line-height:1.5;margin-top:10px\">live_relay/vault/<br/>Header + SQLCipher + 加密 Blob</div><div style=\"font-size:14px;color:#667788;margin-top:8px\">[实现]</div>",
+          "refs": [
+            "C01",
+            "C24",
+            "C25"
+          ]
+        },
+        {
+          "id": "p02-recipDisk",
+          "kind": "node",
+          "label": "<div style=\"font-size:22px;font-weight:bold;line-height:1.25\">Recipient 独立目录</div><div style=\"font-size:18px;line-height:1.5;margin-top:10px\">live_relay/recipient/<br/>加密身份／信任状态 + .lrshare 密文</div><div style=\"font-size:14px;color:#667788;margin-top:8px\">[实现]</div>",
+          "refs": [
+            "C01",
+            "C12",
+            "C13"
+          ]
+        },
+        {
+          "id": "p02-support",
+          "kind": "node",
+          "label": "<div style=\"font-size:22px;font-weight:bold;line-height:1.25\">辅助本地资源</div><div style=\"font-size:18px;line-height:1.5;margin-top:10px\">speech/：模型与安装状态<br/>系统安全存储：AI 配置及 API Key</div><div style=\"font-size:14px;color:#667788;margin-top:8px\">[实现]</div>",
+          "refs": [
+            "C01",
+            "C21",
+            "C27"
+          ]
+        },
+        {
+          "id": "p02-usecases",
+          "kind": "edge:flow",
+          "label": "页面调用用例",
+          "source": "p02-ui",
+          "target": "p02-uses",
+          "refs": [
+            "D02"
+          ]
+        },
+        {
+          "id": "p02-adapters",
+          "kind": "edge:flow",
+          "label": "端口调用／实现适配",
+          "source": "p02-uses",
+          "target": "p02-native",
+          "refs": [
+            "C01"
+          ]
+        },
+        {
+          "id": "p02-writeOwner",
+          "kind": "edge:flow",
+          "label": "会话仓储／原件接口",
+          "source": "p02-uses",
+          "target": "p02-ownerDisk",
+          "refs": [
+            "C03",
+            "C24"
+          ]
+        },
+        {
+          "id": "p02-writeRecipient",
+          "kind": "edge:flow",
+          "label": "RecipientService",
+          "source": "p02-uses",
+          "target": "p02-recipDisk",
+          "refs": [
+            "C12",
+            "C13"
+          ]
+        },
+        {
+          "id": "p02-readSupport",
+          "kind": "edge:flow",
+          "label": "模型／安全配置",
+          "source": "p02-native",
+          "target": "p02-support",
+          "refs": [
+            "C21",
+            "C27"
+          ]
+        },
+        {
+          "id": "p02-processes",
+          "kind": "node",
+          "label": "<div style=\"font-size:22px;font-weight:bold;line-height:1.25\">另外启动的进程与服务</div><div style=\"font-size:18px;line-height:1.5;margin-top:10px\">Linux 隔离 Bash：bubblewrap + prlimit，本次启用后只读遮蔽文本；远端 AI：HTTPS 服务。Dart isolate 是应用运行单元，均不是独立微服务。</div>",
+          "refs": [
+            "C20",
+            "C17",
+            "D03"
+          ]
+        }
+      ]
+    },
+    {
+      "number": 3,
+      "title": "逻辑分层、组件、内部端口与组合根",
+      "slug": "components",
+      "cells": [
+        {
+          "id": "p03-presentationLabel",
+          "kind": "note",
+          "label": "Presentation",
+          "refs": [
+            "D02"
+          ]
+        },
+        {
+          "id": "p03-pages",
+          "kind": "node",
+          "label": "<div style=\"font-size:22px;font-weight:bold;line-height:1.25\">页面与设计系统</div><div style=\"font-size:18px;line-height:1.5;margin-top:10px\">页面交互、投影、主题和导航</div>",
+          "refs": [
+            "D02"
+          ]
+        },
+        {
+          "id": "p03-applicationLabel",
+          "kind": "note",
+          "label": "Application：状态与用例",
+          "refs": [
+            "D02"
+          ]
+        },
+        {
+          "id": "p03-controller",
+          "kind": "node",
+          "label": "<div style=\"font-size:22px;font-weight:bold;line-height:1.25\">AppController</div><div style=\"font-size:18px;line-height:1.5;margin-top:10px\">忙碌／错误／投影；不持有 VMK</div>",
+          "refs": [
+            "C01",
+            "D02"
+          ]
+        },
+        {
+          "id": "p03-vaultUse",
+          "kind": "node",
+          "label": "<div style=\"font-size:22px;font-weight:bold;line-height:1.25\">VaultSession + Security／Backup</div><div style=\"font-size:18px;line-height:1.5;margin-top:10px\">会话、凭证重设、换钥、恢复</div>",
+          "refs": [
+            "C03",
+            "C05",
+            "C06"
+          ]
+        },
+        {
+          "id": "p03-identityUse",
+          "kind": "node",
+          "label": "<div style=\"font-size:22px;font-weight:bold;line-height:1.25\">LocalHandoff／Recipient</div><div style=\"font-size:18px;line-height:1.5;margin-top:10px\">独立身份、授权快照和接收</div>",
+          "refs": [
+            "C10",
+            "C12"
+          ]
+        },
+        {
+          "id": "p03-aiUse",
+          "kind": "node",
+          "label": "<div style=\"font-size:22px;font-weight:bold;line-height:1.25\">DraftAgent／Speech</div><div style=\"font-size:18px;line-height:1.5;margin-top:10px\">授权工具循环、本地转写</div>",
+          "refs": [
+            "C17",
+            "C21"
+          ]
+        },
+        {
+          "id": "p03-coreLabel",
+          "kind": "note",
+          "label": "Core：纯领域／隐私／安全逻辑 + 内部端口",
+          "refs": [
+            "D02"
+          ]
+        },
+        {
+          "id": "p03-domain",
+          "kind": "node",
+          "label": "<div style=\"font-size:22px;font-weight:bold;line-height:1.25\">Domain／AI Privacy／Security</div><div style=\"font-size:18px;line-height:1.5;margin-top:10px\">InformationCard、LifeState、ReleasePolicy<br/>来源／修订；Token 遮蔽／校验／回填<br/>Header v3、身份、HPKE 密码学</div>",
+          "refs": [
+            "C18",
+            "C28",
+            "C30",
+            "C14",
+            "C15"
+          ]
+        },
+        {
+          "id": "p03-ports",
+          "kind": "node",
+          "label": "<div style=\"font-size:22px;font-weight:bold;line-height:1.25\">core/ports 内部替换端口</div><div style=\"font-size:18px;line-height:1.5;margin-top:10px\">VaultRepository · VaultBlobStore<br/>AiProvider · OcrProvider · SpeechProvider<br/>AgentCommandProvider · DeviceFactorProtection</div><div style=\"font-size:14px;color:#667788;margin-top:8px\">[内部未冻结]</div>",
+          "refs": [
+            "C01",
+            "D02"
+          ]
+        },
+        {
+          "id": "p03-infrastructureLabel",
+          "kind": "note",
+          "label": "Infrastructure：当前实现",
+          "refs": [
+            "D02"
+          ]
+        },
+        {
+          "id": "p03-impl",
+          "kind": "node",
+          "label": "<div style=\"font-size:22px;font-weight:bold;line-height:1.25\">具体适配器</div><div style=\"font-size:18px;line-height:1.5;margin-top:10px\">SqliteVaultRepository／EncryptedBlobStore<br/>ConfiguredAiProvider／ML Kit OCR<br/>LocalSenseVoiceProvider／Linux Bash<br/>AndroidDeviceFactorProtection</div>",
+          "refs": [
+            "C01",
+            "C20",
+            "C21",
+            "C31"
+          ]
+        },
+        {
+          "id": "p03-transactions",
+          "kind": "node",
+          "label": "<div style=\"font-size:22px;font-weight:bold;line-height:1.25\">归档与文件事务</div><div style=\"font-size:18px;line-height:1.5;margin-top:10px\">LifeVaultArchive／VaultRestoreTransaction<br/>系统安全配置、CSV、平台路径</div>",
+          "refs": [
+            "C06",
+            "C08",
+            "C27"
+          ]
+        },
+        {
+          "id": "p03-root",
+          "kind": "node",
+          "label": "<div style=\"font-size:22px;font-weight:bold;line-height:1.25\">main.dart → app_composition.createAppController</div><div style=\"font-size:18px;line-height:1.5;margin-top:10px\">集中创建默认实现、解析目录、准备环境；具名注入控制器与用例服务</div><div style=\"font-size:14px;color:#667788;margin-top:8px\">[组合根]</div>",
+          "refs": [
+            "C01",
+            "C33"
+          ]
+        },
+        {
+          "id": "p03-presDep",
+          "kind": "edge:dependency",
+          "label": "依赖",
+          "source": "p03-pages",
+          "target": "p03-controller",
+          "refs": [
+            "D02"
+          ]
+        },
+        {
+          "id": "p03-appDepDomain",
+          "kind": "edge:dependency",
+          "label": "依赖 Core",
+          "source": "p03-controller",
+          "target": "p03-domain",
+          "refs": [
+            "D02"
+          ]
+        },
+        {
+          "id": "p03-appDepPorts",
+          "kind": "edge:dependency",
+          "label": "调用端口",
+          "source": "p03-vaultUse",
+          "target": "p03-ports",
+          "refs": [
+            "C01",
+            "C03"
+          ]
+        },
+        {
+          "id": "p03-infraDep",
+          "kind": "edge:dependency",
+          "label": "实现端口",
+          "source": "p03-impl",
+          "target": "p03-ports",
+          "refs": [
+            "C01",
+            "D02"
+          ]
+        },
+        {
+          "id": "p03-injectApp",
+          "kind": "edge:inject",
+          "label": "注入服务",
+          "source": "p03-root",
+          "target": "p03-controller",
+          "refs": [
+            "C01"
+          ]
+        },
+        {
+          "id": "p03-buildInfra",
+          "kind": "edge:inject",
+          "label": "创建／装配",
+          "source": "p03-root",
+          "target": "p03-impl",
+          "refs": [
+            "C01"
+          ]
+        },
+        {
+          "id": "p03-exception",
+          "kind": "note",
+          "label": "渐进分层事实：部分 Application 仍引用具体归档／错误与配置类型；并未宣称所有基础设施依赖已完全反转。",
+          "refs": [
+            "D02",
+            "C05",
+            "C06"
+          ]
+        }
+      ]
+    },
+    {
+      "number": 4,
+      "title": "部署结构与平台能力",
+      "slug": "deployment",
+      "cells": [
+        {
+          "id": "p04-androidLabel",
+          "kind": "note",
+          "label": "Android 设备  |  API 24+ · target 36",
+          "refs": [
+            "D03"
+          ]
+        },
+        {
+          "id": "p04-apk",
+          "kind": "node",
+          "label": "<div style=\"font-size:22px;font-weight:bold;line-height:1.25\">Flutter APK／Dart 运行时</div><div style=\"font-size:18px;line-height:1.5;margin-top:10px\">MVP0.4 · 内部 1.0.0+3<br/>小米13／Android13 代表链路已验证</div><div style=\"font-size:14px;color:#667788;margin-top:8px\">[现场]</div>",
+          "refs": [
+            "D03",
+            "D06"
+          ]
+        },
+        {
+          "id": "p04-androidNative",
+          "kind": "node",
+          "label": "<div style=\"font-size:22px;font-weight:bold;line-height:1.25\">插件／FFI／MethodChannel</div><div style=\"font-size:18px;line-height:1.5;margin-top:10px\">SQLCipher · sherpa_onnx<br/>ML Kit 中文 OCR · 采集／播放插件<br/>Kotlin CryptoObject + 强生物识别</div><div style=\"font-size:14px;color:#667788;margin-top:8px\">[实现／部分现场]</div>",
+          "refs": [
+            "D03",
+            "C24",
+            "C21",
+            "C32"
+          ]
+        },
+        {
+          "id": "p04-keystore",
+          "kind": "node",
+          "label": "<div style=\"font-size:22px;font-weight:bold;line-height:1.25\">Android Keystore</div><div style=\"font-size:18px;line-height:1.5;margin-top:10px\">保护设备因素份额<br/>每次授权后 AAD／doFinal<br/>平台结果复制为可写32字节</div><div style=\"font-size:14px;color:#667788;margin-top:8px\">[小米13现场]</div>",
+          "refs": [
+            "C31",
+            "C32",
+            "D04"
+          ]
+        },
+        {
+          "id": "p04-androidRuntime",
+          "kind": "edge:flow",
+          "label": "插件／FFI",
+          "source": "p04-apk",
+          "target": "p04-androidNative",
+          "refs": [
+            "D03"
+          ]
+        },
+        {
+          "id": "p04-factor",
+          "kind": "edge:flow",
+          "label": "份额",
+          "source": "p04-androidNative",
+          "target": "p04-keystore",
+          "refs": [
+            "C31",
+            "C32"
+          ]
+        },
+        {
+          "id": "p04-linuxLabel",
+          "kind": "note",
+          "label": "Linux 桌面  |  x86_64 · Ubuntu22.04 构建基线",
+          "refs": [
+            "D03",
+            "D06"
+          ]
+        },
+        {
+          "id": "p04-bundle",
+          "kind": "node",
+          "label": "<div style=\"font-size:22px;font-weight:bold;line-height:1.25\">Flutter runner + bundle</div><div style=\"font-size:18px;line-height:1.5;margin-top:10px\">SQLCipher／sherpa_onnx 动态库随包<br/>Ubuntu22.04 启动与 EndeavourOS 现场试用</div><div style=\"font-size:14px;color:#667788;margin-top:8px\">[现场]</div>",
+          "refs": [
+            "D03",
+            "D06"
+          ]
+        },
+        {
+          "id": "p04-linuxNative",
+          "kind": "node",
+          "label": "<div style=\"font-size:22px;font-weight:bold;line-height:1.25\">桌面插件与系统服务</div><div style=\"font-size:18px;line-height:1.5;margin-top:10px\">GTK／音频／文件／播放<br/>本地短录音／WAV → 草稿／来源重开<br/>Secret Service：AI 配置安全存储</div><div style=\"font-size:14px;color:#667788;margin-top:8px\">[现场／限定环境]</div>",
+          "refs": [
+            "C21",
+            "C27",
+            "D06"
+          ]
+        },
+        {
+          "id": "p04-bash",
+          "kind": "node",
+          "label": "<div style=\"font-size:22px;font-weight:bold;line-height:1.25\">可选隔离命令</div><div style=\"font-size:18px;line-height:1.5;margin-top:10px\">bwrap + Bash + prlimit<br/>user/network namespace<br/>只读 /input；限时／限资源</div><div style=\"font-size:14px;color:#667788;margin-top:8px\">[实现／Linux]</div>",
+          "refs": [
+            "C20"
+          ]
+        },
+        {
+          "id": "p04-linuxRuntime",
+          "kind": "edge:flow",
+          "label": "本地库／插件",
+          "source": "p04-bundle",
+          "target": "p04-linuxNative",
+          "refs": [
+            "D03"
+          ]
+        },
+        {
+          "id": "p04-sandbox",
+          "kind": "edge:auth",
+          "label": "单次启用工具",
+          "source": "p04-bundle",
+          "target": "p04-bash",
+          "refs": [
+            "C20",
+            "C16"
+          ]
+        },
+        {
+          "id": "p04-pending",
+          "kind": "node",
+          "label": "<div style=\"font-size:22px;font-weight:bold;line-height:1.25\">[待验] Windows 与发行安全</div><div style=\"font-size:18px;line-height:1.5;margin-top:10px\">Windows runner 已准备，尚未构建／运行验收。正式签名、安全外部复核、更多指纹组合／机型／声卡／日常密钥环仍待完成。</div>",
+          "refs": [
+            "D03",
+            "D06"
+          ]
+        },
+        {
+          "id": "p04-demo",
+          "kind": "node",
+          "label": "<div style=\"font-size:22px;font-weight:bold;line-height:1.25\">隔离调试与未来平台</div><div style=\"font-size:18px;line-height:1.5;margin-top:10px\">main_debug_demo：独立临时目录、虚构资料、注入控制；正常入口不复用演示资料。macOS 尚无工程；云端不在当前部署中。</div>",
+          "refs": [
+            "C34",
+            "D03"
+          ]
+        }
+      ]
+    },
+    {
+      "number": 5,
+      "title": "数据、来源、VMK 所有权与信任边界",
+      "slug": "data-security",
+      "cells": [
+        {
+          "id": "p05-credentialLabel",
+          "kind": "note",
+          "label": "本人保管／平台凭证域",
+          "refs": [
+            "D04"
+          ]
+        },
+        {
+          "id": "p05-daily",
+          "kind": "node",
+          "label": "<div style=\"font-size:22px;font-weight:bold;line-height:1.25\">日常因素 → Header v3 分支</div><div style=\"font-size:18px;line-height:1.5;margin-top:10px\">密码：Argon2id 64MiB／3／1<br/>可选随机文件：精确32字节<br/>可选设备：Keystore 保护份额</div><div style=\"font-size:14px;color:#667788;margin-top:8px\">[实现／组合待扩验]</div>",
+          "refs": [
+            "C30",
+            "D04"
+          ]
+        },
+        {
+          "id": "p05-branches",
+          "kind": "node",
+          "label": "<div style=\"font-size:22px;font-weight:bold;line-height:1.25\">any / all 的密码学强制</div><div style=\"font-size:18px;line-height:1.5;margin-top:10px\">any：各因素独立单因素分支<br/>all：n-of-n 份额 XOR 组合分支 B<br/>HKDF 分支钥 → 解封 VMK</div><div style=\"font-size:14px;color:#667788;margin-top:8px\">[内部格式]</div>",
+          "refs": [
+            "C30",
+            "D04"
+          ]
+        },
+        {
+          "id": "p05-recovery",
+          "kind": "node",
+          "label": "<div style=\"font-size:22px;font-weight:bold;line-height:1.25\">离线独立恢复 R / LRR1</div><div style=\"font-size:18px;line-height:1.5;margin-top:10px\">随机 R；独立恢复分支<br/>不保存到 Header／偏好／日志<br/>绕过日常因素，只进入受限重设</div><div style=\"font-size:14px;color:#667788;margin-top:8px\">[现场／受限]</div>",
+          "refs": [
+            "D04",
+            "C04"
+          ]
+        },
+        {
+          "id": "p05-factors",
+          "kind": "edge:auth",
+          "label": "解封份额",
+          "source": "p05-daily",
+          "target": "p05-branches",
+          "refs": [
+            "C30"
+          ]
+        },
+        {
+          "id": "p05-ownerLabel",
+          "kind": "note",
+          "label": "Owner 解锁会话与加密存储域",
+          "refs": [
+            "C03",
+            "C24",
+            "C25"
+          ]
+        },
+        {
+          "id": "p05-vmk",
+          "kind": "node",
+          "label": "<div style=\"font-size:22px;font-weight:bold;line-height:1.25\">VaultSession 持有 VMK</div><div style=\"font-size:18px;line-height:1.5;margin-top:10px\">随机32字节；受控临时副本供安全／备份<br/>AppController／UI／网络 AI 不持有 VMK<br/>锁定时关闭仓储并清除会话密钥</div><div style=\"font-size:14px;color:#667788;margin-top:8px\">[实现]</div>",
+          "refs": [
+            "C03",
+            "C05",
+            "C06",
+            "D02"
+          ]
+        },
+        {
+          "id": "p05-db",
+          "kind": "node",
+          "label": "<div style=\"font-size:22px;font-weight:bold;line-height:1.25\">SQLCipher schema v5</div><div style=\"font-size:18px;line-height:1.5;margin-top:10px\">LifeCard／Credential 与各自 Revision<br/>Sources、EncryptedBlobs 元数据、关系<br/>ReleasePolicy／LifeState／Audit<br/>vault_local_state：身份私钥、绑定、缺失状态</div><div style=\"font-size:14px;color:#667788;margin-top:8px\">[实现]</div>",
+          "refs": [
+            "C23",
+            "C24",
+            "C10",
+            "C07"
+          ]
+        },
+        {
+          "id": "p05-blob",
+          "kind": "node",
+          "label": "<div style=\"font-size:22px;font-weight:bold;line-height:1.25\">AES-256-GCM 原件 Blob</div><div style=\"font-size:18px;line-height:1.5;margin-top:10px\">随机 ID 文件名；AAD 绑定 Blob ID<br/>原始名／哈希／OCR／标注在加密数据库<br/>修订 → Source → blobId；按来源回看</div><div style=\"font-size:14px;color:#667788;margin-top:8px\">[实现]</div>",
+          "refs": [
+            "C25",
+            "C23",
+            "C36"
+          ]
+        },
+        {
+          "id": "p05-dailyUnlock",
+          "kind": "edge:flow",
+          "label": "认证 Header MAC／解封",
+          "source": "p05-branches",
+          "target": "p05-vmk",
+          "refs": [
+            "C30"
+          ]
+        },
+        {
+          "id": "p05-recoveryUnlock",
+          "kind": "edge:auth",
+          "label": "受限会话",
+          "source": "p05-recovery",
+          "target": "p05-vmk",
+          "refs": [
+            "C04"
+          ]
+        },
+        {
+          "id": "p05-dbKey",
+          "kind": "edge:flow",
+          "label": "VMK 打开数据库",
+          "source": "p05-vmk",
+          "target": "p05-db",
+          "refs": [
+            "C24"
+          ]
+        },
+        {
+          "id": "p05-blobKey",
+          "kind": "edge:flow",
+          "label": "VMK 加解密原件",
+          "source": "p05-vmk",
+          "target": "p05-blob",
+          "refs": [
+            "C25"
+          ]
+        },
+        {
+          "id": "p05-sourceRef",
+          "kind": "edge:flow",
+          "label": "逻辑引用／来源链",
+          "source": "p05-db",
+          "target": "p05-blob",
+          "refs": [
+            "C23",
+            "C36"
+          ]
+        },
+        {
+          "id": "p05-header",
+          "kind": "node",
+          "label": "<div style=\"font-size:22px;font-weight:bold;line-height:1.25\">磁盘公开 Header v3</div><div style=\"font-size:18px;line-height:1.5;margin-top:10px\">元数据 + 被封装因素／VMK槽<br/>Descriptor／AAD／Header HMAC<br/>保留 v1／v2 reader；主动升级旧库</div><div style=\"font-size:14px;color:#667788;margin-top:8px\">[实现]</div>",
+          "refs": [
+            "D04",
+            "C30"
+          ]
+        },
+        {
+          "id": "p05-recipientKeys",
+          "kind": "node",
+          "label": "<div style=\"font-size:22px;font-weight:bold;line-height:1.25\">Recipient 自有钥域</div><div style=\"font-size:18px;line-height:1.5;margin-top:10px\">自有密码保护 .lridentity<br/>X25519／Ed25519 私钥与信任状态<br/>从不取得 Owner VMK</div><div style=\"font-size:14px;color:#667788;margin-top:8px\">[实现]</div>",
+          "refs": [
+            "C13",
+            "C14",
+            "D05"
+          ]
+        },
+        {
+          "id": "p05-aiBoundary",
+          "kind": "node",
+          "label": "<div style=\"font-size:22px;font-weight:bold;line-height:1.25\">AI 外部信任域</div><div style=\"font-size:18px;line-height:1.5;margin-top:10px\">只见预览获准文本／敏感行Token<br/>Token Map 留本机；API Key 单独<br/>不访问库、原件、主密钥或私钥</div><div style=\"font-size:14px;color:#667788;margin-top:8px\">[实现]</div>",
+          "refs": [
+            "C17",
+            "C18",
+            "C27",
+            "D08"
+          ]
+        }
+      ]
+    },
+    {
+      "number": 6,
+      "title": "采集、本地语音与来源保留",
+      "slug": "capture-speech",
+      "cells": [
+        {
+          "id": "p06-localLabel",
+          "kind": "note",
+          "label": "全部识别与来源保存步骤位于设备内",
+          "refs": [
+            "C21",
+            "C22",
+            "C26"
+          ]
+        },
+        {
+          "id": "p06-capture",
+          "kind": "node",
+          "label": "<div style=\"font-size:22px;font-weight:bold;line-height:1.25\">本人主动采集／导入</div><div style=\"font-size:18px;line-height:1.5;margin-top:10px\">照片／文件／录音／录像<br/>平台能力与权限明确显示</div><div style=\"font-size:14px;color:#667788;margin-top:8px\">[实现／按平台]</div>",
+          "refs": [
+            "D03",
+            "C26"
+          ]
+        },
+        {
+          "id": "p06-store",
+          "kind": "node",
+          "label": "<div style=\"font-size:22px;font-weight:bold;line-height:1.25\">加密保存原件</div><div style=\"font-size:18px;line-height:1.5;margin-top:10px\">VaultSession → VaultBlobStore<br/>Blob + 元数据；来源可回看</div><div style=\"font-size:14px;color:#667788;margin-top:8px\">[实现／现场]</div>",
+          "refs": [
+            "C25",
+            "C26"
+          ]
+        },
+        {
+          "id": "p06-vault",
+          "kind": "node",
+          "label": "<div style=\"font-size:22px;font-weight:bold;line-height:1.25\">草稿／来源持久化</div><div style=\"font-size:18px;line-height:1.5;margin-top:10px\">LifeCard 草稿 + Revision + Source<br/>引用原件 blobId；锁定／重开后回看</div><div style=\"font-size:14px;color:#667788;margin-top:8px\">[现场]</div>",
+          "refs": [
+            "C22",
+            "C23",
+            "C36"
+          ]
+        },
+        {
+          "id": "p06-ocr",
+          "kind": "node",
+          "label": "<div style=\"font-size:22px;font-weight:bold;line-height:1.25\">端侧中文 OCR</div><div style=\"font-size:18px;line-height:1.5;margin-top:10px\">Google ML Kit／OcrProvider<br/>行文本 + 坐标；人工敏感标注</div><div style=\"font-size:14px;color:#667788;margin-top:8px\">[实现／Android]</div>",
+          "refs": [
+            "C26",
+            "D03"
+          ]
+        },
+        {
+          "id": "p06-speech",
+          "kind": "node",
+          "label": "<div style=\"font-size:22px;font-weight:bold;line-height:1.25\">本地语音转写</div><div style=\"font-size:18px;line-height:1.5;margin-top:10px\">SpeechService → LocalSenseVoiceProvider<br/>PCM WAV 校验 → Isolate.run<br/>SenseVoice INT8／sherpa_onnx FFI／CPU</div><div style=\"font-size:14px;color:#667788;margin-top:8px\">[Android／Linux现场]</div>",
+          "refs": [
+            "C21"
+          ]
+        },
+        {
+          "id": "p06-review",
+          "kind": "node",
+          "label": "<div style=\"font-size:22px;font-weight:bold;line-height:1.25\">本人校对派生内容</div><div style=\"font-size:18px;line-height:1.5;margin-top:10px\">转写／OCR 草稿、来源关系<br/>可继续手工整理或另行授权 AI<br/>不因采集或识别自动上传原件</div><div style=\"font-size:14px;color:#667788;margin-top:8px\">[实现]</div>",
+          "refs": [
+            "C22",
+            "C16",
+            "C26"
+          ]
+        },
+        {
+          "id": "p06-encrypt",
+          "kind": "edge:flow",
+          "label": "字节／媒体类型",
+          "source": "p06-capture",
+          "target": "p06-store",
+          "refs": [
+            "C25",
+            "C26"
+          ]
+        },
+        {
+          "id": "p06-decodeOCR",
+          "kind": "edge:flow",
+          "label": "授权读取原件",
+          "source": "p06-store",
+          "target": "p06-ocr",
+          "refs": [
+            "C26"
+          ]
+        },
+        {
+          "id": "p06-decodeWav",
+          "kind": "edge:flow",
+          "label": "WAV 字节",
+          "source": "p06-store",
+          "target": "p06-speech",
+          "refs": [
+            "C21"
+          ]
+        },
+        {
+          "id": "p06-textReview",
+          "kind": "edge:flow",
+          "label": "本地识别文本",
+          "source": "p06-speech",
+          "target": "p06-review",
+          "refs": [
+            "C21",
+            "C22"
+          ]
+        },
+        {
+          "id": "p06-ocrReview",
+          "kind": "edge:flow",
+          "label": "OCR 派生文本",
+          "source": "p06-ocr",
+          "target": "p06-review",
+          "refs": [
+            "C26"
+          ]
+        },
+        {
+          "id": "p06-saveReview",
+          "kind": "edge:auth",
+          "label": "确认后保存关联草稿",
+          "source": "p06-review",
+          "target": "p06-vault",
+          "refs": [
+            "C22",
+            "C26"
+          ]
+        },
+        {
+          "id": "p06-model",
+          "kind": "node",
+          "label": "<div style=\"font-size:22px;font-weight:bold;line-height:1.25\">模型安装边界</div><div style=\"font-size:18px;line-height:1.5;margin-top:10px\">模型下载／离线导入／校验安装与删除独立于录音识别；下载模型产生网络流量，但转写不向网络发送音频。未安装模型显示真实状态。</div>",
+          "refs": [
+            "C21"
+          ]
+        },
+        {
+          "id": "p06-limits",
+          "kind": "note",
+          "label": "资源边界：单 Blob 当前上限 256MiB，内存加解密；代表性手机语音约837MiB峰值，不作为低资源设备保证。",
+          "refs": [
+            "C25",
+            "D06"
+          ]
+        }
+      ]
+    },
+    {
+      "number": 7,
+      "title": "Agent 隐私、单次授权与结果确认",
+      "slug": "agent-privacy",
+      "cells": [
+        {
+          "id": "p07-owner",
+          "kind": "node",
+          "label": "<div style=\"font-size:22px;font-weight:bold;line-height:1.25\">本人／Agent 页面</div>",
+          "refs": [
+            "C16"
+          ]
+        },
+        {
+          "id": "p07-app",
+          "kind": "node",
+          "label": "<div style=\"font-size:22px;font-weight:bold;line-height:1.25\">Controller／DraftAgent</div>",
+          "refs": [
+            "C17"
+          ]
+        },
+        {
+          "id": "p07-privacy",
+          "kind": "node",
+          "label": "<div style=\"font-size:22px;font-weight:bold;line-height:1.25\">本机 Privacy／工具</div>",
+          "refs": [
+            "C18",
+            "C20"
+          ]
+        },
+        {
+          "id": "p07-provider",
+          "kind": "node",
+          "label": "<div style=\"font-size:22px;font-weight:bold;line-height:1.25\">网络 AI Provider</div>",
+          "refs": [
+            "C35"
+          ]
+        },
+        {
+          "id": "p07-input",
+          "kind": "message",
+          "label": "1  输入文字与敏感行标注",
+          "refs": [
+            "C16",
+            "C17"
+          ]
+        },
+        {
+          "id": "p07-token",
+          "kind": "message",
+          "label": "2  Tokenize；Token Map 留本机",
+          "refs": [
+            "C18"
+          ]
+        },
+        {
+          "id": "p07-preview",
+          "kind": "message",
+          "label": "3  显示精确外发预览与可选命令范围",
+          "refs": [
+            "C16"
+          ]
+        },
+        {
+          "id": "p07-approve",
+          "kind": "message",
+          "label": "4  仅允许本次；拒绝即停止",
+          "refs": [
+            "C16"
+          ]
+        },
+        {
+          "id": "p07-request",
+          "kind": "message",
+          "label": "5  HTTPS：获准文本／模型／协议；敏感行仅发 Token",
+          "refs": [
+            "C17",
+            "C35"
+          ]
+        },
+        {
+          "id": "p07-toolCall",
+          "kind": "message",
+          "label": "6a  可选工具请求：已启用的受限命令",
+          "refs": [
+            "C20",
+            "C35"
+          ]
+        },
+        {
+          "id": "p07-toolResult",
+          "kind": "message",
+          "label": "6b  无网络 Bash；只读遮蔽输入；返回有限结果",
+          "refs": [
+            "C20",
+            "C35"
+          ]
+        },
+        {
+          "id": "p07-response",
+          "kind": "message",
+          "label": "7  cards JSON → Schema／Token 校验 → 本机回填",
+          "refs": [
+            "C18",
+            "C35"
+          ]
+        },
+        {
+          "id": "p07-draft",
+          "kind": "message",
+          "label": "8  显示建议；本人确认后保存 LifeCard 草稿与来源",
+          "refs": [
+            "C19",
+            "C16"
+          ]
+        },
+        {
+          "id": "p07-guard",
+          "kind": "node",
+          "label": "<div style=\"font-size:22px;font-weight:bold;line-height:1.25\">取消／锁定与安全配置</div><div style=\"font-size:18px;line-height:1.5;margin-top:10px\">锁定取消任务并丢弃结果；命令会话 finally 关闭。API Key 来自系统安全存储；Provider 没有仓储、原件或 VMK 入口。</div>",
+          "refs": [
+            "C17",
+            "C27",
+            "C19"
+          ]
+        },
+        {
+          "id": "p07-gap",
+          "kind": "node",
+          "label": "<div style=\"font-size:22px;font-weight:bold;line-height:1.25\">已知后置缺口：Credential 录入／转换</div><div style=\"font-size:18px;line-height:1.5;margin-top:10px\">Agent 仅保存 LifeCard；正文中的回填密码不是 Secret 字段，会进入通用预览／搜索。尚未贯通密码类型候选与转换。</div>",
+          "refs": [
+            "D08",
+            "C19"
+          ]
+        }
+      ]
+    },
+    {
+      "number": 8,
+      "title": "独立身份、指纹核对与双钥挑战",
+      "slug": "identity-binding",
+      "cells": [
+        {
+          "id": "p08-owner",
+          "kind": "node",
+          "label": "<div style=\"font-size:22px;font-weight:bold;line-height:1.25\">Owner 身份／加密状态</div>",
+          "refs": [
+            "C10",
+            "C14"
+          ]
+        },
+        {
+          "id": "p08-channel",
+          "kind": "node",
+          "label": "<div style=\"font-size:22px;font-weight:bold;line-height:1.25\">本人手动文件／独立渠道</div>",
+          "refs": [
+            "D05"
+          ]
+        },
+        {
+          "id": "p08-recipient",
+          "kind": "node",
+          "label": "<div style=\"font-size:22px;font-weight:bold;line-height:1.25\">Recipient 自有身份</div>",
+          "refs": [
+            "C13",
+            "C14"
+          ]
+        },
+        {
+          "id": "p08-public",
+          "kind": "message",
+          "label": "1  .lrpublic：名称 + X25519／Ed25519 公钥",
+          "refs": [
+            "C14",
+            "D05"
+          ]
+        },
+        {
+          "id": "p08-verifyFp",
+          "kind": "message",
+          "label": "2  独立渠道核对并回输完整64位指纹",
+          "refs": [
+            "C10",
+            "D05"
+          ]
+        },
+        {
+          "id": "p08-challenge",
+          "kind": "message",
+          "label": "3  .lrchallenge：随机32字节，HPKE加密 + Owner签名",
+          "refs": [
+            "C10",
+            "C15"
+          ]
+        },
+        {
+          "id": "p08-verifyOwner",
+          "kind": "message",
+          "label": "4  核对Owner指纹；验签并用自有X25519私钥解密",
+          "refs": [
+            "C13",
+            "D05"
+          ]
+        },
+        {
+          "id": "p08-proof",
+          "kind": "message",
+          "label": "5  .lrproof：挑战ID／双方指纹／随机值 + Recipient签名",
+          "refs": [
+            "C13",
+            "D05"
+          ]
+        },
+        {
+          "id": "p08-verifyProof",
+          "kind": "message",
+          "label": "6  Owner验签、匹配唯一挑战与7天期限；持久绑定并消费挑战",
+          "refs": [
+            "C10",
+            "D05"
+          ]
+        },
+        {
+          "id": "p08-ownerKey",
+          "kind": "node",
+          "label": "<div style=\"font-size:22px;font-weight:bold;line-height:1.25\">Owner 私钥与持久状态</div><div style=\"font-size:18px;line-height:1.5;margin-top:10px\">身份双钥／profile／recipient绑定／sequence 在 schema v5 加密 local_state 内。改显示名称或换日常密码不改变身份指纹。</div>",
+          "refs": [
+            "C10",
+            "C14",
+            "D05"
+          ]
+        },
+        {
+          "id": "p08-recipientKey",
+          "kind": "node",
+          "label": "<div style=\"font-size:22px;font-weight:bold;line-height:1.25\">Recipient 身份可独立备份</div><div style=\"font-size:18px;line-height:1.5;margin-top:10px\">自有密码经 Argon2id 保护 .lridentity；RecoverableFile 写入。加密身份备份可以在另一独立目录恢复；不含 Owner VMK。</div>",
+          "refs": [
+            "C13",
+            "D05"
+          ]
+        },
+        {
+          "id": "p08-identityLimits",
+          "kind": "node",
+          "label": "<div style=\"font-size:22px;font-weight:bold;line-height:1.25\">本机信任边界与回退限制</div><div style=\"font-size:18px;line-height:1.5;margin-top:10px\">切换接收入口先锁 Owner。无私钥及备份不能按名称找回；本机 sequence 不具硬件单调性，不宣称抗设备回滚。</div>",
+          "refs": [
+            "C29",
+            "D05"
+          ]
+        }
+      ]
+    },
+    {
+      "number": 9,
+      "title": "限定范围交接与独立接收查看",
+      "slug": "scoped-delivery",
+      "cells": [
+        {
+          "id": "p09-ownerLabel",
+          "kind": "note",
+          "label": "Owner 已解锁域：每次手动授权",
+          "refs": [
+            "C11",
+            "D05"
+          ]
+        },
+        {
+          "id": "p09-selection",
+          "kind": "node",
+          "label": "<div style=\"font-size:22px;font-weight:bold;line-height:1.25\">选择接收者与本次范围</div><div style=\"font-size:18px;line-height:1.5;margin-top:10px\">已绑定指纹；记录ID／可见级别<br/>历史另行选择；原件逐个勾选</div><div style=\"font-size:14px;color:#667788;margin-top:8px\">[现场]</div>",
+          "refs": [
+            "C11",
+            "D05"
+          ]
+        },
+        {
+          "id": "p09-snapshot",
+          "kind": "node",
+          "label": "<div style=\"font-size:22px;font-weight:bold;line-height:1.25\">ReleasePreview → 范围快照</div><div style=\"font-size:18px;line-height:1.5;margin-top:10px\">卡片摘要前80个UTF-16单元；完整正文按级别<br/>密码仅“含密码”交付Secret；历史要求相应级别<br/>核验原件归属；不展开关联卡片／回收区／来源链</div><div style=\"font-size:14px;color:#667788;margin-top:8px\">[实现]</div>",
+          "refs": [
+            "C11",
+            "D05"
+          ]
+        },
+        {
+          "id": "p09-package",
+          "kind": "node",
+          "label": "<div style=\"font-size:22px;font-weight:bold;line-height:1.25\">Ed25519 签名 + HPKE Base 封装</div><div style=\"font-size:18px;line-height:1.5;margin-top:10px\">X25519／HKDF-SHA256／AES-256-GCM<br/>.lrshare · 新ephemeral会话<br/>packageId + sequence + scopeDigest；不含 Owner VMK</div>",
+          "refs": [
+            "C11",
+            "C15",
+            "D05"
+          ]
+        },
+        {
+          "id": "p09-recipientLabel",
+          "kind": "note",
+          "label": "Recipient 自有身份／密码域",
+          "refs": [
+            "C12",
+            "C13"
+          ]
+        },
+        {
+          "id": "p09-verify",
+          "kind": "node",
+          "label": "<div style=\"font-size:22px;font-weight:bold;line-height:1.25\">接收验证后才展示</div><div style=\"font-size:18px;line-height:1.5;margin-top:10px\">严格envelope／签名／双方指纹<br/>packageId去重、sequence高水位<br/>HPKE解密、摘要、记录／历史／原件范围</div><div style=\"font-size:14px;color:#667788;margin-top:8px\">[现场]</div>",
+          "refs": [
+            "C12",
+            "D05"
+          ]
+        },
+        {
+          "id": "p09-persist",
+          "kind": "node",
+          "label": "<div style=\"font-size:22px;font-weight:bold;line-height:1.25\">提交加密接收状态</div><div style=\"font-size:18px;line-height:1.5;margin-top:10px\">保存 .lrshare 密文<br/>Owner公钥／最高sequence／包SHA256<br/>先成功保存身份状态，再显示快照</div>",
+          "refs": [
+            "C12"
+          ]
+        },
+        {
+          "id": "p09-readonly",
+          "kind": "node",
+          "label": "<div style=\"font-size:22px;font-weight:bold;line-height:1.25\">独立只读查看／再打开</div><div style=\"font-size:18px;line-height:1.5;margin-top:10px\">自有密码解锁；再打开核对已记录包SHA256<br/>当前密码／修订密码默认遮挡；原件显式另存<br/>不打开、不克隆 Owner 数据库</div><div style=\"font-size:14px;color:#667788;margin-top:8px\">[现场]</div>",
+          "refs": [
+            "C12",
+            "C13",
+            "D05"
+          ]
+        },
+        {
+          "id": "p09-selectScope",
+          "kind": "edge:auth",
+          "label": "本人核对",
+          "source": "p09-selection",
+          "target": "p09-snapshot",
+          "refs": [
+            "C11"
+          ]
+        },
+        {
+          "id": "p09-seal",
+          "kind": "edge:flow",
+          "label": "实际选定快照",
+          "source": "p09-snapshot",
+          "target": "p09-package",
+          "refs": [
+            "C11"
+          ]
+        },
+        {
+          "id": "p09-fileTransfer",
+          "kind": "edge:flow",
+          "label": "手动传递",
+          "source": "p09-package",
+          "target": "p09-verify",
+          "refs": [
+            "D05",
+            "C11",
+            "C12"
+          ]
+        },
+        {
+          "id": "p09-receipt",
+          "kind": "edge:flow",
+          "label": "拒绝错误／旧包／重复；通过才提交",
+          "source": "p09-verify",
+          "target": "p09-persist",
+          "refs": [
+            "C12"
+          ]
+        },
+        {
+          "id": "p09-view",
+          "kind": "edge:flow",
+          "label": "提交成功",
+          "source": "p09-persist",
+          "target": "p09-readonly",
+          "refs": [
+            "C12"
+          ]
+        },
+        {
+          "id": "p09-limit",
+          "kind": "node",
+          "label": "<div style=\"font-size:22px;font-weight:bold;line-height:1.25\">工程限额与真实授权边界</div><div style=\"font-size:18px;line-height:1.5;margin-top:10px\">最多200条；原件合计64MiB；快照128MiB／wire180MiB。当前 scopeEpoch 固定1；没有自动撤权、远程到达证明或可信离线时间锁。</div>",
+          "refs": [
+            "D05",
+            "C11",
+            "C12"
+          ]
+        },
+        {
+          "id": "p09-simulation",
+          "kind": "node",
+          "label": "<div style=\"font-size:22px;font-weight:bold;line-height:1.25\">生命状态模拟独立于真实交付</div><div style=\"font-size:18px;line-height:1.5;margin-top:10px\">Active ↔ Incapacitated；两者可到Deceased<br/>Deceased无恢复转换（调试重置另行处理）<br/>模拟／Executor View不调用真实导出服务。</div>",
+          "refs": [
+            "C28",
+            "D05"
+          ]
+        }
+      ]
+    },
+    {
+      "number": 10,
+      "title": "完整／分层备份与原件补充恢复",
+      "slug": "backup-restore",
+      "cells": [
+        {
+          "id": "p10-export",
+          "kind": "node",
+          "label": "<div style=\"font-size:22px;font-weight:bold;line-height:1.25\">Owner 暂停数据库后导出</div><div style=\"font-size:18px;line-height:1.5;margin-top:10px\">当前凭证认证；all便携认证用独立 R<br/>同次暂停：配对snapshotId + 同一Header</div><div style=\"font-size:14px;color:#667788;margin-top:8px\">[实现／现场]</div>",
+          "refs": [
+            "C07",
+            "D05"
+          ]
+        },
+        {
+          "id": "p10-full",
+          "kind": "node",
+          "label": "<div style=\"font-size:22px;font-weight:bold;line-height:1.25\">完整 .lvault v2 / full</div><div style=\"font-size:18px;line-height:1.5;margin-top:10px\">Header v3 + DB + 全部加密Blob<br/>认证manifest；不能有 omitted</div>",
+          "refs": [
+            "D05",
+            "C06"
+          ]
+        },
+        {
+          "id": "p10-dbOnly",
+          "kind": "node",
+          "label": "<div style=\"font-size:22px;font-weight:bold;line-height:1.25\">数据库 .lvault v2 / database</div><div style=\"font-size:18px;line-height:1.5;margin-top:10px\">Header + DB；manifest.omitted 精确列出<br/>省略Blob的路径、密文字节长度、SHA256</div>",
+          "refs": [
+            "D05",
+            "C07"
+          ]
+        },
+        {
+          "id": "p10-attachments",
+          "kind": "node",
+          "label": "<div style=\"font-size:22px;font-weight:bold;line-height:1.25\">原件 .lvault v2 / attachments</div><div style=\"font-size:18px;line-height:1.5;margin-top:10px\">Header + 加密Blob；共享snapshotId<br/>仅补充包，不能单独恢复完整库</div>",
+          "refs": [
+            "D05",
+            "C07"
+          ]
+        },
+        {
+          "id": "p10-restore",
+          "kind": "node",
+          "label": "<div style=\"font-size:22px;font-weight:bold;line-height:1.25\">认证暂存 → 目录事务安装</div><div style=\"font-size:18px;line-height:1.5;margin-top:10px\">核验清单／MAC／路径／规模；验证新库<br/>Header v3恢复进入受限重设与全库换钥<br/>密码单分支或 R；异机all用 R</div><div style=\"font-size:14px;color:#667788;margin-top:8px\">[现场]</div>",
+          "refs": [
+            "C06",
+            "C08",
+            "D05"
+          ]
+        },
+        {
+          "id": "p10-missing",
+          "kind": "node",
+          "label": "<div style=\"font-size:22px;font-weight:bold;line-height:1.25\">加密 backup.missing 状态</div><div style=\"font-size:18px;line-height:1.5;margin-top:10px\">omitted哈希／snapshotId／旧Blob解密钥<br/>全部保存在SQLCipher内；重设时保留<br/>读取缺失原件提示；已有原件可先换钥</div><div style=\"font-size:14px;color:#667788;margin-top:8px\">[现场]</div>",
+          "refs": [
+            "C06",
+            "C07",
+            "C05"
+          ]
+        },
+        {
+          "id": "p10-supplement",
+          "kind": "node",
+          "label": "<div style=\"font-size:22px;font-weight:bold;line-height:1.25\">补齐原件：旧钥 → 当前新 VMK</div><div style=\"font-size:18px;line-height:1.5;margin-top:10px\">验证旧manifest MAC／相同snapshotId<br/>逐项核验密文长度／SHA256并解密<br/>用当前VMK重加密，逐项清除缺失状态</div><div style=\"font-size:14px;color:#667788;margin-top:8px\">[现场]</div>",
+          "refs": [
+            "C07",
+            "D05"
+          ]
+        },
+        {
+          "id": "p10-fullExport",
+          "kind": "edge:flow",
+          "label": "full",
+          "source": "p10-export",
+          "target": "p10-full",
+          "refs": [
+            "C06"
+          ]
+        },
+        {
+          "id": "p10-dbExport",
+          "kind": "edge:flow",
+          "label": "database",
+          "source": "p10-export",
+          "target": "p10-dbOnly",
+          "refs": [
+            "C07"
+          ]
+        },
+        {
+          "id": "p10-attExport",
+          "kind": "edge:flow",
+          "label": "attachments",
+          "source": "p10-export",
+          "target": "p10-attachments",
+          "refs": [
+            "C07"
+          ]
+        },
+        {
+          "id": "p10-fullRestore",
+          "kind": "edge:flow",
+          "label": "恢复",
+          "source": "p10-full",
+          "target": "p10-restore",
+          "refs": [
+            "C06"
+          ]
+        },
+        {
+          "id": "p10-dbRestore",
+          "kind": "edge:flow",
+          "label": "仅DB恢复后记录缺失",
+          "source": "p10-dbOnly",
+          "target": "p10-missing",
+          "refs": [
+            "C06"
+          ]
+        },
+        {
+          "id": "p10-reset",
+          "kind": "edge:flow",
+          "label": "受限重设",
+          "source": "p10-restore",
+          "target": "p10-missing",
+          "refs": [
+            "C06",
+            "C05"
+          ]
+        },
+        {
+          "id": "p10-pair",
+          "kind": "edge:flow",
+          "label": "导入配对补充包",
+          "source": "p10-attachments",
+          "target": "p10-supplement",
+          "refs": [
+            "C07"
+          ]
+        },
+        {
+          "id": "p10-oldKey",
+          "kind": "edge:flow",
+          "label": "旧钥",
+          "source": "p10-missing",
+          "target": "p10-supplement",
+          "refs": [
+            "C07"
+          ]
+        },
+        {
+          "id": "p10-constraints",
+          "kind": "node",
+          "label": "<div style=\"font-size:22px;font-weight:bold;line-height:1.25\">认证与中断约束</div><div style=\"font-size:18px;line-height:1.5;margin-top:10px\">不同snapshotId即使内容相同也拒绝；补充失败可重试，已完成项保留。未补齐时拒绝导出新完整包／配对组；设备引用不承诺异机可用。</div>",
+          "refs": [
+            "C07",
+            "D05"
+          ]
+        },
+        {
+          "id": "p10-compat",
+          "kind": "node",
+          "label": "<div style=\"font-size:22px;font-weight:bold;line-height:1.25\">兼容与资源边界</div><div style=\"font-size:18px;line-height:1.5;margin-top:10px\">v1容器只支持Header v1；保留旧reader。<br/>v2支持Header v3。上限10000条目／展开2GiB；当前内存构建，大包待验。</div>",
+          "refs": [
+            "D05"
+          ]
+        }
+      ]
+    },
+    {
+      "number": 11,
+      "title": "独立恢复、全库换钥与中断恢复",
+      "slug": "security-recovery",
+      "cells": [
+        {
+          "id": "p11-sessionLabel",
+          "kind": "note",
+          "label": "会话状态：Header v3 独立恢复路径",
+          "refs": [
+            "C04",
+            "C05"
+          ]
+        },
+        {
+          "id": "p11-locked",
+          "kind": "node",
+          "label": "<div style=\"font-size:22px;font-weight:bold;line-height:1.25\">locked</div><div style=\"font-size:18px;line-height:1.5;margin-top:10px\">等待日常凭证／独立R</div>",
+          "refs": [
+            "C04"
+          ]
+        },
+        {
+          "id": "p11-restricted",
+          "kind": "node",
+          "label": "<div style=\"font-size:22px;font-weight:bold;line-height:1.25\">recovering：受限重设</div><div style=\"font-size:18px;line-height:1.5;margin-top:10px\">R认证后只可设置全部新日常材料<br/>新R回输确认；普通资料投影不可达</div>",
+          "refs": [
+            "C04",
+            "C05"
+          ]
+        },
+        {
+          "id": "p11-unlocked",
+          "kind": "node",
+          "label": "<div style=\"font-size:22px;font-weight:bold;line-height:1.25\">unlocked</div><div style=\"font-size:18px;line-height:1.5;margin-top:10px\">新库核验提交后正常会话<br/>日常认证也可从locked进入</div>",
+          "refs": [
+            "C05"
+          ]
+        },
+        {
+          "id": "p11-rUnlock",
+          "kind": "edge:auth",
+          "label": "独立 R",
+          "source": "p11-locked",
+          "target": "p11-restricted",
+          "refs": [
+            "C04"
+          ]
+        },
+        {
+          "id": "p11-resetFinish",
+          "kind": "edge:auth",
+          "label": "重设 + 全库换钥 + 提交",
+          "source": "p11-restricted",
+          "target": "p11-unlocked",
+          "refs": [
+            "C05"
+          ]
+        },
+        {
+          "id": "p11-transactionLabel",
+          "kind": "note",
+          "label": "VaultSecurityService／VaultBackupService → VaultRestoreTransaction（共用安装机制）",
+          "refs": [
+            "C05",
+            "C06",
+            "C08"
+          ]
+        },
+        {
+          "id": "p11-prepare",
+          "kind": "node",
+          "label": "<div style=\"font-size:22px;font-weight:bold;line-height:1.25\">1  认证与 staging</div><div style=\"font-size:18px;line-height:1.5;margin-top:10px\">新VMK／Header v3；导出逻辑状态<br/>新SQLCipher导入；重加密现有Blob<br/>保留ID／修订／身份／缺失状态</div>",
+          "refs": [
+            "C05"
+          ]
+        },
+        {
+          "id": "p11-intent",
+          "kind": "node",
+          "label": "<div style=\"font-size:22px;font-weight:bold;line-height:1.25\">2  写入安装意图</div><div style=\"font-size:18px;line-height:1.5;margin-top:10px\">关闭旧会话／清除投影<br/>journal → incoming<br/>旧库 → rollback → 新库安装</div>",
+          "refs": [
+            "C08",
+            "C06"
+          ]
+        },
+        {
+          "id": "p11-verify",
+          "kind": "node",
+          "label": "<div style=\"font-size:22px;font-weight:bold;line-height:1.25\">3  核验新库后提交</div><div style=\"font-size:18px;line-height:1.5;margin-top:10px\">验证打开；换钥核验现有原件<br/>写独立 commit marker<br/>提交点前失败：关闭并 recover</div>",
+          "refs": [
+            "C05",
+            "C08"
+          ]
+        },
+        {
+          "id": "p11-cleanup",
+          "kind": "node",
+          "label": "<div style=\"font-size:22px;font-weight:bold;line-height:1.25\">4  清理与进入新会话</div><div style=\"font-size:18px;line-height:1.5;margin-top:10px\">提交后清理旧加密目录／记录<br/>清理失败：保留新库与残留副本<br/>旧设备引用提交后清理</div>",
+          "refs": [
+            "C08",
+            "C05"
+          ]
+        },
+        {
+          "id": "p11-stageToIntent",
+          "kind": "edge:flow",
+          "label": "已准备",
+          "source": "p11-prepare",
+          "target": "p11-intent",
+          "refs": [
+            "C05",
+            "C08"
+          ]
+        },
+        {
+          "id": "p11-installToVerify",
+          "kind": "edge:flow",
+          "label": "已安装",
+          "source": "p11-intent",
+          "target": "p11-verify",
+          "refs": [
+            "C08"
+          ]
+        },
+        {
+          "id": "p11-verifyToCommit",
+          "kind": "edge:flow",
+          "label": "已提交",
+          "source": "p11-verify",
+          "target": "p11-cleanup",
+          "refs": [
+            "C08"
+          ]
+        },
+        {
+          "id": "p11-rollback",
+          "kind": "node",
+          "label": "<div style=\"font-size:22px;font-weight:bold;line-height:1.25\">下次启动：先 recover，再选择创建／解锁</div><div style=\"font-size:18px;line-height:1.5;margin-top:10px\">有旧库且未提交：核对旧Header摘要后保守回滚；有匹配commit：保留新库，不因清理失败回滚。首次恢复无旧库：保留认证暂存库并锁定，要求重新认证。异常目录／journal：进入failure，不创建空库覆盖。</div>",
+          "refs": [
+            "C02",
+            "C09"
+          ]
+        },
+        {
+          "id": "p11-boundaries",
+          "kind": "node",
+          "label": "<div style=\"font-size:22px;font-weight:bold;line-height:1.25\">旧库升级与旧备份的边界</div><div style=\"font-size:18px;line-height:1.5;margin-top:10px\">旧Header由本人主动升级，不在启动时自动迁移。<br/>旧VMK不能解开新数据；旧备份仍可能读旧资料。<br/>Journal／commit不是密码学信任锚，不含秘密。</div>",
+          "refs": [
+            "D04",
+            "C05",
+            "C09"
+          ]
+        }
+      ]
+    }
+  ]
+}

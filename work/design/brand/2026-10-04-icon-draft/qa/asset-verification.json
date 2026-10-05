@@ -1,0 +1,27 @@
+{
+  "parsed_svg_count": 20,
+  "parsed_android_xml_count": 5,
+  "png_sizes": [
+    16,
+    24,
+    32,
+    48,
+    64,
+    128,
+    256,
+    512,
+    1024
+  ],
+  "android_max_foreground_radius_dp": 31.73,
+  "android_safe_circle_radius_dp": 33,
+  "ico_frames_verified": [
+    16,
+    24,
+    32,
+    48,
+    64,
+    128,
+    256
+  ],
+  "application_integration": "not performed"
+}

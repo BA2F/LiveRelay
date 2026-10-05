@@ -1,0 +1,255 @@
+<?xml version='1.0' encoding='utf-8'?>
+<mxfile host="Electron" agent="LiveRelay target-design generator" version="30.2.4" compressed="false">
+  <diagram id="target-1" name="01 LiveRelay 系统总体架构图">
+    <mxGraphModel dx="2400" dy="1700" grid="1" gridSize="10" page="1" pageScale="1" pageWidth="2400" pageHeight="1700" background="#FFFFFF" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="t01-canvas" value="" vertex="1" parent="1" style="html=1;whiteSpace=wrap;fontFamily=Noto Sans CJK SC;fontSize=22;fontColor=#29445B;spacing=16;fillColor=#FFFFFF;strokeColor=none;locked=1;">
+          <mxGeometry x="0" y="0" width="2400" height="1700" as="geometry" />
+        </mxCell>
+        <mxCell id="t01-accent" value="" vertex="1" parent="1" style="html=1;whiteSpace=wrap;fontFamily=Noto Sans CJK SC;fontSize=22;fontColor=#29445B;spacing=16;fillColor=#173E61;strokeColor=none;locked=1;">
+          <mxGeometry x="0" y="0" width="16" height="1700" as="geometry" />
+        </mxCell>
+        <mxCell id="t01-brand" value="LiveRelay  /  人生信息连续性与交接系统" vertex="1" parent="1" style="html=1;whiteSpace=wrap;fontFamily=Noto Sans CJK SC;fontSize=22;fontColor=#29445B;spacing=16;text;align=left;spacing=0;fontSize=20;fontColor=#5F768B;fontStyle=0;">
+          <mxGeometry x="55" y="28" width="2000" height="35" as="geometry" />
+        </mxCell>
+        <mxCell id="t01-title" value="LiveRelay 系统总体架构图" vertex="1" parent="1" style="html=1;whiteSpace=wrap;fontFamily=Noto Sans CJK SC;fontSize=22;fontColor=#29445B;spacing=16;text;align=left;spacing=0;fontSize=42;fontColor=#173E61;fontStyle=1;">
+          <mxGeometry x="55" y="73" width="2160" height="64" as="geometry" />
+        </mxCell>
+        <mxCell id="t01-subtitle" value="参与者 → 跨端交互 → 业务能力 → 领域与安全内核 → 加密数据；按需连接连续性服务与外部 AI" vertex="1" parent="1" style="html=1;whiteSpace=wrap;fontFamily=Noto Sans CJK SC;fontSize=22;fontColor=#29445B;spacing=16;text;align=left;spacing=0;fontSize=22;fontColor=#5F768B;fontStyle=0;">
+          <mxGeometry x="55" y="145" width="2190" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="t01-num" value="单张总图" vertex="1" parent="1" style="html=1;whiteSpace=wrap;fontFamily=Noto Sans CJK SC;fontSize=22;fontColor=#29445B;spacing=16;rounded=1;arcSize=12;fillColor=#173E61;strokeColor=none;fontColor=#FFFFFF;fontSize=26;fontStyle=1;">
+          <mxGeometry x="2180" y="72" width="165" height="64" as="geometry" />
+        </mxCell>
+        <mxCell id="t01-footerline" value="" vertex="1" parent="1" style="html=1;whiteSpace=wrap;fontFamily=Noto Sans CJK SC;fontSize=22;fontColor=#29445B;spacing=16;fillColor=#D2DCE5;strokeColor=none;">
+          <mxGeometry x="55" y="1597" width="2290" height="2" as="geometry" />
+        </mxCell>
+        <mxCell id="t01-legend" value="图例：蓝色实线 → 调用／数据流　 橙色实线 → 授权／投递控制　 灰色虚线 → 依赖　 虚线框 → 应用／信任边界" vertex="1" parent="1" style="html=1;whiteSpace=wrap;fontFamily=Noto Sans CJK SC;fontSize=22;fontColor=#29445B;spacing=16;text;align=left;spacing=0;fontSize=19;fontColor=#60768B;fontStyle=0;">
+          <mxGeometry x="55" y="1611" width="2290" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="t01-version" value="总体目标设计 v1.0  |  2026-10-04  |  本地优先 · 原始资料优先 · 默认本人可见 · 授权范围解密 · 长期可恢复" vertex="1" parent="1" style="html=1;whiteSpace=wrap;fontFamily=Noto Sans CJK SC;fontSize=22;fontColor=#29445B;spacing=16;text;align=left;spacing=0;fontSize=19;fontColor=#60768B;fontStyle=0;">
+          <mxGeometry x="55" y="1651" width="2290" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="t01-actors" value="" vertex="1" parent="1" style="html=1;whiteSpace=wrap;fontFamily=Noto Sans CJK SC;fontSize=22;fontColor=#29445B;spacing=16;rounded=1;arcSize=4;fillColor=#F8FAFC;fillOpacity=32;strokeColor=#CBD5DF;strokeWidth=2;dashed=1;dashPattern=10 5;" evidence="P01,P02,S01">
+          <mxGeometry x="55" y="205" width="2290" height="162" as="geometry" />
+        </mxCell>
+        <mxCell id="t01-actorslabel" value="使用与协作角色" vertex="1" parent="1" style="html=1;whiteSpace=wrap;fontFamily=Noto Sans CJK SC;fontSize=22;fontColor=#29445B;spacing=16;text;align=left;spacing=0;fontSize=23;fontColor=#5F768B;fontStyle=1;" evidence="P01,P02,S01">
+          <mxGeometry x="73" y="215" width="2254" height="36" as="geometry" />
+        </mxCell>
+        <mxCell id="t01-actors-0" value="&lt;div style=&quot;font-size:21px;font-weight:bold;line-height:1.25&quot;&gt;所有者&lt;/div&gt;&lt;div style=&quot;font-size:17px;line-height:1.45;margin-top:6px&quot;&gt;日常记录 · 管理凭证 · 设置授权&lt;/div&gt;" vertex="1" parent="1" style="html=1;whiteSpace=wrap;fontFamily=Noto Sans CJK SC;fontSize=22;fontColor=#29445B;spacing=16;rounded=1;arcSize=8;fillColor=#F8FAFC;strokeColor=#CBD5DF;strokeWidth=2;align=left;verticalAlign=middle;spacing=8;" evidence="P01,P02,S01">
+          <mxGeometry x="75.0" y="263.0" width="550.5" height="84.0" as="geometry" />
+        </mxCell>
+        <mxCell id="t01-actors-1" value="&lt;div style=&quot;font-size:21px;font-weight:bold;line-height:1.25&quot;&gt;家庭协助者&lt;/div&gt;&lt;div style=&quot;font-size:17px;line-height:1.45;margin-top:6px&quot;&gt;协助录入 · 提醒补全 · 任务协作&lt;/div&gt;" vertex="1" parent="1" style="html=1;whiteSpace=wrap;fontFamily=Noto Sans CJK SC;fontSize=22;fontColor=#29445B;spacing=16;rounded=1;arcSize=8;fillColor=#F8FAFC;strokeColor=#CBD5DF;strokeWidth=2;align=left;verticalAlign=middle;spacing=8;" evidence="P01,P02,S01">
+          <mxGeometry x="641.5" y="263.0" width="550.5" height="84.0" as="geometry" />
+        </mxCell>
+        <mxCell id="t01-actors-2" value="&lt;div style=&quot;font-size:21px;font-weight:bold;line-height:1.25&quot;&gt;接收者／Executor&lt;/div&gt;&lt;div style=&quot;font-size:17px;line-height:1.45;margin-top:6px&quot;&gt;核对身份 · 范围查看 · 交接执行&lt;/div&gt;" vertex="1" parent="1" style="html=1;whiteSpace=wrap;fontFamily=Noto Sans CJK SC;fontSize=22;fontColor=#29445B;spacing=16;rounded=1;arcSize=8;fillColor=#F8FAFC;strokeColor=#CBD5DF;strokeWidth=2;align=left;verticalAlign=middle;spacing=8;" evidence="P01,P02,S01">
+          <mxGeometry x="1208.0" y="263.0" width="550.5" height="84.0" as="geometry" />
+        </mxCell>
+        <mxCell id="t01-actors-3" value="&lt;div style=&quot;font-size:21px;font-weight:bold;line-height:1.25&quot;&gt;服务管理者&lt;/div&gt;&lt;div style=&quot;font-size:17px;line-height:1.45;margin-top:6px&quot;&gt;自部署／托管配置 · 调度与密文空间&lt;/div&gt;" vertex="1" parent="1" style="html=1;whiteSpace=wrap;fontFamily=Noto Sans CJK SC;fontSize=22;fontColor=#29445B;spacing=16;rounded=1;arcSize=8;fillColor=#F8FAFC;strokeColor=#CBD5DF;strokeWidth=2;align=left;verticalAlign=middle;spacing=8;" evidence="P01,P02,S01">
+          <mxGeometry x="1774.5" y="263.0" width="550.5" height="84.0" as="geometry" />
+        </mxCell>
+        <mxCell id="t01-client" value="" vertex="1" parent="1" style="html=1;whiteSpace=wrap;fontFamily=Noto Sans CJK SC;fontSize=22;fontColor=#29445B;spacing=16;rounded=1;arcSize=4;fillColor=#EDF4FC;fillOpacity=32;strokeColor=#507BA6;strokeWidth=2;dashed=1;dashPattern=10 5;" evidence="A01,A03,S01">
+          <mxGeometry x="370" y="410" width="1380" height="971" as="geometry" />
+        </mxCell>
+        <mxCell id="t01-clientlabel" value="本地客户端应用边界  |  Flutter 模块化单体 · 移动端／桌面端 · Owner／Recipient 隔离会话" vertex="1" parent="1" style="html=1;whiteSpace=wrap;fontFamily=Noto Sans CJK SC;fontSize=22;fontColor=#29445B;spacing=16;text;align=left;spacing=0;fontSize=23;fontColor=#507BA6;fontStyle=1;" evidence="A01,A03,S01">
+          <mxGeometry x="388" y="420" width="1344" height="36" as="geometry" />
+        </mxCell>
+        <mxCell id="t01-ui" value="" vertex="1" parent="1" style="html=1;whiteSpace=wrap;fontFamily=Noto Sans CJK SC;fontSize=22;fontColor=#29445B;spacing=16;rounded=1;arcSize=4;fillColor=#EDF4FC;fillOpacity=32;strokeColor=#507BA6;strokeWidth=2;dashed=1;dashPattern=10 5;" evidence="P02">
+          <mxGeometry x="395" y="469" width="1330" height="142" as="geometry" />
+        </mxCell>
+        <mxCell id="t01-uilabel" value="交互呈现层" vertex="1" parent="1" style="html=1;whiteSpace=wrap;fontFamily=Noto Sans CJK SC;fontSize=22;fontColor=#29445B;spacing=16;text;align=left;spacing=0;fontSize=23;fontColor=#507BA6;fontStyle=1;" evidence="P02">
+          <mxGeometry x="413" y="479" width="1294" height="36" as="geometry" />
+        </mxCell>
+        <mxCell id="t01-ui-0" value="&lt;div style=&quot;font-size:21px;font-weight:bold;line-height:1.25&quot;&gt;记录与原件&lt;/div&gt;" vertex="1" parent="1" style="html=1;whiteSpace=wrap;fontFamily=Noto Sans CJK SC;fontSize=22;fontColor=#29445B;spacing=16;rounded=1;arcSize=8;fillColor=#EDF4FC;strokeColor=#507BA6;strokeWidth=2;align=left;verticalAlign=middle;spacing=8;" evidence="P02">
+          <mxGeometry x="415.0" y="527.0" width="201.66666666666666" height="64.0" as="geometry" />
+        </mxCell>
+        <mxCell id="t01-ui-1" value="&lt;div style=&quot;font-size:21px;font-weight:bold;line-height:1.25&quot;&gt;信息卡片&lt;/div&gt;" vertex="1" parent="1" style="html=1;whiteSpace=wrap;fontFamily=Noto Sans CJK SC;fontSize=22;fontColor=#29445B;spacing=16;rounded=1;arcSize=8;fillColor=#EDF4FC;strokeColor=#507BA6;strokeWidth=2;align=left;verticalAlign=middle;spacing=8;" evidence="P02">
+          <mxGeometry x="632.6666666666666" y="527.0" width="201.66666666666666" height="64.0" as="geometry" />
+        </mxCell>
+        <mxCell id="t01-ui-2" value="&lt;div style=&quot;font-size:21px;font-weight:bold;line-height:1.25&quot;&gt;密码库&lt;/div&gt;" vertex="1" parent="1" style="html=1;whiteSpace=wrap;fontFamily=Noto Sans CJK SC;fontSize=22;fontColor=#29445B;spacing=16;rounded=1;arcSize=8;fillColor=#EDF4FC;strokeColor=#507BA6;strokeWidth=2;align=left;verticalAlign=middle;spacing=8;" evidence="P02">
+          <mxGeometry x="850.3333333333333" y="527.0" width="201.66666666666666" height="64.0" as="geometry" />
+        </mxCell>
+        <mxCell id="t01-ui-3" value="&lt;div style=&quot;font-size:21px;font-weight:bold;line-height:1.25&quot;&gt;交接与执行&lt;/div&gt;" vertex="1" parent="1" style="html=1;whiteSpace=wrap;fontFamily=Noto Sans CJK SC;fontSize=22;fontColor=#29445B;spacing=16;rounded=1;arcSize=8;fillColor=#EDF4FC;strokeColor=#507BA6;strokeWidth=2;align=left;verticalAlign=middle;spacing=8;" evidence="P02">
+          <mxGeometry x="1068.0" y="527.0" width="201.66666666666666" height="64.0" as="geometry" />
+        </mxCell>
+        <mxCell id="t01-ui-4" value="&lt;div style=&quot;font-size:21px;font-weight:bold;line-height:1.25&quot;&gt;备份与恢复&lt;/div&gt;" vertex="1" parent="1" style="html=1;whiteSpace=wrap;fontFamily=Noto Sans CJK SC;fontSize=22;fontColor=#29445B;spacing=16;rounded=1;arcSize=8;fillColor=#EDF4FC;strokeColor=#507BA6;strokeWidth=2;align=left;verticalAlign=middle;spacing=8;" evidence="P02">
+          <mxGeometry x="1285.6666666666665" y="527.0" width="201.66666666666666" height="64.0" as="geometry" />
+        </mxCell>
+        <mxCell id="t01-ui-5" value="&lt;div style=&quot;font-size:21px;font-weight:bold;line-height:1.25&quot;&gt;我的与设置&lt;/div&gt;" vertex="1" parent="1" style="html=1;whiteSpace=wrap;fontFamily=Noto Sans CJK SC;fontSize=22;fontColor=#29445B;spacing=16;rounded=1;arcSize=8;fillColor=#EDF4FC;strokeColor=#507BA6;strokeWidth=2;align=left;verticalAlign=middle;spacing=8;" evidence="P02">
+          <mxGeometry x="1503.3333333333333" y="527.0" width="201.66666666666666" height="64.0" as="geometry" />
+        </mxCell>
+        <mxCell id="t01-app" value="" vertex="1" parent="1" style="html=1;whiteSpace=wrap;fontFamily=Noto Sans CJK SC;fontSize=22;fontColor=#29445B;spacing=16;rounded=1;arcSize=4;fillColor=#EAF5F2;fillOpacity=32;strokeColor=#438A7D;strokeWidth=2;dashed=1;dashPattern=10 5;" evidence="P02,D01,R01,S03">
+          <mxGeometry x="395" y="652" width="1330" height="271" as="geometry" />
+        </mxCell>
+        <mxCell id="t01-applabel" value="业务应用层" vertex="1" parent="1" style="html=1;whiteSpace=wrap;fontFamily=Noto Sans CJK SC;fontSize=22;fontColor=#29445B;spacing=16;text;align=left;spacing=0;fontSize=23;fontColor=#438A7D;fontStyle=1;" evidence="P02,D01,R01,S03">
+          <mxGeometry x="413" y="662" width="1294" height="36" as="geometry" />
+        </mxCell>
+        <mxCell id="t01-app-0" value="&lt;div style=&quot;font-size:22px;font-weight:bold;line-height:1.25&quot;&gt;资料采集与识别&lt;/div&gt;&lt;div style=&quot;font-size:18px;line-height:1.45;margin-top:6px&quot;&gt;媒体导入 · OCR · 本地转写&lt;/div&gt;" vertex="1" parent="1" style="html=1;whiteSpace=wrap;fontFamily=Noto Sans CJK SC;fontSize=22;fontColor=#29445B;spacing=16;rounded=1;arcSize=8;fillColor=#EAF5F2;strokeColor=#438A7D;strokeWidth=2;align=left;verticalAlign=middle;spacing=8;" evidence="P02,D01,R01,S03">
+          <mxGeometry x="415.0" y="710.0" width="310.5" height="88.5" as="geometry" />
+        </mxCell>
+        <mxCell id="t01-app-1" value="&lt;div style=&quot;font-size:22px;font-weight:bold;line-height:1.25&quot;&gt;信息组织与智能整理&lt;/div&gt;&lt;div style=&quot;font-size:18px;line-height:1.45;margin-top:6px&quot;&gt;卡片分类 · 人工确认 · Agent&lt;/div&gt;" vertex="1" parent="1" style="html=1;whiteSpace=wrap;fontFamily=Noto Sans CJK SC;fontSize=22;fontColor=#29445B;spacing=16;rounded=1;arcSize=8;fillColor=#EAF5F2;strokeColor=#438A7D;strokeWidth=2;align=left;verticalAlign=middle;spacing=8;" evidence="P02,D01,R01,S03">
+          <mxGeometry x="741.5" y="710.0" width="310.5" height="88.5" as="geometry" />
+        </mxCell>
+        <mxCell id="t01-app-2" value="&lt;div style=&quot;font-size:22px;font-weight:bold;line-height:1.25&quot;&gt;密码与秘密管理&lt;/div&gt;&lt;div style=&quot;font-size:18px;line-height:1.45;margin-top:6px&quot;&gt;生成／录入 · 专门字段 · 历史&lt;/div&gt;" vertex="1" parent="1" style="html=1;whiteSpace=wrap;fontFamily=Noto Sans CJK SC;fontSize=22;fontColor=#29445B;spacing=16;rounded=1;arcSize=8;fillColor=#EAF5F2;strokeColor=#438A7D;strokeWidth=2;align=left;verticalAlign=middle;spacing=8;" evidence="P02,D01,R01,S03">
+          <mxGeometry x="1068.0" y="710.0" width="310.5" height="88.5" as="geometry" />
+        </mxCell>
+        <mxCell id="t01-app-3" value="&lt;div style=&quot;font-size:22px;font-weight:bold;line-height:1.25&quot;&gt;来源、检索与状态维护&lt;/div&gt;&lt;div style=&quot;font-size:18px;line-height:1.45;margin-top:6px&quot;&gt;来源追踪 · 修订 · 冲突解释&lt;/div&gt;" vertex="1" parent="1" style="html=1;whiteSpace=wrap;fontFamily=Noto Sans CJK SC;fontSize=22;fontColor=#29445B;spacing=16;rounded=1;arcSize=8;fillColor=#EAF5F2;strokeColor=#438A7D;strokeWidth=2;align=left;verticalAlign=middle;spacing=8;" evidence="P02,D01,R01,S03">
+          <mxGeometry x="1394.5" y="710.0" width="310.5" height="88.5" as="geometry" />
+        </mxCell>
+        <mxCell id="t01-app-4" value="&lt;div style=&quot;font-size:22px;font-weight:bold;line-height:1.25&quot;&gt;身份与接收者管理&lt;/div&gt;&lt;div style=&quot;font-size:18px;line-height:1.45;margin-top:6px&quot;&gt;双钥身份 · 绑定 · 独立接收&lt;/div&gt;" vertex="1" parent="1" style="html=1;whiteSpace=wrap;fontFamily=Noto Sans CJK SC;fontSize=22;fontColor=#29445B;spacing=16;rounded=1;arcSize=8;fillColor=#EAF5F2;strokeColor=#438A7D;strokeWidth=2;align=left;verticalAlign=middle;spacing=8;" evidence="P02,D01,R01,S03">
+          <mxGeometry x="415.0" y="814.5" width="310.5" height="88.5" as="geometry" />
+        </mxCell>
+        <mxCell id="t01-app-5" value="&lt;div style=&quot;font-size:22px;font-weight:bold;line-height:1.25&quot;&gt;授权与交接编排&lt;/div&gt;&lt;div style=&quot;font-size:18px;line-height:1.45;margin-top:6px&quot;&gt;范围预览 · 手动／条件交付&lt;/div&gt;" vertex="1" parent="1" style="html=1;whiteSpace=wrap;fontFamily=Noto Sans CJK SC;fontSize=22;fontColor=#29445B;spacing=16;rounded=1;arcSize=8;fillColor=#EAF5F2;strokeColor=#438A7D;strokeWidth=2;align=left;verticalAlign=middle;spacing=8;" evidence="P02,D01,R01,S03">
+          <mxGeometry x="741.5" y="814.5" width="310.5" height="88.5" as="geometry" />
+        </mxCell>
+        <mxCell id="t01-app-6" value="&lt;div style=&quot;font-size:22px;font-weight:bold;line-height:1.25&quot;&gt;备份、恢复与安全更新&lt;/div&gt;&lt;div style=&quot;font-size:18px;line-height:1.45;margin-top:6px&quot;&gt;完整／分层 · 补齐 · 全库换钥&lt;/div&gt;" vertex="1" parent="1" style="html=1;whiteSpace=wrap;fontFamily=Noto Sans CJK SC;fontSize=22;fontColor=#29445B;spacing=16;rounded=1;arcSize=8;fillColor=#EAF5F2;strokeColor=#438A7D;strokeWidth=2;align=left;verticalAlign=middle;spacing=8;" evidence="P02,D01,R01,S03">
+          <mxGeometry x="1068.0" y="814.5" width="310.5" height="88.5" as="geometry" />
+        </mxCell>
+        <mxCell id="t01-app-7" value="&lt;div style=&quot;font-size:22px;font-weight:bold;line-height:1.25&quot;&gt;同步与连续性管理&lt;/div&gt;&lt;div style=&quot;font-size:18px;line-height:1.45;margin-top:6px&quot;&gt;密文同步 · 报平安 · 调度协同&lt;/div&gt;" vertex="1" parent="1" style="html=1;whiteSpace=wrap;fontFamily=Noto Sans CJK SC;fontSize=22;fontColor=#29445B;spacing=16;rounded=1;arcSize=8;fillColor=#EAF5F2;strokeColor=#438A7D;strokeWidth=2;align=left;verticalAlign=middle;spacing=8;" evidence="P02,D01,R01,S03">
+          <mxGeometry x="1394.5" y="814.5" width="310.5" height="88.5" as="geometry" />
+        </mxCell>
+        <mxCell id="t01-core" value="" vertex="1" parent="1" style="html=1;whiteSpace=wrap;fontFamily=Noto Sans CJK SC;fontSize=22;fontColor=#29445B;spacing=16;rounded=1;arcSize=4;fillColor=#F0EFF8;fillOpacity=32;strokeColor=#847AA8;strokeWidth=2;dashed=1;dashPattern=10 5;" evidence="D01,D02,R02,I01,S02,S03">
+          <mxGeometry x="395" y="964" width="1330" height="165" as="geometry" />
+        </mxCell>
+        <mxCell id="t01-corelabel" value="领域与安全内核" vertex="1" parent="1" style="html=1;whiteSpace=wrap;fontFamily=Noto Sans CJK SC;fontSize=22;fontColor=#29445B;spacing=16;text;align=left;spacing=0;fontSize=23;fontColor=#847AA8;fontStyle=1;" evidence="D01,D02,R02,I01,S02,S03">
+          <mxGeometry x="413" y="974" width="1294" height="36" as="geometry" />
+        </mxCell>
+        <mxCell id="t01-core-0" value="&lt;div style=&quot;font-size:22px;font-weight:bold;line-height:1.25&quot;&gt;人生信息／生命周期&lt;/div&gt;&lt;div style=&quot;font-size:18px;line-height:1.45;margin-top:6px&quot;&gt;卡片与凭据 · 生命状态&lt;/div&gt;" vertex="1" parent="1" style="html=1;whiteSpace=wrap;fontFamily=Noto Sans CJK SC;fontSize=22;fontColor=#29445B;spacing=16;rounded=1;arcSize=8;fillColor=#F0EFF8;strokeColor=#847AA8;strokeWidth=2;align=left;verticalAlign=middle;spacing=8;" evidence="D01,D02,R02,I01,S02,S03">
+          <mxGeometry x="415.0" y="1022.0" width="310.5" height="87.0" as="geometry" />
+        </mxCell>
+        <mxCell id="t01-core-1" value="&lt;div style=&quot;font-size:22px;font-weight:bold;line-height:1.25&quot;&gt;来源与释放策略&lt;/div&gt;&lt;div style=&quot;font-size:18px;line-height:1.45;margin-top:6px&quot;&gt;修订／确认 · 逐项可见范围&lt;/div&gt;" vertex="1" parent="1" style="html=1;whiteSpace=wrap;fontFamily=Noto Sans CJK SC;fontSize=22;fontColor=#29445B;spacing=16;rounded=1;arcSize=8;fillColor=#F0EFF8;strokeColor=#847AA8;strokeWidth=2;align=left;verticalAlign=middle;spacing=8;" evidence="D01,D02,R02,I01,S02,S03">
+          <mxGeometry x="741.5" y="1022.0" width="310.5" height="87.0" as="geometry" />
+        </mxCell>
+        <mxCell id="t01-core-2" value="&lt;div style=&quot;font-size:22px;font-weight:bold;line-height:1.25&quot;&gt;AI Privacy&lt;/div&gt;&lt;div style=&quot;font-size:18px;line-height:1.45;margin-top:6px&quot;&gt;Token遮蔽 · Schema校验 · 回填&lt;/div&gt;" vertex="1" parent="1" style="html=1;whiteSpace=wrap;fontFamily=Noto Sans CJK SC;fontSize=22;fontColor=#29445B;spacing=16;rounded=1;arcSize=8;fillColor=#F0EFF8;strokeColor=#847AA8;strokeWidth=2;align=left;verticalAlign=middle;spacing=8;" evidence="D01,D02,R02,I01,S02,S03">
+          <mxGeometry x="1068.0" y="1022.0" width="310.5" height="87.0" as="geometry" />
+        </mxCell>
+        <mxCell id="t01-core-3" value="&lt;div style=&quot;font-size:22px;font-weight:bold;line-height:1.25&quot;&gt;密钥与身份安全&lt;/div&gt;&lt;div style=&quot;font-size:18px;line-height:1.45;margin-top:6px&quot;&gt;多因素 · 独立恢复 · 签名／HPKE&lt;/div&gt;" vertex="1" parent="1" style="html=1;whiteSpace=wrap;fontFamily=Noto Sans CJK SC;fontSize=22;fontColor=#29445B;spacing=16;rounded=1;arcSize=8;fillColor=#F0EFF8;strokeColor=#847AA8;strokeWidth=2;align=left;verticalAlign=middle;spacing=8;" evidence="D01,D02,R02,I01,S02,S03">
+          <mxGeometry x="1394.5" y="1022.0" width="310.5" height="87.0" as="geometry" />
+        </mxCell>
+        <mxCell id="t01-storage" value="" vertex="1" parent="1" style="html=1;whiteSpace=wrap;fontFamily=Noto Sans CJK SC;fontSize=22;fontColor=#29445B;spacing=16;rounded=1;arcSize=4;fillColor=#F2F5F8;fillOpacity=32;strokeColor=#8094A5;strokeWidth=2;dashed=1;dashPattern=10 5;" evidence="S03,T01,A02">
+          <mxGeometry x="395" y="1170" width="1330" height="166" as="geometry" />
+        </mxCell>
+        <mxCell id="t01-storagelabel" value="加密数据与基础设施层" vertex="1" parent="1" style="html=1;whiteSpace=wrap;fontFamily=Noto Sans CJK SC;fontSize=22;fontColor=#29445B;spacing=16;text;align=left;spacing=0;fontSize=23;fontColor=#8094A5;fontStyle=1;" evidence="S03,T01,A02">
+          <mxGeometry x="413" y="1180" width="1294" height="36" as="geometry" />
+        </mxCell>
+        <mxCell id="t01-storage-0" value="&lt;div style=&quot;font-size:22px;font-weight:bold;line-height:1.25&quot;&gt;结构化资料库&lt;/div&gt;&lt;div style=&quot;font-size:18px;line-height:1.45;margin-top:6px&quot;&gt;SQLCipher · 卡片／秘密／策略&lt;/div&gt;" vertex="1" parent="1" style="html=1;whiteSpace=wrap;fontFamily=Noto Sans CJK SC;fontSize=22;fontColor=#29445B;spacing=16;rounded=1;arcSize=8;fillColor=#F2F5F8;strokeColor=#8094A5;strokeWidth=2;align=left;verticalAlign=middle;spacing=8;" evidence="S03,T01,A02">
+          <mxGeometry x="415.0" y="1228.0" width="310.5" height="88.0" as="geometry" />
+        </mxCell>
+        <mxCell id="t01-storage-1" value="&lt;div style=&quot;font-size:22px;font-weight:bold;line-height:1.25&quot;&gt;加密原始资料&lt;/div&gt;&lt;div style=&quot;font-size:18px;line-height:1.45;margin-top:6px&quot;&gt;AES-GCM Blob · 音视频／文件&lt;/div&gt;" vertex="1" parent="1" style="html=1;whiteSpace=wrap;fontFamily=Noto Sans CJK SC;fontSize=22;fontColor=#29445B;spacing=16;rounded=1;arcSize=8;fillColor=#F2F5F8;strokeColor=#8094A5;strokeWidth=2;align=left;verticalAlign=middle;spacing=8;" evidence="S03,T01,A02">
+          <mxGeometry x="741.5" y="1228.0" width="310.5" height="88.0" as="geometry" />
+        </mxCell>
+        <mxCell id="t01-storage-2" value="&lt;div style=&quot;font-size:22px;font-weight:bold;line-height:1.25&quot;&gt;身份与便携资料&lt;/div&gt;&lt;div style=&quot;font-size:18px;line-height:1.45;margin-top:6px&quot;&gt;独立身份库 · .lvault／.lrshare&lt;/div&gt;" vertex="1" parent="1" style="html=1;whiteSpace=wrap;fontFamily=Noto Sans CJK SC;fontSize=22;fontColor=#29445B;spacing=16;rounded=1;arcSize=8;fillColor=#F2F5F8;strokeColor=#8094A5;strokeWidth=2;align=left;verticalAlign=middle;spacing=8;" evidence="S03,T01,A02">
+          <mxGeometry x="1068.0" y="1228.0" width="310.5" height="88.0" as="geometry" />
+        </mxCell>
+        <mxCell id="t01-storage-3" value="&lt;div style=&quot;font-size:22px;font-weight:bold;line-height:1.25&quot;&gt;平台与扩展适配&lt;/div&gt;&lt;div style=&quot;font-size:18px;line-height:1.45;margin-top:6px&quot;&gt;插件／FFI · Provider · 导入器&lt;/div&gt;" vertex="1" parent="1" style="html=1;whiteSpace=wrap;fontFamily=Noto Sans CJK SC;fontSize=22;fontColor=#29445B;spacing=16;rounded=1;arcSize=8;fillColor=#F2F5F8;strokeColor=#8094A5;strokeWidth=2;align=left;verticalAlign=middle;spacing=8;" evidence="S03,T01,A02">
+          <mxGeometry x="1394.5" y="1228.0" width="310.5" height="88.0" as="geometry" />
+        </mxCell>
+        <mxCell id="t01-governance" value="" vertex="1" parent="1" style="html=1;whiteSpace=wrap;fontFamily=Noto Sans CJK SC;fontSize=22;fontColor=#29445B;spacing=16;rounded=1;arcSize=4;fillColor=#FFF5E8;fillOpacity=32;strokeColor=#C58B49;strokeWidth=2;dashed=1;dashPattern=10 5;" evidence="S01,I01,D02">
+          <mxGeometry x="55" y="410" width="260" height="971" as="geometry" />
+        </mxCell>
+        <mxCell id="t01-governancelabel" value="安全与治理" vertex="1" parent="1" style="html=1;whiteSpace=wrap;fontFamily=Noto Sans CJK SC;fontSize=22;fontColor=#29445B;spacing=16;text;align=left;spacing=0;fontSize=23;fontColor=#C58B49;fontStyle=1;" evidence="S01,I01,D02">
+          <mxGeometry x="73" y="420" width="224" height="36" as="geometry" />
+        </mxCell>
+        <mxCell id="t01-govern0" value="&lt;div style=&quot;font-size:24px;font-weight:bold;line-height:1.25&quot;&gt;身份与权限&lt;/div&gt;&lt;div style=&quot;font-size:20px;line-height:1.45;margin-top:6px&quot;&gt;本人默认可见&lt;br/&gt;协助与查看分离&lt;br/&gt;逐次明确授权&lt;/div&gt;" vertex="1" parent="1" style="html=1;whiteSpace=wrap;fontFamily=Noto Sans CJK SC;fontSize=22;fontColor=#29445B;spacing=16;rounded=1;arcSize=8;fillColor=#FFF5E8;strokeColor=#C58B49;strokeWidth=2;align=left;verticalAlign=middle;spacing=8;" evidence="S01,I01,R01">
+          <mxGeometry x="75" y="474" width="220" height="186" as="geometry" />
+        </mxCell>
+        <mxCell id="t01-govern1" value="&lt;div style=&quot;font-size:24px;font-weight:bold;line-height:1.25&quot;&gt;密钥所有权&lt;/div&gt;&lt;div style=&quot;font-size:20px;line-height:1.45;margin-top:6px&quot;&gt;VMK只属Owner&lt;br/&gt;恢复材料离线保管&lt;br/&gt;Recipient自有私钥&lt;/div&gt;" vertex="1" parent="1" style="html=1;whiteSpace=wrap;fontFamily=Noto Sans CJK SC;fontSize=22;fontColor=#29445B;spacing=16;rounded=1;arcSize=8;fillColor=#FFF5E8;strokeColor=#C58B49;strokeWidth=2;align=left;verticalAlign=middle;spacing=8;" evidence="S01,I01,R01">
+          <mxGeometry x="75" y="687" width="220" height="186" as="geometry" />
+        </mxCell>
+        <mxCell id="t01-govern2" value="&lt;div style=&quot;font-size:24px;font-weight:bold;line-height:1.25&quot;&gt;隐私与边界&lt;/div&gt;&lt;div style=&quot;font-size:20px;line-height:1.45;margin-top:6px&quot;&gt;外发范围可预览&lt;br/&gt;Token Map留本机&lt;br/&gt;Secret默认遮挡&lt;/div&gt;" vertex="1" parent="1" style="html=1;whiteSpace=wrap;fontFamily=Noto Sans CJK SC;fontSize=22;fontColor=#29445B;spacing=16;rounded=1;arcSize=8;fillColor=#FFF5E8;strokeColor=#C58B49;strokeWidth=2;align=left;verticalAlign=middle;spacing=8;" evidence="S01,I01,R01">
+          <mxGeometry x="75" y="900" width="220" height="186" as="geometry" />
+        </mxCell>
+        <mxCell id="t01-govern3" value="&lt;div style=&quot;font-size:24px;font-weight:bold;line-height:1.25&quot;&gt;可信与审计&lt;/div&gt;&lt;div style=&quot;font-size:20px;line-height:1.45;margin-top:6px&quot;&gt;原件／来源／修订&lt;br/&gt;人工确认与推断分离&lt;br/&gt;操作审计与最少遥测&lt;/div&gt;" vertex="1" parent="1" style="html=1;whiteSpace=wrap;fontFamily=Noto Sans CJK SC;fontSize=22;fontColor=#29445B;spacing=16;rounded=1;arcSize=8;fillColor=#FFF5E8;strokeColor=#C58B49;strokeWidth=2;align=left;verticalAlign=middle;spacing=8;" evidence="S01,I01,R01">
+          <mxGeometry x="75" y="1113" width="220" height="186" as="geometry" />
+        </mxCell>
+        <mxCell id="t01-external" value="" vertex="1" parent="1" style="html=1;whiteSpace=wrap;fontFamily=Noto Sans CJK SC;fontSize=22;fontColor=#29445B;spacing=16;rounded=1;arcSize=4;fillColor=#FAEFF1;fillOpacity=32;strokeColor=#B67E8A;strokeWidth=2;dashed=1;dashPattern=10 5;" evidence="P02,S01">
+          <mxGeometry x="1850" y="410" width="495" height="971" as="geometry" />
+        </mxCell>
+        <mxCell id="t01-externallabel" value="可选云端与外部服务边界" vertex="1" parent="1" style="html=1;whiteSpace=wrap;fontFamily=Noto Sans CJK SC;fontSize=22;fontColor=#29445B;spacing=16;text;align=left;spacing=0;fontSize=23;fontColor=#B67E8A;fontStyle=1;" evidence="P02,S01">
+          <mxGeometry x="1868" y="420" width="459" height="36" as="geometry" />
+        </mxCell>
+        <mxCell id="t01-ai" value="&lt;div style=&quot;font-size:26px;font-weight:bold;line-height:1.25&quot;&gt;外部 AI／Agent 服务&lt;/div&gt;&lt;div style=&quot;font-size:21px;line-height:1.45;margin-top:6px&quot;&gt;HTTPS／JSON · Provider适配&lt;br/&gt;仅接收本次预览获准的文本&lt;br/&gt;敏感行以Token替换；原件留本机&lt;/div&gt;" vertex="1" parent="1" style="html=1;whiteSpace=wrap;fontFamily=Noto Sans CJK SC;fontSize=22;fontColor=#29445B;spacing=16;rounded=1;arcSize=8;fillColor=#FAEFF1;strokeColor=#B67E8A;strokeWidth=2;align=left;verticalAlign=middle;spacing=8;" evidence="I01,P02">
+          <mxGeometry x="1875" y="474" width="445" height="205" as="geometry" />
+        </mxCell>
+        <mxCell id="t01-continuity" value="" vertex="1" parent="1" style="html=1;whiteSpace=wrap;fontFamily=Noto Sans CJK SC;fontSize=22;fontColor=#29445B;spacing=16;rounded=1;arcSize=4;fillColor=#EAF5F2;fillOpacity=32;strokeColor=#438A7D;strokeWidth=2;dashed=1;dashPattern=10 5;" evidence="P02,S01">
+          <mxGeometry x="1875" y="741" width="445" height="466" as="geometry" />
+        </mxCell>
+        <mxCell id="t01-continuitylabel" value="连续性服务  |  自部署／托管" vertex="1" parent="1" style="html=1;whiteSpace=wrap;fontFamily=Noto Sans CJK SC;fontSize=22;fontColor=#29445B;spacing=16;text;align=left;spacing=0;fontSize=23;fontColor=#438A7D;fontStyle=1;" evidence="P02,S01">
+          <mxGeometry x="1893" y="751" width="409" height="36" as="geometry" />
+        </mxCell>
+        <mxCell id="t01-cloud0" value="&lt;div style=&quot;font-size:22px;font-weight:bold;line-height:1.25&quot;&gt;加密备份与密文同步&lt;/div&gt;&lt;div style=&quot;font-size:18px;line-height:1.45;margin-top:6px&quot;&gt;数据库／附件分层 · 版本与清单&lt;/div&gt;" vertex="1" parent="1" style="html=1;whiteSpace=wrap;fontFamily=Noto Sans CJK SC;fontSize=22;fontColor=#29445B;spacing=16;rounded=1;arcSize=8;fillColor=#EAF5F2;strokeColor=#438A7D;strokeWidth=2;align=left;verticalAlign=middle;spacing=8;" evidence="P02,S01">
+          <mxGeometry x="1895" y="799" width="405" height="103" as="geometry" />
+        </mxCell>
+        <mxCell id="t01-cloud1" value="&lt;div style=&quot;font-size:22px;font-weight:bold;line-height:1.25&quot;&gt;摇篮调度与通知&lt;/div&gt;&lt;div style=&quot;font-size:18px;line-height:1.45;margin-top:6px&quot;&gt;报平安 → 提醒 → 宽限 → 预授权投递&lt;/div&gt;" vertex="1" parent="1" style="html=1;whiteSpace=wrap;fontFamily=Noto Sans CJK SC;fontSize=22;fontColor=#29445B;spacing=16;rounded=1;arcSize=8;fillColor=#EAF5F2;strokeColor=#438A7D;strokeWidth=2;align=left;verticalAlign=middle;spacing=8;" evidence="P02,S01">
+          <mxGeometry x="1895" y="924" width="405" height="103" as="geometry" />
+        </mxCell>
+        <mxCell id="t01-cloud2" value="&lt;div style=&quot;font-size:22px;font-weight:bold;line-height:1.25&quot;&gt;接收者加密信封&lt;/div&gt;&lt;div style=&quot;font-size:18px;line-height:1.45;margin-top:6px&quot;&gt;保存与转递快照密文 · 按条件调度&lt;/div&gt;" vertex="1" parent="1" style="html=1;whiteSpace=wrap;fontFamily=Noto Sans CJK SC;fontSize=22;fontColor=#29445B;spacing=16;rounded=1;arcSize=8;fillColor=#EAF5F2;strokeColor=#438A7D;strokeWidth=2;align=left;verticalAlign=middle;spacing=8;" evidence="P02,S01">
+          <mxGeometry x="1895" y="1049" width="405" height="103" as="geometry" />
+        </mxCell>
+        <mxCell id="t01-cloudRule" value="&lt;div style=&quot;font-size:23px;font-weight:bold;line-height:1.25&quot;&gt;云端信任边界&lt;/div&gt;&lt;div style=&quot;font-size:19px;line-height:1.45;margin-top:6px&quot;&gt;服务端不持有Owner VMK或恢复凭证&lt;br/&gt;调度负责投递；接收者用自有私钥解密&lt;br/&gt;无响应不直接认定失能或身故&lt;/div&gt;" vertex="1" parent="1" style="html=1;whiteSpace=wrap;fontFamily=Noto Sans CJK SC;fontSize=22;fontColor=#29445B;spacing=16;rounded=1;arcSize=8;fillColor=#FFF5E8;strokeColor=#C58B49;strokeWidth=2;align=left;verticalAlign=middle;spacing=8;" evidence="P02,S01">
+          <mxGeometry x="1875" y="1220" width="445" height="140" as="geometry" />
+        </mxCell>
+        <mxCell id="t01-rolesToUI" value="跨端交互" edge="1" parent="1" source="t01-actors" target="t01-ui" style="edgeStyle=orthogonalEdgeStyle;html=1;rounded=0;strokeColor=#507BA6;strokeWidth=2;endArrow=block;endFill=1;fontFamily=Noto Sans CJK SC;fontColor=#507BA6;fontSize=20;labelBackgroundColor=#FFFFFF;exitX=0.44;exitY=1;entryX=0.5;entryY=0;exitPerimeter=1;entryPerimeter=1;" evidence="P02">
+          <mxGeometry relative="1" x="0" as="geometry" />
+        </mxCell>
+        <mxCell id="t01-uiToApp" value="用例调用" edge="1" parent="1" source="t01-ui" target="t01-app" style="edgeStyle=orthogonalEdgeStyle;html=1;rounded=0;strokeColor=#507BA6;strokeWidth=2;endArrow=block;endFill=1;fontFamily=Noto Sans CJK SC;fontColor=#507BA6;fontSize=20;labelBackgroundColor=#FFFFFF;exitX=0.5;exitY=1;entryX=0.5;entryY=0;exitPerimeter=1;entryPerimeter=1;" evidence="A02">
+          <mxGeometry relative="1" x="0" as="geometry" />
+        </mxCell>
+        <mxCell id="t01-appToCore" value="规则与安全约束" edge="1" parent="1" source="t01-app" target="t01-core" style="edgeStyle=orthogonalEdgeStyle;html=1;rounded=0;strokeColor=#507BA6;strokeWidth=2;endArrow=block;endFill=1;fontFamily=Noto Sans CJK SC;fontColor=#507BA6;fontSize=20;labelBackgroundColor=#FFFFFF;exitX=0.5;exitY=1;entryX=0.5;entryY=0;exitPerimeter=1;entryPerimeter=1;" evidence="A02">
+          <mxGeometry relative="1" x="0" as="geometry" />
+        </mxCell>
+        <mxCell id="t01-coreToData" value="仓储／平台端口" edge="1" parent="1" source="t01-core" target="t01-storage" style="edgeStyle=orthogonalEdgeStyle;html=1;rounded=0;strokeColor=#507BA6;strokeWidth=2;endArrow=block;endFill=1;fontFamily=Noto Sans CJK SC;fontColor=#507BA6;fontSize=20;labelBackgroundColor=#FFFFFF;exitX=0.5;exitY=1;entryX=0.5;entryY=0;exitPerimeter=1;entryPerimeter=1;" evidence="A02">
+          <mxGeometry relative="1" x="0" as="geometry" />
+        </mxCell>
+        <mxCell id="t01-externalAI" value="HTTPS" edge="1" parent="1" source="t01-app" target="t01-ai" style="edgeStyle=orthogonalEdgeStyle;html=1;rounded=0;strokeColor=#507BA6;strokeWidth=2;endArrow=block;endFill=1;fontFamily=Noto Sans CJK SC;fontColor=#507BA6;fontSize=20;labelBackgroundColor=#FFFFFF;exitX=1;exitY=0.17;entryX=0;entryY=0.7;exitPerimeter=1;entryPerimeter=1;" evidence="I01">
+          <mxGeometry relative="1" x="0" as="geometry">
+            <Array as="points">
+              <mxPoint x="1788" y="698" />
+              <mxPoint x="1788" y="617" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="t01-externalCloud" value="HTTPS" edge="1" parent="1" source="t01-app" target="t01-continuity" style="edgeStyle=orthogonalEdgeStyle;html=1;rounded=0;strokeColor=#507BA6;strokeWidth=2;endArrow=block;endFill=1;fontFamily=Noto Sans CJK SC;fontColor=#507BA6;fontSize=20;labelBackgroundColor=#FFFFFF;exitX=1;exitY=0.79;entryX=0;entryY=0.4;exitPerimeter=1;entryPerimeter=1;" evidence="P02">
+          <mxGeometry relative="1" x="0" as="geometry">
+            <Array as="points">
+              <mxPoint x="1810" y="866" />
+              <mxPoint x="1810" y="927" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="t01-deliverEnvelope" value="预授权密文投递" edge="1" parent="1" source="t01-cloud2" target="t01-actors-2" style="edgeStyle=orthogonalEdgeStyle;html=1;rounded=0;strokeColor=#C58B49;strokeWidth=2;endArrow=block;endFill=1;fontFamily=Noto Sans CJK SC;fontColor=#C58B49;fontSize=20;labelBackgroundColor=#FFFFFF;exitX=1;exitY=0.5;entryX=0.88;entryY=1;exitPerimeter=1;entryPerimeter=1;" evidence="S01,P02">
+          <mxGeometry relative="1" x="0.68" as="geometry">
+            <Array as="points">
+              <mxPoint x="2370" y="1100" />
+              <mxPoint x="2370" y="385" />
+              <mxPoint x="1690" y="385" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="t01-quality" value="" vertex="1" parent="1" style="html=1;whiteSpace=wrap;fontFamily=Noto Sans CJK SC;fontSize=22;fontColor=#29445B;spacing=16;rounded=1;arcSize=4;fillColor=#F8FAFC;fillOpacity=32;strokeColor=#CBD5DF;strokeWidth=2;dashed=1;dashPattern=10 5;" evidence="A03,P02,S01">
+          <mxGeometry x="55" y="1420" width="2290" height="148" as="geometry" />
+        </mxCell>
+        <mxCell id="t01-qualitylabel" value="质量目标与持续演进" vertex="1" parent="1" style="html=1;whiteSpace=wrap;fontFamily=Noto Sans CJK SC;fontSize=22;fontColor=#29445B;spacing=16;text;align=left;spacing=0;fontSize=23;fontColor=#5F768B;fontStyle=1;" evidence="A03,P02,S01">
+          <mxGeometry x="73" y="1430" width="2254" height="36" as="geometry" />
+        </mxCell>
+        <mxCell id="t01-quality-0" value="&lt;div style=&quot;font-size:21px;font-weight:bold;line-height:1.25&quot;&gt;可用性&lt;/div&gt;&lt;div style=&quot;font-size:17px;line-height:1.45;margin-top:6px&quot;&gt;核心离线可用 · 云能力按需启用&lt;/div&gt;" vertex="1" parent="1" style="html=1;whiteSpace=wrap;fontFamily=Noto Sans CJK SC;fontSize=22;fontColor=#29445B;spacing=16;rounded=1;arcSize=8;fillColor=#F8FAFC;strokeColor=#CBD5DF;strokeWidth=2;align=left;verticalAlign=middle;spacing=8;" evidence="A03,P02,S01">
+          <mxGeometry x="75.0" y="1478.0" width="437.2" height="70.0" as="geometry" />
+        </mxCell>
+        <mxCell id="t01-quality-1" value="&lt;div style=&quot;font-size:21px;font-weight:bold;line-height:1.25&quot;&gt;可靠性&lt;/div&gt;&lt;div style=&quot;font-size:17px;line-height:1.45;margin-top:6px&quot;&gt;认证备份 · 中断恢复 · 一致快照&lt;/div&gt;" vertex="1" parent="1" style="html=1;whiteSpace=wrap;fontFamily=Noto Sans CJK SC;fontSize=22;fontColor=#29445B;spacing=16;rounded=1;arcSize=8;fillColor=#F8FAFC;strokeColor=#CBD5DF;strokeWidth=2;align=left;verticalAlign=middle;spacing=8;" evidence="A03,P02,S01">
+          <mxGeometry x="528.2" y="1478.0" width="437.2" height="70.0" as="geometry" />
+        </mxCell>
+        <mxCell id="t01-quality-2" value="&lt;div style=&quot;font-size:21px;font-weight:bold;line-height:1.25&quot;&gt;性能&lt;/div&gt;&lt;div style=&quot;font-size:17px;line-height:1.45;margin-top:6px&quot;&gt;资源预算 · 后台隔离 · 附件按需读取&lt;/div&gt;" vertex="1" parent="1" style="html=1;whiteSpace=wrap;fontFamily=Noto Sans CJK SC;fontSize=22;fontColor=#29445B;spacing=16;rounded=1;arcSize=8;fillColor=#F8FAFC;strokeColor=#CBD5DF;strokeWidth=2;align=left;verticalAlign=middle;spacing=8;" evidence="A03,P02,S01">
+          <mxGeometry x="981.4" y="1478.0" width="437.2" height="70.0" as="geometry" />
+        </mxCell>
+        <mxCell id="t01-quality-3" value="&lt;div style=&quot;font-size:21px;font-weight:bold;line-height:1.25&quot;&gt;可维护与扩展&lt;/div&gt;&lt;div style=&quot;font-size:17px;line-height:1.45;margin-top:6px&quot;&gt;分层端口 · 适配器替换 · 格式演进&lt;/div&gt;" vertex="1" parent="1" style="html=1;whiteSpace=wrap;fontFamily=Noto Sans CJK SC;fontSize=22;fontColor=#29445B;spacing=16;rounded=1;arcSize=8;fillColor=#F8FAFC;strokeColor=#CBD5DF;strokeWidth=2;align=left;verticalAlign=middle;spacing=8;" evidence="A03,P02,S01">
+          <mxGeometry x="1434.6" y="1478.0" width="437.2" height="70.0" as="geometry" />
+        </mxCell>
+        <mxCell id="t01-quality-4" value="&lt;div style=&quot;font-size:21px;font-weight:bold;line-height:1.25&quot;&gt;长期使用&lt;/div&gt;&lt;div style=&quot;font-size:17px;line-height:1.45;margin-top:6px&quot;&gt;跨端体验 · 无障碍 · 导入导出&lt;/div&gt;" vertex="1" parent="1" style="html=1;whiteSpace=wrap;fontFamily=Noto Sans CJK SC;fontSize=22;fontColor=#29445B;spacing=16;rounded=1;arcSize=8;fillColor=#F8FAFC;strokeColor=#CBD5DF;strokeWidth=2;align=left;verticalAlign=middle;spacing=8;" evidence="A03,P02,S01">
+          <mxGeometry x="1887.8" y="1478.0" width="437.2" height="70.0" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

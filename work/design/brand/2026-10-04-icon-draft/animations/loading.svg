@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" role="img" aria-label="留灯图案草案">
+<style>
+.flame { transform-box:fill-box; transform-origin:50% 50%; }
+.traveler { transform-box:fill-box; transform-origin:50% 50%; }
+.loading .flame { animation:breathe 1.8s ease-in-out infinite; }
+.complete .flame { animation:lit .7s ease-out both; }
+.complete .shell-left,.complete .shell-right { animation:settle .7s ease-out both; transform-box:fill-box; transform-origin:center; }
+.relay .flame { animation:core-relay 1.6s ease-in-out both; }
+.relay .traveler { animation:pass-light 1.6s cubic-bezier(.4,0,.2,1) both; }
+.relay .shell-right { animation:receive 1.6s ease-in-out both; }
+@keyframes breathe { 0%,100% {opacity:.5; transform:scaleY(.94)} 50% {opacity:1; transform:scaleY(1.035)} }
+@keyframes lit { 0% {opacity:.35;transform:scale(.88)} 45% {opacity:1;transform:scale(1.1)} 100% {opacity:1;transform:scale(1)} }
+@keyframes settle { 0% {transform:translateY(2px)} 65%,100% {transform:translateY(0)} }
+@keyframes core-relay { 0%,25% {opacity:.4} 50%,100% {opacity:1} }
+@keyframes pass-light { 0% {opacity:0;transform:translate(-56px,-18px) scale(.45)} 18% {opacity:.8} 45% {opacity:1;transform:translate(0,0) scale(.65)} 78% {opacity:1;transform:translate(57px,34px) scale(.5)} 100% {opacity:0;transform:translate(57px,34px) scale(.35)} }
+@keyframes receive { 0%,58%,100% {fill:var(--ink, #272620)} 78% {fill:#B89962} }
+@media (prefers-reduced-motion:reduce) { .loading .flame,.complete .flame,.complete .shell-left,.complete .shell-right,.relay .flame,.relay .traveler,.relay .shell-right {animation:none} }
+</style>
+<g class="loading" style="--ink:#272620">
+<path id="left-shell" class="shell-left" fill="#272620" d="M 298.76 78 C 290.56 90.3 279.9 96.86 268.42 102.6 L 161.82 149.34 C 135.58 163.28 120 178.86 120 204.28 L 120 378.12 C 120 396.16 130.66 407.64 148.7 415.02 L 197.9 433.06 Q 201.18 434.7 201.18 431.42 L 201.18 296.12 C 201.18 275.62 213.48 266.6 238.08 253.48 L 270.88 234.62 C 289.74 223.96 299.58 211.66 299.58 192.8 L 299.58 79.64 Q 299.58 77.18 298.76 78 Z"/>
+<path id="right-shell" class="shell-right" fill="#272620" d="M 284 257.58 L 356.16 287.1 C 379.94 296.94 392.24 308.42 392.24 327.28 L 392.24 425.68 Q 392.24 434.7 382.4 434.7 C 357.8 433.88 329.92 423.22 304.5 410.92 C 290.56 404.36 284 394.52 284 381.4 Z"/>
+<path id="flame" class="flame" fill="#F3C477" d="M 249.56 244.46 C 265.14 248.56 274.16 255.12 274.16 269.88 L 274.16 328.1 C 259.4 324 249.56 314.16 249.56 300.22 Z"/>
+</g>
+</svg>

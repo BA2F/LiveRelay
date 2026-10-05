@@ -1,0 +1,88 @@
+{
+  "date": "2026-10-04",
+  "purpose": "总体目标设计",
+  "tools": "draw.io 30.2.4 / Poppler / pypdf",
+  "results": [
+    {
+      "file": "LiveRelay-系统总体架构.pdf",
+      "nativePages": 1,
+      "pdfPages": 1,
+      "paper": "A3 landscape",
+      "fontsEmbeddedUnicode": true,
+      "nativeRasterCount": 0,
+      "checks": [
+        {
+          "page": 1,
+          "title": "LiveRelay 系统总体架构图",
+          "pdfChineseCharacters": 892,
+          "pngDimensions": [
+            3602,
+            2552
+          ],
+          "embeddedSVGCurrent": true
+        }
+      ]
+    },
+    {
+      "file": "LiveRelay-总体目标架构.pdf",
+      "nativePages": 5,
+      "pdfPages": 5,
+      "paper": "A3 landscape",
+      "fontsEmbeddedUnicode": true,
+      "nativeRasterCount": 0,
+      "checks": [
+        {
+          "page": 1,
+          "title": "LiveRelay 系统总体架构图",
+          "pdfChineseCharacters": 888,
+          "pngDimensions": [
+            3602,
+            2552
+          ],
+          "embeddedSVGCurrent": true
+        },
+        {
+          "page": 2,
+          "title": "LiveRelay 业务架构图",
+          "pdfChineseCharacters": 666,
+          "pngDimensions": [
+            3602,
+            2552
+          ],
+          "embeddedSVGCurrent": true
+        },
+        {
+          "page": 3,
+          "title": "LiveRelay 应用架构图",
+          "pdfChineseCharacters": 637,
+          "pngDimensions": [
+            3602,
+            2552
+          ],
+          "embeddedSVGCurrent": true
+        },
+        {
+          "page": 4,
+          "title": "LiveRelay 数据架构图",
+          "pdfChineseCharacters": 658,
+          "pngDimensions": [
+            3602,
+            2552
+          ],
+          "embeddedSVGCurrent": true
+        },
+        {
+          "page": 5,
+          "title": "LiveRelay 技术架构图",
+          "pdfChineseCharacters": 630,
+          "pngDimensions": [
+            3602,
+            2552
+          ],
+          "embeddedSVGCurrent": true
+        }
+      ]
+    }
+  ],
+  "visualReview": "visual-review.md"
+}

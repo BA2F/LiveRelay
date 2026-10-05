@@ -1,0 +1,12 @@
+{
+  "method": "Codex in-app browser control and visual inspection",
+  "preview": "preview.html",
+  "loading": {"animation": "breathe", "iterations": "infinite", "after_stop": "none"},
+  "complete": {"animation": "lit", "iterations": "1", "final_visible_status": "播放结束"},
+  "handoff": {"animation": "pass-light", "iterations": "1", "final_visible_status": "播放结束"},
+  "reduced_motion_checkbox": {"loading_animation": "none", "visible_status": "处理中 · 静态"},
+  "dark_micro_resource": "svg/mark-micro-inverse.svg",
+  "browser_error_logs": [],
+  "screenshots": ["preview-light.jpg", "preview-dark.jpg", "source-and-vector.jpg"],
+  "platform_build_or_device_verification": false
+}

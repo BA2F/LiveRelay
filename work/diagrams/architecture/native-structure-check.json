@@ -1,0 +1,94 @@
+{
+  "pages": [
+    {
+      "page": 1,
+      "slug": "context",
+      "vertices": 19,
+      "edges": 5,
+      "width": 1800,
+      "height": 1120
+    },
+    {
+      "page": 2,
+      "slug": "containers",
+      "vertices": 19,
+      "edges": 5,
+      "width": 1800,
+      "height": 1120
+    },
+    {
+      "page": 3,
+      "slug": "components",
+      "vertices": 29,
+      "edges": 6,
+      "width": 1800,
+      "height": 1120
+    },
+    {
+      "page": 4,
+      "slug": "deployment",
+      "vertices": 22,
+      "edges": 4,
+      "width": 1800,
+      "height": 1120
+    },
+    {
+      "page": 5,
+      "slug": "data-security",
+      "vertices": 23,
+      "edges": 6,
+      "width": 1800,
+      "height": 1120
+    },
+    {
+      "page": 6,
+      "slug": "capture-speech",
+      "vertices": 20,
+      "edges": 6,
+      "width": 1800,
+      "height": 1120
+    },
+    {
+      "page": 7,
+      "slug": "agent-privacy",
+      "vertices": 20,
+      "edges": 9,
+      "width": 1800,
+      "height": 1120
+    },
+    {
+      "page": 8,
+      "slug": "identity-binding",
+      "vertices": 19,
+      "edges": 6,
+      "width": 1800,
+      "height": 1120
+    },
+    {
+      "page": 9,
+      "slug": "scoped-delivery",
+      "vertices": 22,
+      "edges": 5,
+      "width": 1800,
+      "height": 1120
+    },
+    {
+      "page": 10,
+      "slug": "backup-restore",
+      "vertices": 19,
+      "edges": 8,
+      "width": 1800,
+      "height": 1120
+    },
+    {
+      "page": 11,
+      "slug": "security-recovery",
+      "vertices": 23,
+      "edges": 5,
+      "width": 1800,
+      "height": 1120
+    }
+  ],
+  "allNativeEditable": true,
+  "embeddedRasterCount": 0
+}

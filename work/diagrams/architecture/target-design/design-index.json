@@ -1,0 +1,1841 @@
+{
+  "date": "2026-10-04",
+  "version": "1.0",
+  "purpose": "总体目标设计",
+  "canvas": [
+    2400,
+    1700
+  ],
+  "sources": {
+    "P01": {
+      "title": "产品目标",
+      "path": "docs/20_product/00_产品设计总览.md"
+    },
+    "P02": {
+      "title": "总体产品范围、云端、Agent、跨端",
+      "path": "docs/20_product/16_正式版演进与已确认范围.md"
+    },
+    "A01": {
+      "title": "模块化单体与分层",
+      "path": "docs/30_design/architecture/00_系统架构总览.md"
+    },
+    "A02": {
+      "title": "模块依赖与组合根",
+      "path": "docs/30_design/architecture/01_系统分层与模块边界.md"
+    },
+    "A03": {
+      "title": "本地优先与跨平台",
+      "path": "docs/30_design/architecture/03_本地优先与跨平台架构.md"
+    },
+    "S01": {
+      "title": "身份、VMK、接收者与调度信任边界",
+      "path": "docs/30_design/security/07_正式版密钥恢复与接收者解密设计.md"
+    },
+    "S02": {
+      "title": "解锁、独立恢复与换钥",
+      "path": "docs/30_design/security/10_本机安全流程与格式v3.md"
+    },
+    "S03": {
+      "title": "快照、独立身份、完整／分层备份",
+      "path": "docs/30_design/security/11_本机交接与分层备份格式.md"
+    },
+    "D01": {
+      "title": "统一信息卡片与秘密字段",
+      "path": "docs/30_design/domain/02_账户资产关系与秘密模型.md"
+    },
+    "D02": {
+      "title": "信息释放与可见范围",
+      "path": "docs/30_design/domain/04_信息释放与交接策略模型.md"
+    },
+    "R01": {
+      "title": "来源链",
+      "path": "docs/30_design/provenance/00_来源追踪体系总览.md"
+    },
+    "R02": {
+      "title": "修订、冲突与当前状态",
+      "path": "docs/30_design/provenance/02_版本冲突与当前状态.md"
+    },
+    "I01": {
+      "title": "AI隐私与授权",
+      "path": "docs/30_design/ai/00_AI隐私处理总览.md"
+    },
+    "T01": {
+      "title": "技术选型",
+      "path": "docs/30_design/platform/00_应用实现架构总览.md"
+    }
+  },
+  "reference": "https://blog.csdn.net/kunwen123/article/details/122854209",
+  "pages": [
+    {
+      "page": 1,
+      "title": "LiveRelay 系统总体架构图",
+      "slug": "system-overview",
+      "vertices": 69,
+      "edges": 7,
+      "cells": [
+        {
+          "id": "t01-actorslabel",
+          "text": "使用与协作角色",
+          "refs": [
+            "P01",
+            "P02",
+            "S01"
+          ]
+        },
+        {
+          "id": "t01-actors-0",
+          "text": "<div style=\"font-size:21px;font-weight:bold;line-height:1.25\">所有者</div><div style=\"font-size:17px;line-height:1.45;margin-top:6px\">日常记录 · 管理凭证 · 设置授权</div>",
+          "refs": [
+            "P01",
+            "P02",
+            "S01"
+          ]
+        },
+        {
+          "id": "t01-actors-1",
+          "text": "<div style=\"font-size:21px;font-weight:bold;line-height:1.25\">家庭协助者</div><div style=\"font-size:17px;line-height:1.45;margin-top:6px\">协助录入 · 提醒补全 · 任务协作</div>",
+          "refs": [
+            "P01",
+            "P02",
+            "S01"
+          ]
+        },
+        {
+          "id": "t01-actors-2",
+          "text": "<div style=\"font-size:21px;font-weight:bold;line-height:1.25\">接收者／Executor</div><div style=\"font-size:17px;line-height:1.45;margin-top:6px\">核对身份 · 范围查看 · 交接执行</div>",
+          "refs": [
+            "P01",
+            "P02",
+            "S01"
+          ]
+        },
+        {
+          "id": "t01-actors-3",
+          "text": "<div style=\"font-size:21px;font-weight:bold;line-height:1.25\">服务管理者</div><div style=\"font-size:17px;line-height:1.45;margin-top:6px\">自部署／托管配置 · 调度与密文空间</div>",
+          "refs": [
+            "P01",
+            "P02",
+            "S01"
+          ]
+        },
+        {
+          "id": "t01-clientlabel",
+          "text": "本地客户端应用边界  |  Flutter 模块化单体 · 移动端／桌面端 · Owner／Recipient 隔离会话",
+          "refs": [
+            "A01",
+            "A03",
+            "S01"
+          ]
+        },
+        {
+          "id": "t01-uilabel",
+          "text": "交互呈现层",
+          "refs": [
+            "P02"
+          ]
+        },
+        {
+          "id": "t01-ui-0",
+          "text": "<div style=\"font-size:21px;font-weight:bold;line-height:1.25\">记录与原件</div>",
+          "refs": [
+            "P02"
+          ]
+        },
+        {
+          "id": "t01-ui-1",
+          "text": "<div style=\"font-size:21px;font-weight:bold;line-height:1.25\">信息卡片</div>",
+          "refs": [
+            "P02"
+          ]
+        },
+        {
+          "id": "t01-ui-2",
+          "text": "<div style=\"font-size:21px;font-weight:bold;line-height:1.25\">密码库</div>",
+          "refs": [
+            "P02"
+          ]
+        },
+        {
+          "id": "t01-ui-3",
+          "text": "<div style=\"font-size:21px;font-weight:bold;line-height:1.25\">交接与执行</div>",
+          "refs": [
+            "P02"
+          ]
+        },
+        {
+          "id": "t01-ui-4",
+          "text": "<div style=\"font-size:21px;font-weight:bold;line-height:1.25\">备份与恢复</div>",
+          "refs": [
+            "P02"
+          ]
+        },
+        {
+          "id": "t01-ui-5",
+          "text": "<div style=\"font-size:21px;font-weight:bold;line-height:1.25\">我的与设置</div>",
+          "refs": [
+            "P02"
+          ]
+        },
+        {
+          "id": "t01-applabel",
+          "text": "业务应用层",
+          "refs": [
+            "P02",
+            "D01",
+            "R01",
+            "S03"
+          ]
+        },
+        {
+          "id": "t01-app-0",
+          "text": "<div style=\"font-size:22px;font-weight:bold;line-height:1.25\">资料采集与识别</div><div style=\"font-size:18px;line-height:1.45;margin-top:6px\">媒体导入 · OCR · 本地转写</div>",
+          "refs": [
+            "P02",
+            "D01",
+            "R01",
+            "S03"
+          ]
+        },
+        {
+          "id": "t01-app-1",
+          "text": "<div style=\"font-size:22px;font-weight:bold;line-height:1.25\">信息组织与智能整理</div><div style=\"font-size:18px;line-height:1.45;margin-top:6px\">卡片分类 · 人工确认 · Agent</div>",
+          "refs": [
+            "P02",
+            "D01",
+            "R01",
+            "S03"
+          ]
+        },
+        {
+          "id": "t01-app-2",
+          "text": "<div style=\"font-size:22px;font-weight:bold;line-height:1.25\">密码与秘密管理</div><div style=\"font-size:18px;line-height:1.45;margin-top:6px\">生成／录入 · 专门字段 · 历史</div>",
+          "refs": [
+            "P02",
+            "D01",
+            "R01",
+            "S03"
+          ]
+        },
+        {
+          "id": "t01-app-3",
+          "text": "<div style=\"font-size:22px;font-weight:bold;line-height:1.25\">来源、检索与状态维护</div><div style=\"font-size:18px;line-height:1.45;margin-top:6px\">来源追踪 · 修订 · 冲突解释</div>",
+          "refs": [
+            "P02",
+            "D01",
+            "R01",
+            "S03"
+          ]
+        },
+        {
+          "id": "t01-app-4",
+          "text": "<div style=\"font-size:22px;font-weight:bold;line-height:1.25\">身份与接收者管理</div><div style=\"font-size:18px;line-height:1.45;margin-top:6px\">双钥身份 · 绑定 · 独立接收</div>",
+          "refs": [
+            "P02",
+            "D01",
+            "R01",
+            "S03"
+          ]
+        },
+        {
+          "id": "t01-app-5",
+          "text": "<div style=\"font-size:22px;font-weight:bold;line-height:1.25\">授权与交接编排</div><div style=\"font-size:18px;line-height:1.45;margin-top:6px\">范围预览 · 手动／条件交付</div>",
+          "refs": [
+            "P02",
+            "D01",
+            "R01",
+            "S03"
+          ]
+        },
+        {
+          "id": "t01-app-6",
+          "text": "<div style=\"font-size:22px;font-weight:bold;line-height:1.25\">备份、恢复与安全更新</div><div style=\"font-size:18px;line-height:1.45;margin-top:6px\">完整／分层 · 补齐 · 全库换钥</div>",
+          "refs": [
+            "P02",
+            "D01",
+            "R01",
+            "S03"
+          ]
+        },
+        {
+          "id": "t01-app-7",
+          "text": "<div style=\"font-size:22px;font-weight:bold;line-height:1.25\">同步与连续性管理</div><div style=\"font-size:18px;line-height:1.45;margin-top:6px\">密文同步 · 报平安 · 调度协同</div>",
+          "refs": [
+            "P02",
+            "D01",
+            "R01",
+            "S03"
+          ]
+        },
+        {
+          "id": "t01-corelabel",
+          "text": "领域与安全内核",
+          "refs": [
+            "D01",
+            "D02",
+            "R02",
+            "I01",
+            "S02",
+            "S03"
+          ]
+        },
+        {
+          "id": "t01-core-0",
+          "text": "<div style=\"font-size:22px;font-weight:bold;line-height:1.25\">人生信息／生命周期</div><div style=\"font-size:18px;line-height:1.45;margin-top:6px\">卡片与凭据 · 生命状态</div>",
+          "refs": [
+            "D01",
+            "D02",
+            "R02",
+            "I01",
+            "S02",
+            "S03"
+          ]
+        },
+        {
+          "id": "t01-core-1",
+          "text": "<div style=\"font-size:22px;font-weight:bold;line-height:1.25\">来源与释放策略</div><div style=\"font-size:18px;line-height:1.45;margin-top:6px\">修订／确认 · 逐项可见范围</div>",
+          "refs": [
+            "D01",
+            "D02",
+            "R02",
+            "I01",
+            "S02",
+            "S03"
+          ]
+        },
+        {
+          "id": "t01-core-2",
+          "text": "<div style=\"font-size:22px;font-weight:bold;line-height:1.25\">AI Privacy</div><div style=\"font-size:18px;line-height:1.45;margin-top:6px\">Token遮蔽 · Schema校验 · 回填</div>",
+          "refs": [
+            "D01",
+            "D02",
+            "R02",
+            "I01",
+            "S02",
+            "S03"
+          ]
+        },
+        {
+          "id": "t01-core-3",
+          "text": "<div style=\"font-size:22px;font-weight:bold;line-height:1.25\">密钥与身份安全</div><div style=\"font-size:18px;line-height:1.45;margin-top:6px\">多因素 · 独立恢复 · 签名／HPKE</div>",
+          "refs": [
+            "D01",
+            "D02",
+            "R02",
+            "I01",
+            "S02",
+            "S03"
+          ]
+        },
+        {
+          "id": "t01-storagelabel",
+          "text": "加密数据与基础设施层",
+          "refs": [
+            "S03",
+            "T01",
+            "A02"
+          ]
+        },
+        {
+          "id": "t01-storage-0",
+          "text": "<div style=\"font-size:22px;font-weight:bold;line-height:1.25\">结构化资料库</div><div style=\"font-size:18px;line-height:1.45;margin-top:6px\">SQLCipher · 卡片／秘密／策略</div>",
+          "refs": [
+            "S03",
+            "T01",
+            "A02"
+          ]
+        },
+        {
+          "id": "t01-storage-1",
+          "text": "<div style=\"font-size:22px;font-weight:bold;line-height:1.25\">加密原始资料</div><div style=\"font-size:18px;line-height:1.45;margin-top:6px\">AES-GCM Blob · 音视频／文件</div>",
+          "refs": [
+            "S03",
+            "T01",
+            "A02"
+          ]
+        },
+        {
+          "id": "t01-storage-2",
+          "text": "<div style=\"font-size:22px;font-weight:bold;line-height:1.25\">身份与便携资料</div><div style=\"font-size:18px;line-height:1.45;margin-top:6px\">独立身份库 · .lvault／.lrshare</div>",
+          "refs": [
+            "S03",
+            "T01",
+            "A02"
+          ]
+        },
+        {
+          "id": "t01-storage-3",
+          "text": "<div style=\"font-size:22px;font-weight:bold;line-height:1.25\">平台与扩展适配</div><div style=\"font-size:18px;line-height:1.45;margin-top:6px\">插件／FFI · Provider · 导入器</div>",
+          "refs": [
+            "S03",
+            "T01",
+            "A02"
+          ]
+        },
+        {
+          "id": "t01-governancelabel",
+          "text": "安全与治理",
+          "refs": [
+            "S01",
+            "I01",
+            "D02"
+          ]
+        },
+        {
+          "id": "t01-govern0",
+          "text": "<div style=\"font-size:24px;font-weight:bold;line-height:1.25\">身份与权限</div><div style=\"font-size:20px;line-height:1.45;margin-top:6px\">本人默认可见<br/>协助与查看分离<br/>逐次明确授权</div>",
+          "refs": [
+            "S01",
+            "I01",
+            "R01"
+          ]
+        },
+        {
+          "id": "t01-govern1",
+          "text": "<div style=\"font-size:24px;font-weight:bold;line-height:1.25\">密钥所有权</div><div style=\"font-size:20px;line-height:1.45;margin-top:6px\">VMK只属Owner<br/>恢复材料离线保管<br/>Recipient自有私钥</div>",
+          "refs": [
+            "S01",
+            "I01",
+            "R01"
+          ]
+        },
+        {
+          "id": "t01-govern2",
+          "text": "<div style=\"font-size:24px;font-weight:bold;line-height:1.25\">隐私与边界</div><div style=\"font-size:20px;line-height:1.45;margin-top:6px\">外发范围可预览<br/>Token Map留本机<br/>Secret默认遮挡</div>",
+          "refs": [
+            "S01",
+            "I01",
+            "R01"
+          ]
+        },
+        {
+          "id": "t01-govern3",
+          "text": "<div style=\"font-size:24px;font-weight:bold;line-height:1.25\">可信与审计</div><div style=\"font-size:20px;line-height:1.45;margin-top:6px\">原件／来源／修订<br/>人工确认与推断分离<br/>操作审计与最少遥测</div>",
+          "refs": [
+            "S01",
+            "I01",
+            "R01"
+          ]
+        },
+        {
+          "id": "t01-externallabel",
+          "text": "可选云端与外部服务边界",
+          "refs": [
+            "P02",
+            "S01"
+          ]
+        },
+        {
+          "id": "t01-ai",
+          "text": "<div style=\"font-size:26px;font-weight:bold;line-height:1.25\">外部 AI／Agent 服务</div><div style=\"font-size:21px;line-height:1.45;margin-top:6px\">HTTPS／JSON · Provider适配<br/>仅接收本次预览获准的文本<br/>敏感行以Token替换；原件留本机</div>",
+          "refs": [
+            "I01",
+            "P02"
+          ]
+        },
+        {
+          "id": "t01-continuitylabel",
+          "text": "连续性服务  |  自部署／托管",
+          "refs": [
+            "P02",
+            "S01"
+          ]
+        },
+        {
+          "id": "t01-cloud0",
+          "text": "<div style=\"font-size:22px;font-weight:bold;line-height:1.25\">加密备份与密文同步</div><div style=\"font-size:18px;line-height:1.45;margin-top:6px\">数据库／附件分层 · 版本与清单</div>",
+          "refs": [
+            "P02",
+            "S01"
+          ]
+        },
+        {
+          "id": "t01-cloud1",
+          "text": "<div style=\"font-size:22px;font-weight:bold;line-height:1.25\">摇篮调度与通知</div><div style=\"font-size:18px;line-height:1.45;margin-top:6px\">报平安 → 提醒 → 宽限 → 预授权投递</div>",
+          "refs": [
+            "P02",
+            "S01"
+          ]
+        },
+        {
+          "id": "t01-cloud2",
+          "text": "<div style=\"font-size:22px;font-weight:bold;line-height:1.25\">接收者加密信封</div><div style=\"font-size:18px;line-height:1.45;margin-top:6px\">保存与转递快照密文 · 按条件调度</div>",
+          "refs": [
+            "P02",
+            "S01"
+          ]
+        },
+        {
+          "id": "t01-cloudRule",
+          "text": "<div style=\"font-size:23px;font-weight:bold;line-height:1.25\">云端信任边界</div><div style=\"font-size:19px;line-height:1.45;margin-top:6px\">服务端不持有Owner VMK或恢复凭证<br/>调度负责投递；接收者用自有私钥解密<br/>无响应不直接认定失能或身故</div>",
+          "refs": [
+            "P02",
+            "S01"
+          ]
+        },
+        {
+          "id": "t01-rolesToUI",
+          "text": "跨端交互",
+          "source": "t01-actors",
+          "target": "t01-ui",
+          "refs": [
+            "P02"
+          ]
+        },
+        {
+          "id": "t01-uiToApp",
+          "text": "用例调用",
+          "source": "t01-ui",
+          "target": "t01-app",
+          "refs": [
+            "A02"
+          ]
+        },
+        {
+          "id": "t01-appToCore",
+          "text": "规则与安全约束",
+          "source": "t01-app",
+          "target": "t01-core",
+          "refs": [
+            "A02"
+          ]
+        },
+        {
+          "id": "t01-coreToData",
+          "text": "仓储／平台端口",
+          "source": "t01-core",
+          "target": "t01-storage",
+          "refs": [
+            "A02"
+          ]
+        },
+        {
+          "id": "t01-externalAI",
+          "text": "HTTPS",
+          "source": "t01-app",
+          "target": "t01-ai",
+          "refs": [
+            "I01"
+          ]
+        },
+        {
+          "id": "t01-externalCloud",
+          "text": "HTTPS",
+          "source": "t01-app",
+          "target": "t01-continuity",
+          "refs": [
+            "P02"
+          ]
+        },
+        {
+          "id": "t01-deliverEnvelope",
+          "text": "预授权密文投递",
+          "source": "t01-cloud2",
+          "target": "t01-actors-2",
+          "refs": [
+            "S01",
+            "P02"
+          ]
+        },
+        {
+          "id": "t01-qualitylabel",
+          "text": "质量目标与持续演进",
+          "refs": [
+            "A03",
+            "P02",
+            "S01"
+          ]
+        },
+        {
+          "id": "t01-quality-0",
+          "text": "<div style=\"font-size:21px;font-weight:bold;line-height:1.25\">可用性</div><div style=\"font-size:17px;line-height:1.45;margin-top:6px\">核心离线可用 · 云能力按需启用</div>",
+          "refs": [
+            "A03",
+            "P02",
+            "S01"
+          ]
+        },
+        {
+          "id": "t01-quality-1",
+          "text": "<div style=\"font-size:21px;font-weight:bold;line-height:1.25\">可靠性</div><div style=\"font-size:17px;line-height:1.45;margin-top:6px\">认证备份 · 中断恢复 · 一致快照</div>",
+          "refs": [
+            "A03",
+            "P02",
+            "S01"
+          ]
+        },
+        {
+          "id": "t01-quality-2",
+          "text": "<div style=\"font-size:21px;font-weight:bold;line-height:1.25\">性能</div><div style=\"font-size:17px;line-height:1.45;margin-top:6px\">资源预算 · 后台隔离 · 附件按需读取</div>",
+          "refs": [
+            "A03",
+            "P02",
+            "S01"
+          ]
+        },
+        {
+          "id": "t01-quality-3",
+          "text": "<div style=\"font-size:21px;font-weight:bold;line-height:1.25\">可维护与扩展</div><div style=\"font-size:17px;line-height:1.45;margin-top:6px\">分层端口 · 适配器替换 · 格式演进</div>",
+          "refs": [
+            "A03",
+            "P02",
+            "S01"
+          ]
+        },
+        {
+          "id": "t01-quality-4",
+          "text": "<div style=\"font-size:21px;font-weight:bold;line-height:1.25\">长期使用</div><div style=\"font-size:17px;line-height:1.45;margin-top:6px\">跨端体验 · 无障碍 · 导入导出</div>",
+          "refs": [
+            "A03",
+            "P02",
+            "S01"
+          ]
+        }
+      ]
+    },
+    {
+      "page": 2,
+      "title": "LiveRelay 业务架构图",
+      "slug": "business",
+      "vertices": 45,
+      "edges": 8,
+      "cells": [
+        {
+          "id": "t02-value",
+          "text": "<div style=\"font-size:26px;font-weight:bold;line-height:1.25\">业务目标</div><div style=\"font-size:22px;line-height:1.45;margin-top:6px\">保持人生信息长期可用、可追溯、可恢复；在本人授权范围内支持家庭持续运转与有序交接。</div>",
+          "refs": [
+            "P01"
+          ]
+        },
+        {
+          "id": "t02-sceneslabel",
+          "text": "业务场景",
+          "refs": [
+            "P01",
+            "D02"
+          ]
+        },
+        {
+          "id": "t02-scenes-0",
+          "text": "<div style=\"font-size:22px;font-weight:bold;line-height:1.25\">日常生活管理</div><div style=\"font-size:18px;line-height:1.45;margin-top:6px\">账户密码 · 资料位置 · 资产／负债线索</div>",
+          "refs": [
+            "P01",
+            "D02"
+          ]
+        },
+        {
+          "id": "t02-scenes-1",
+          "text": "<div style=\"font-size:22px;font-weight:bold;line-height:1.25\">风险与资料补全</div><div style=\"font-size:18px;line-height:1.45;margin-top:6px\">关键联系人 · 家庭操作 · 定期核对</div>",
+          "refs": [
+            "P01",
+            "D02"
+          ]
+        },
+        {
+          "id": "t02-scenes-2",
+          "text": "<div style=\"font-size:22px;font-weight:bold;line-height:1.25\">临时失能协助</div><div style=\"font-size:18px;line-height:1.45;margin-top:6px\">家庭维持所需资料 · 限定范围接收</div>",
+          "refs": [
+            "P01",
+            "D02"
+          ]
+        },
+        {
+          "id": "t02-scenes-3",
+          "text": "<div style=\"font-size:22px;font-weight:bold;line-height:1.25\">身故后有序交接</div><div style=\"font-size:18px;line-height:1.45;margin-top:6px\">指定接收者 · 执行步骤 · 来源调查</div>",
+          "refs": [
+            "P01",
+            "D02"
+          ]
+        },
+        {
+          "id": "t02-valueChainlabel",
+          "text": "业务价值链（从创建到使用与交接）",
+          "refs": [
+            "P01",
+            "P02"
+          ]
+        },
+        {
+          "id": "t02-stage0",
+          "text": "<div style=\"font-size:26px;font-weight:bold;line-height:1.25\">1  采集记录</div><div style=\"font-size:21px;line-height:1.45;margin-top:6px\">文字／照片／语音／文件<br/>保存原件与来源</div>",
+          "refs": [
+            "P01",
+            "P02"
+          ]
+        },
+        {
+          "id": "t02-stage1",
+          "text": "<div style=\"font-size:26px;font-weight:bold;line-height:1.25\">2  整理确认</div><div style=\"font-size:21px;line-height:1.45;margin-top:6px\">人工／AI整理<br/>识别类型、核对事实</div>",
+          "refs": [
+            "P01",
+            "P02"
+          ]
+        },
+        {
+          "id": "t02-stageFlow1",
+          "text": "",
+          "source": "t02-stage0",
+          "target": "t02-stage1",
+          "refs": [
+            "P01"
+          ]
+        },
+        {
+          "id": "t02-stage2",
+          "text": "<div style=\"font-size:26px;font-weight:bold;line-height:1.25\">3  维护使用</div><div style=\"font-size:21px;line-height:1.45;margin-top:6px\">检索、修订、提醒<br/>维护当前状态</div>",
+          "refs": [
+            "P01",
+            "P02"
+          ]
+        },
+        {
+          "id": "t02-stageFlow2",
+          "text": "",
+          "source": "t02-stage1",
+          "target": "t02-stage2",
+          "refs": [
+            "P01"
+          ]
+        },
+        {
+          "id": "t02-stage3",
+          "text": "<div style=\"font-size:26px;font-weight:bold;line-height:1.25\">4  持续保全</div><div style=\"font-size:21px;line-height:1.45;margin-top:6px\">备份、恢复、换钥<br/>同步与报平安</div>",
+          "refs": [
+            "P01",
+            "P02"
+          ]
+        },
+        {
+          "id": "t02-stageFlow3",
+          "text": "",
+          "source": "t02-stage2",
+          "target": "t02-stage3",
+          "refs": [
+            "P01"
+          ]
+        },
+        {
+          "id": "t02-stage4",
+          "text": "<div style=\"font-size:26px;font-weight:bold;line-height:1.25\">5  授权交付</div><div style=\"font-size:21px;line-height:1.45;margin-top:6px\">核对身份与具体范围<br/>手动或预授权条件交付</div>",
+          "refs": [
+            "P01",
+            "P02"
+          ]
+        },
+        {
+          "id": "t02-stageFlow4",
+          "text": "",
+          "source": "t02-stage3",
+          "target": "t02-stage4",
+          "refs": [
+            "P01"
+          ]
+        },
+        {
+          "id": "t02-stage5",
+          "text": "<div style=\"font-size:26px;font-weight:bold;line-height:1.25\">6  接收执行</div><div style=\"font-size:21px;line-height:1.45;margin-top:6px\">独立解密、按范围查看<br/>任务处理、补充说明</div>",
+          "refs": [
+            "P01",
+            "P02"
+          ]
+        },
+        {
+          "id": "t02-stageFlow5",
+          "text": "",
+          "source": "t02-stage4",
+          "target": "t02-stage5",
+          "refs": [
+            "P01"
+          ]
+        },
+        {
+          "id": "t02-capabilitieslabel",
+          "text": "业务能力",
+          "refs": [
+            "P02",
+            "D01",
+            "R01",
+            "S03"
+          ]
+        },
+        {
+          "id": "t02-capabilities-0",
+          "text": "<div style=\"font-size:24px;font-weight:bold;line-height:1.25\">记录与整理</div><div style=\"font-size:20px;line-height:1.45;margin-top:6px\">快速记录 · 媒体采集 · 本地识别</div>",
+          "refs": [
+            "P02",
+            "D01",
+            "R01",
+            "S03"
+          ]
+        },
+        {
+          "id": "t02-capabilities-1",
+          "text": "<div style=\"font-size:24px;font-weight:bold;line-height:1.25\">信息与密码管理</div><div style=\"font-size:20px;line-height:1.45;margin-top:6px\">通用卡片 · 密码专门字段 · 关联</div>",
+          "refs": [
+            "P02",
+            "D01",
+            "R01",
+            "S03"
+          ]
+        },
+        {
+          "id": "t02-capabilities-2",
+          "text": "<div style=\"font-size:24px;font-weight:bold;line-height:1.25\">资料可信维护</div><div style=\"font-size:20px;line-height:1.45;margin-top:6px\">原件回看 · 修订历史 · 来源解释</div>",
+          "refs": [
+            "P02",
+            "D01",
+            "R01",
+            "S03"
+          ]
+        },
+        {
+          "id": "t02-capabilities-3",
+          "text": "<div style=\"font-size:24px;font-weight:bold;line-height:1.25\">安全与保全</div><div style=\"font-size:20px;line-height:1.45;margin-top:6px\">身份／解锁 · 冷备份 · 独立恢复</div>",
+          "refs": [
+            "P02",
+            "D01",
+            "R01",
+            "S03"
+          ]
+        },
+        {
+          "id": "t02-capabilities-4",
+          "text": "<div style=\"font-size:24px;font-weight:bold;line-height:1.25\">交接与协作</div><div style=\"font-size:20px;line-height:1.45;margin-top:6px\">接收者绑定 · 范围策略 · 执行视图</div>",
+          "refs": [
+            "P02",
+            "D01",
+            "R01",
+            "S03"
+          ]
+        },
+        {
+          "id": "t02-capabilities-5",
+          "text": "<div style=\"font-size:24px;font-weight:bold;line-height:1.25\">连续性保障</div><div style=\"font-size:20px;line-height:1.45;margin-top:6px\">定期报平安 · 提醒／宽限 · 信封投递</div>",
+          "refs": [
+            "P02",
+            "D01",
+            "R01",
+            "S03"
+          ]
+        },
+        {
+          "id": "t02-domainlabel",
+          "text": "核心业务对象",
+          "refs": [
+            "D01",
+            "D02",
+            "R01",
+            "S03"
+          ]
+        },
+        {
+          "id": "t02-domain-0",
+          "text": "<div style=\"font-size:24px;font-weight:bold;line-height:1.25\">信息卡片／凭据</div><div style=\"font-size:20px;line-height:1.45;margin-top:6px\">记录 · 账号 · Secret</div>",
+          "refs": [
+            "D01",
+            "D02",
+            "R01",
+            "S03"
+          ]
+        },
+        {
+          "id": "t02-domain-1",
+          "text": "<div style=\"font-size:24px;font-weight:bold;line-height:1.25\">原件／来源／修订</div><div style=\"font-size:20px;line-height:1.45;margin-top:6px\">证据链 · 变更 · 确认</div>",
+          "refs": [
+            "D01",
+            "D02",
+            "R01",
+            "S03"
+          ]
+        },
+        {
+          "id": "t02-domain-2",
+          "text": "<div style=\"font-size:24px;font-weight:bold;line-height:1.25\">身份／关系／接收者</div><div style=\"font-size:20px;line-height:1.45;margin-top:6px\">本人 · 协助者 · 指定接收者</div>",
+          "refs": [
+            "D01",
+            "D02",
+            "R01",
+            "S03"
+          ]
+        },
+        {
+          "id": "t02-domain-3",
+          "text": "<div style=\"font-size:24px;font-weight:bold;line-height:1.25\">生命状态／释放策略</div><div style=\"font-size:20px;line-height:1.45;margin-top:6px\">状态 + 条件 + 对象 → 可见级别</div>",
+          "refs": [
+            "D01",
+            "D02",
+            "R01",
+            "S03"
+          ]
+        },
+        {
+          "id": "t02-domain-4",
+          "text": "<div style=\"font-size:24px;font-weight:bold;line-height:1.25\">备份／授权快照</div><div style=\"font-size:20px;line-height:1.45;margin-top:6px\">Owner恢复包 · Recipient资料包</div>",
+          "refs": [
+            "D01",
+            "D02",
+            "R01",
+            "S03"
+          ]
+        },
+        {
+          "id": "t02-principleslabel",
+          "text": "业务治理与协作边界",
+          "refs": [
+            "P02",
+            "S01",
+            "I01"
+          ]
+        },
+        {
+          "id": "t02-principles-0",
+          "text": "<div style=\"font-size:22px;font-weight:bold;line-height:1.25\">本人控制</div><div style=\"font-size:18px;line-height:1.45;margin-top:6px\">默认本人可见；授权可定位到字段／历史／原件</div>",
+          "refs": [
+            "P02",
+            "S01",
+            "I01"
+          ]
+        },
+        {
+          "id": "t02-principles-1",
+          "text": "<div style=\"font-size:22px;font-weight:bold;line-height:1.25\">家庭协助</div><div style=\"font-size:18px;line-height:1.45;margin-top:6px\">协助录入不自动获得秘密或全部资料</div>",
+          "refs": [
+            "P02",
+            "S01",
+            "I01"
+          ]
+        },
+        {
+          "id": "t02-principles-2",
+          "text": "<div style=\"font-size:22px;font-weight:bold;line-height:1.25\">信息可信</div><div style=\"font-size:18px;line-height:1.45;margin-top:6px\">AI负责整理；事实来自原件、来源和本人确认</div>",
+          "refs": [
+            "P02",
+            "S01",
+            "I01"
+          ]
+        },
+        {
+          "id": "t02-principles-3",
+          "text": "<div style=\"font-size:22px;font-weight:bold;line-height:1.25\">连续性条件</div><div style=\"font-size:18px;line-height:1.45;margin-top:6px\">无响应进入提醒与宽限；按明确预授权流程交付</div>",
+          "refs": [
+            "P02",
+            "S01",
+            "I01"
+          ]
+        },
+        {
+          "id": "t02-scenarioSupport",
+          "text": "场景驱动",
+          "source": "t02-scenes",
+          "target": "t02-valueChain",
+          "refs": [
+            "P01"
+          ]
+        },
+        {
+          "id": "t02-capSupport",
+          "text": "能力支撑",
+          "source": "t02-valueChain",
+          "target": "t02-capabilities",
+          "refs": [
+            "P01"
+          ]
+        },
+        {
+          "id": "t02-domainSupport",
+          "text": "领域承载",
+          "source": "t02-capabilities",
+          "target": "t02-domain",
+          "refs": [
+            "D01",
+            "D02"
+          ]
+        }
+      ]
+    },
+    {
+      "page": 3,
+      "title": "LiveRelay 应用架构图",
+      "slug": "application",
+      "vertices": 49,
+      "edges": 5,
+      "cells": [
+        {
+          "id": "t03-clientlabel",
+          "text": "本地客户端应用  |  同一Flutter package内的逻辑模块",
+          "refs": [
+            "A01",
+            "A02"
+          ]
+        },
+        {
+          "id": "t03-presentationlabel",
+          "text": "表现层",
+          "refs": [
+            "P02",
+            "S01"
+          ]
+        },
+        {
+          "id": "t03-presentation-0",
+          "text": "<div style=\"font-size:22px;font-weight:bold;line-height:1.25\">Owner工作台</div><div style=\"font-size:18px;line-height:1.45;margin-top:6px\">记录／卡片／密码库／交接／我的</div>",
+          "refs": [
+            "P02",
+            "S01"
+          ]
+        },
+        {
+          "id": "t03-presentation-1",
+          "text": "<div style=\"font-size:22px;font-weight:bold;line-height:1.25\">Recipient入口</div><div style=\"font-size:18px;line-height:1.45;margin-top:6px\">独立身份会话 · 范围快照与执行</div>",
+          "refs": [
+            "P02",
+            "S01"
+          ]
+        },
+        {
+          "id": "t03-presentation-2",
+          "text": "<div style=\"font-size:22px;font-weight:bold;line-height:1.25\">可替换呈现</div><div style=\"font-size:18px;line-height:1.45;margin-top:6px\">跨端布局 · 主题／档案浏览 · 无障碍</div>",
+          "refs": [
+            "P02",
+            "S01"
+          ]
+        },
+        {
+          "id": "t03-applicationlabel",
+          "text": "应用服务与用例编排",
+          "refs": [
+            "P02",
+            "A02",
+            "S03"
+          ]
+        },
+        {
+          "id": "t03-application-0",
+          "text": "<div style=\"font-size:24px;font-weight:bold;line-height:1.25\">资料与信息用例</div><div style=\"font-size:20px;line-height:1.45;margin-top:6px\">采集／组织 · 检索／状态</div>",
+          "refs": [
+            "P02",
+            "A02",
+            "S03"
+          ]
+        },
+        {
+          "id": "t03-application-1",
+          "text": "<div style=\"font-size:24px;font-weight:bold;line-height:1.25\">智能整理用例</div><div style=\"font-size:20px;line-height:1.45;margin-top:6px\">OCR／语音 · Agent · 人工核对</div>",
+          "refs": [
+            "P02",
+            "A02",
+            "S03"
+          ]
+        },
+        {
+          "id": "t03-application-2",
+          "text": "<div style=\"font-size:24px;font-weight:bold;line-height:1.25\">身份与交接用例</div><div style=\"font-size:20px;line-height:1.45;margin-top:6px\">身份绑定 · 授权快照 · 接收</div>",
+          "refs": [
+            "P02",
+            "A02",
+            "S03"
+          ]
+        },
+        {
+          "id": "t03-application-3",
+          "text": "<div style=\"font-size:24px;font-weight:bold;line-height:1.25\">Vault安全用例</div><div style=\"font-size:20px;line-height:1.45;margin-top:6px\">会话 · 策略 · 恢复 · 换钥</div>",
+          "refs": [
+            "P02",
+            "A02",
+            "S03"
+          ]
+        },
+        {
+          "id": "t03-application-4",
+          "text": "<div style=\"font-size:24px;font-weight:bold;line-height:1.25\">保全与连续性用例</div><div style=\"font-size:20px;line-height:1.45;margin-top:6px\">完整／分层备份<br/>同步与调度协同</div>",
+          "refs": [
+            "P02",
+            "A02",
+            "S03"
+          ]
+        },
+        {
+          "id": "t03-domainlabel",
+          "text": "领域与必需安全内核",
+          "refs": [
+            "A02",
+            "R01",
+            "I01",
+            "S01"
+          ]
+        },
+        {
+          "id": "t03-domain-0",
+          "text": "<div style=\"font-size:22px;font-weight:bold;line-height:1.25\">Life Core／Provenance</div><div style=\"font-size:18px;line-height:1.45;margin-top:6px\">信息、状态、修订、来源与策略</div>",
+          "refs": [
+            "A02",
+            "R01",
+            "I01",
+            "S01"
+          ]
+        },
+        {
+          "id": "t03-domain-1",
+          "text": "<div style=\"font-size:22px;font-weight:bold;line-height:1.25\">AI Privacy／授权</div><div style=\"font-size:18px;line-height:1.45;margin-top:6px\">选择范围 · Token · 校验／回填</div>",
+          "refs": [
+            "A02",
+            "R01",
+            "I01",
+            "S01"
+          ]
+        },
+        {
+          "id": "t03-domain-2",
+          "text": "<div style=\"font-size:22px;font-weight:bold;line-height:1.25\">Vault／Crypto／Identity</div><div style=\"font-size:18px;line-height:1.45;margin-top:6px\">密钥生命周期 · 身份 · 快照加密</div>",
+          "refs": [
+            "A02",
+            "R01",
+            "I01",
+            "S01"
+          ]
+        },
+        {
+          "id": "t03-portslabel",
+          "text": "内部端口与具体适配器",
+          "refs": [
+            "A02",
+            "T01"
+          ]
+        },
+        {
+          "id": "t03-ports-0",
+          "text": "<div style=\"font-size:22px;font-weight:bold;line-height:1.25\">仓储／原件／归档</div><div style=\"font-size:18px;line-height:1.45;margin-top:6px\">SQLCipher · Blob · 备份文件事务</div>",
+          "refs": [
+            "A02",
+            "T01"
+          ]
+        },
+        {
+          "id": "t03-ports-1",
+          "text": "<div style=\"font-size:22px;font-weight:bold;line-height:1.25\">识别／智能／导入</div><div style=\"font-size:18px;line-height:1.45;margin-top:6px\">OCR · Speech · AI Provider · CSV</div>",
+          "refs": [
+            "A02",
+            "T01"
+          ]
+        },
+        {
+          "id": "t03-ports-2",
+          "text": "<div style=\"font-size:22px;font-weight:bold;line-height:1.25\">平台／服务／呈现</div><div style=\"font-size:18px;line-height:1.45;margin-top:6px\">设备因素 · 安全配置 · 备份目标 · UI</div>",
+          "refs": [
+            "A02",
+            "T01"
+          ]
+        },
+        {
+          "id": "t03-composition",
+          "text": "<div style=\"font-size:22px;font-weight:bold;line-height:1.25\">集中组合根与模块装配</div><div style=\"font-size:19px;line-height:1.45;margin-top:6px\">入口解析平台能力与目录；集中选择实现并注入应用服务。领域规则不依赖Widget，UI／供应商不获得VMK。</div>",
+          "refs": [
+            "A02"
+          ]
+        },
+        {
+          "id": "t03-serviceslabel",
+          "text": "可选连续性应用服务",
+          "refs": [
+            "P02"
+          ]
+        },
+        {
+          "id": "t03-cipherStore",
+          "text": "<div style=\"font-size:26px;font-weight:bold;line-height:1.25\">加密备份／同步服务</div><div style=\"font-size:22px;line-height:1.45;margin-top:6px\">密文快照与分层附件<br/>认证清单 · 版本元数据 · 幂等传输</div>",
+          "refs": [
+            "P02",
+            "S01"
+          ]
+        },
+        {
+          "id": "t03-scheduler",
+          "text": "<div style=\"font-size:26px;font-weight:bold;line-height:1.25\">摇篮与投递编排服务</div><div style=\"font-size:22px;line-height:1.45;margin-top:6px\">报平安／提醒／宽限／条件调度<br/>预授权信封队列 · 通知与交接投递</div>",
+          "refs": [
+            "P02",
+            "S01"
+          ]
+        },
+        {
+          "id": "t03-serviceInterface",
+          "text": "<div style=\"font-size:26px;font-weight:bold;line-height:1.25\">服务接口与运行支撑</div><div style=\"font-size:22px;line-height:1.45;margin-top:6px\">HTTPS／JSON · 请求认证 · 配额与审计<br/>托管与Python／Docker自部署使用一致接口</div>",
+          "refs": [
+            "P02"
+          ]
+        },
+        {
+          "id": "t03-integrationslabel",
+          "text": "外部服务与扩展入口",
+          "refs": [
+            "P02"
+          ]
+        },
+        {
+          "id": "t03-externalAI",
+          "text": "<div style=\"font-size:26px;font-weight:bold;line-height:1.25\">模型与Agent适配</div><div style=\"font-size:22px;line-height:1.45;margin-top:6px\">Chat Completions／Responses<br/>外部Agent／CLI／MCP · 明确工具授权</div>",
+          "refs": [
+            "P02",
+            "I01"
+          ]
+        },
+        {
+          "id": "t03-externalStorage",
+          "text": "<div style=\"font-size:26px;font-weight:bold;line-height:1.25\">备份与通知适配</div><div style=\"font-size:22px;line-height:1.45;margin-top:6px\">本地文件／WebDAV／对象存储<br/>邮件与通知通道 · 密文包投递</div>",
+          "refs": [
+            "P02"
+          ]
+        },
+        {
+          "id": "t03-presentApp",
+          "text": "用例调用",
+          "source": "t03-presentation",
+          "target": "t03-application",
+          "refs": [
+            "A02"
+          ]
+        },
+        {
+          "id": "t03-appDomain",
+          "text": "依赖领域",
+          "source": "t03-application",
+          "target": "t03-domain",
+          "refs": [
+            "A02"
+          ]
+        },
+        {
+          "id": "t03-infraDomain",
+          "text": "实现核心端口",
+          "source": "t03-ports",
+          "target": "t03-domain",
+          "refs": [
+            "A02"
+          ]
+        },
+        {
+          "id": "t03-connectServices",
+          "text": "HTTPS",
+          "source": "t03-application",
+          "target": "t03-services",
+          "refs": [
+            "P02"
+          ]
+        },
+        {
+          "id": "t03-connectAI",
+          "text": "端口调用",
+          "source": "t03-ports",
+          "target": "t03-externalAI",
+          "refs": [
+            "I01",
+            "P02"
+          ]
+        },
+        {
+          "id": "t03-isolationlabel",
+          "text": "会话与信任隔离",
+          "refs": [
+            "S01",
+            "S03",
+            "I01"
+          ]
+        },
+        {
+          "id": "t03-isolation-0",
+          "text": "<div style=\"font-size:24px;font-weight:bold;line-height:1.25\">Owner域</div><div style=\"font-size:20px;line-height:1.45;margin-top:6px\">VMK／运行仓储 · 全量资料控制</div>",
+          "refs": [
+            "S01",
+            "S03",
+            "I01"
+          ]
+        },
+        {
+          "id": "t03-isolation-1",
+          "text": "<div style=\"font-size:24px;font-weight:bold;line-height:1.25\">Recipient域</div><div style=\"font-size:20px;line-height:1.45;margin-top:6px\">自有私钥／目录 · 仅获授权快照</div>",
+          "refs": [
+            "S01",
+            "S03",
+            "I01"
+          ]
+        },
+        {
+          "id": "t03-isolation-2",
+          "text": "<div style=\"font-size:24px;font-weight:bold;line-height:1.25\">AI域</div><div style=\"font-size:20px;line-height:1.45;margin-top:6px\">获准文本／Token · 与仓储和密钥隔离</div>",
+          "refs": [
+            "S01",
+            "S03",
+            "I01"
+          ]
+        },
+        {
+          "id": "t03-isolation-3",
+          "text": "<div style=\"font-size:24px;font-weight:bold;line-height:1.25\">连续性服务域</div><div style=\"font-size:20px;line-height:1.45;margin-top:6px\">密文包／调度元数据 · 与Owner密钥隔离</div>",
+          "refs": [
+            "S01",
+            "S03",
+            "I01"
+          ]
+        }
+      ]
+    },
+    {
+      "page": 4,
+      "title": "LiveRelay 数据架构图",
+      "slug": "data",
+      "vertices": 41,
+      "edges": 6,
+      "cells": [
+        {
+          "id": "t04-sourceslabel",
+          "text": "数据来源",
+          "refs": [
+            "P02",
+            "R01"
+          ]
+        },
+        {
+          "id": "t04-sources-0",
+          "text": "<div style=\"font-size:22px;font-weight:bold;line-height:1.25\">本人录入／家庭协助</div><div style=\"font-size:18px;line-height:1.45;margin-top:6px\">文字 · 账号 · 状态 · 说明</div>",
+          "refs": [
+            "P02",
+            "R01"
+          ]
+        },
+        {
+          "id": "t04-sources-1",
+          "text": "<div style=\"font-size:22px;font-weight:bold;line-height:1.25\">原始媒体与文件</div><div style=\"font-size:18px;line-height:1.45;margin-top:6px\">照片 · 音频 · 视频 · 文档</div>",
+          "refs": [
+            "P02",
+            "R01"
+          ]
+        },
+        {
+          "id": "t04-sources-2",
+          "text": "<div style=\"font-size:22px;font-weight:bold;line-height:1.25\">导入与派生内容</div><div style=\"font-size:18px;line-height:1.45;margin-top:6px\">CSV · OCR／转写 · 获授权AI建议</div>",
+          "refs": [
+            "P02",
+            "R01"
+          ]
+        },
+        {
+          "id": "t04-sources-3",
+          "text": "<div style=\"font-size:22px;font-weight:bold;line-height:1.25\">协作与交接补充</div><div style=\"font-size:18px;line-height:1.45;margin-top:6px\">接收任务 · 后续补充 · 来源说明</div>",
+          "refs": [
+            "P02",
+            "R01"
+          ]
+        },
+        {
+          "id": "t04-processinglabel",
+          "text": "本地处理与可信形成",
+          "refs": [
+            "R01",
+            "R02",
+            "I01"
+          ]
+        },
+        {
+          "id": "t04-processing-0",
+          "text": "<div style=\"font-size:24px;font-weight:bold;line-height:1.25\">原件保全</div><div style=\"font-size:20px;line-height:1.45;margin-top:6px\">先加密保存 · 元数据与哈希</div>",
+          "refs": [
+            "R01",
+            "R02",
+            "I01"
+          ]
+        },
+        {
+          "id": "t04-processing-1",
+          "text": "<div style=\"font-size:24px;font-weight:bold;line-height:1.25\">内容派生</div><div style=\"font-size:20px;line-height:1.45;margin-top:6px\">识别／解析 · 变化链可追溯</div>",
+          "refs": [
+            "R01",
+            "R02",
+            "I01"
+          ]
+        },
+        {
+          "id": "t04-processing-2",
+          "text": "<div style=\"font-size:24px;font-weight:bold;line-height:1.25\">隐私处理</div><div style=\"font-size:20px;line-height:1.45;margin-top:6px\">敏感标记 · Token · 外发预览</div>",
+          "refs": [
+            "R01",
+            "R02",
+            "I01"
+          ]
+        },
+        {
+          "id": "t04-processing-3",
+          "text": "<div style=\"font-size:24px;font-weight:bold;line-height:1.25\">结构与事实核对</div><div style=\"font-size:20px;line-height:1.45;margin-top:6px\">Schema／Token校验 · 本机回填 · 人工确认</div>",
+          "refs": [
+            "R01",
+            "R02",
+            "I01"
+          ]
+        },
+        {
+          "id": "t04-processing-4",
+          "text": "<div style=\"font-size:24px;font-weight:bold;line-height:1.25\">版本与检索</div><div style=\"font-size:20px;line-height:1.45;margin-top:6px\">修订／冲突并存 · 当前状态投影</div>",
+          "refs": [
+            "R01",
+            "R02",
+            "I01"
+          ]
+        },
+        {
+          "id": "t04-objectslabel",
+          "text": "逻辑数据对象（关系不自动扩大可见范围）",
+          "refs": [
+            "D01",
+            "D02",
+            "R01"
+          ]
+        },
+        {
+          "id": "t04-card",
+          "text": "<div style=\"font-size:26px;font-weight:bold;line-height:1.25\">InformationCard 信息卡片</div><div style=\"font-size:22px;line-height:1.45;margin-top:6px\">共同标识、标题、标签、时间与版本<br/>通用记录／凭据子类型；同一对象多种视图</div>",
+          "refs": [
+            "D01"
+          ]
+        },
+        {
+          "id": "t04-revision",
+          "text": "<div style=\"font-size:26px;font-weight:bold;line-height:1.25\">Revision／Current State</div><div style=\"font-size:22px;line-height:1.45;margin-top:6px\">追加修订 · 确认时间 · 冲突说明<br/>事实、个人说明与AI推断标明来源</div>",
+          "refs": [
+            "R02"
+          ]
+        },
+        {
+          "id": "t04-source",
+          "text": "<div style=\"font-size:26px;font-weight:bold;line-height:1.25\">Source／Original</div><div style=\"font-size:22px;line-height:1.45;margin-top:6px\">来源与转换链 · 原件关联<br/>原始名／媒体类型／哈希／来源时间</div>",
+          "refs": [
+            "R01"
+          ]
+        },
+        {
+          "id": "t04-revisions",
+          "text": "产生修订",
+          "source": "t04-card",
+          "target": "t04-revision",
+          "refs": [
+            "R02"
+          ]
+        },
+        {
+          "id": "t04-provenance",
+          "text": "追溯来源",
+          "source": "t04-revision",
+          "target": "t04-source",
+          "refs": [
+            "R01"
+          ]
+        },
+        {
+          "id": "t04-secret",
+          "text": "<div style=\"font-size:22px;font-weight:bold;line-height:1.25\">Credential／Secret</div><div style=\"font-size:18px;line-height:1.45;margin-top:6px\">秘密在专门字段；普通摘要不包含Secret</div>",
+          "refs": [
+            "D01"
+          ]
+        },
+        {
+          "id": "t04-policy",
+          "text": "<div style=\"font-size:22px;font-weight:bold;line-height:1.25\">Identity／ReleasePolicy</div><div style=\"font-size:18px;line-height:1.45;margin-top:6px\">对象 + 接收者 + 状态 + 条件 → 可见范围</div>",
+          "refs": [
+            "D02"
+          ]
+        },
+        {
+          "id": "t04-archive",
+          "text": "<div style=\"font-size:22px;font-weight:bold;line-height:1.25\">Backup／Snapshot／Receipt</div><div style=\"font-size:18px;line-height:1.45;margin-top:6px\">恢复快照 · 授权快照 · 清单／接收记录</div>",
+          "refs": [
+            "S03"
+          ]
+        },
+        {
+          "id": "t04-storagelabel",
+          "text": "存储与密钥归属",
+          "refs": [
+            "S01",
+            "S03",
+            "A03"
+          ]
+        },
+        {
+          "id": "t04-storage-0",
+          "text": "<div style=\"font-size:24px;font-weight:bold;line-height:1.25\">Owner SQLCipher主库</div><div style=\"font-size:20px;line-height:1.45;margin-top:6px\">卡片／Secret／修订／策略／身份状态<br/>本地VMK保护；主副本在本人设备</div>",
+          "refs": [
+            "S01",
+            "S03",
+            "A03"
+          ]
+        },
+        {
+          "id": "t04-storage-1",
+          "text": "<div style=\"font-size:24px;font-weight:bold;line-height:1.25\">AES-GCM原件存储</div><div style=\"font-size:20px;line-height:1.45;margin-top:6px\">加密Blob；逻辑ID关联元数据<br/>原件与DB通过认证清单保持一致</div>",
+          "refs": [
+            "S01",
+            "S03",
+            "A03"
+          ]
+        },
+        {
+          "id": "t04-storage-2",
+          "text": "<div style=\"font-size:24px;font-weight:bold;line-height:1.25\">Recipient独立身份与包</div><div style=\"font-size:20px;line-height:1.45;margin-top:6px\">自有密码保护私钥与信任状态<br/>仅解密本次获授权资料集合</div>",
+          "refs": [
+            "S01",
+            "S03",
+            "A03"
+          ]
+        },
+        {
+          "id": "t04-storage-3",
+          "text": "<div style=\"font-size:24px;font-weight:bold;line-height:1.25\">可选云端密文空间</div><div style=\"font-size:20px;line-height:1.45;margin-top:6px\">加密备份／附件／同步版本<br/>预授权接收者信封与调度元数据</div>",
+          "refs": [
+            "S01",
+            "S03",
+            "A03"
+          ]
+        },
+        {
+          "id": "t04-exchangelabel",
+          "text": "数据保全与授权消费",
+          "refs": [
+            "S03",
+            "I01"
+          ]
+        },
+        {
+          "id": "t04-exchange-0",
+          "text": "<div style=\"font-size:22px;font-weight:bold;line-height:1.25\">Owner恢复／同步</div><div style=\"font-size:18px;line-height:1.45;margin-top:6px\">完整或DB＋附件配对备份<br/>受限重设 · 换钥 · 补齐原件</div>",
+          "refs": [
+            "S03",
+            "I01"
+          ]
+        },
+        {
+          "id": "t04-exchange-1",
+          "text": "<div style=\"font-size:22px;font-weight:bold;line-height:1.25\">Recipient接收／执行</div><div style=\"font-size:18px;line-height:1.45;margin-top:6px\">按字段、历史和原件范围生成快照<br/>HPKE封装／签名；自有私钥查看</div>",
+          "refs": [
+            "S03",
+            "I01"
+          ]
+        },
+        {
+          "id": "t04-exchange-2",
+          "text": "<div style=\"font-size:22px;font-weight:bold;line-height:1.25\">AI整理边界</div><div style=\"font-size:18px;line-height:1.45;margin-top:6px\">只发送所选、标记后的获准文本<br/>Token Map、VMK和原件保留本机</div>",
+          "refs": [
+            "S03",
+            "I01"
+          ]
+        },
+        {
+          "id": "t04-ingest",
+          "text": "数据处理",
+          "source": "t04-sources",
+          "target": "t04-processing",
+          "refs": [
+            "R01"
+          ]
+        },
+        {
+          "id": "t04-confirm",
+          "text": "确认后形成业务对象",
+          "source": "t04-processing",
+          "target": "t04-objects",
+          "refs": [
+            "R01"
+          ]
+        },
+        {
+          "id": "t04-store",
+          "text": "按密钥归属加密持久化",
+          "source": "t04-objects",
+          "target": "t04-storage",
+          "refs": [
+            "S01"
+          ]
+        },
+        {
+          "id": "t04-consume",
+          "text": "认证与授权后使用",
+          "source": "t04-storage",
+          "target": "t04-exchange",
+          "refs": [
+            "S03"
+          ]
+        }
+      ]
+    },
+    {
+      "page": 5,
+      "title": "LiveRelay 技术架构图",
+      "slug": "technology",
+      "vertices": 41,
+      "edges": 4,
+      "cells": [
+        {
+          "id": "t05-clientRuntimelabel",
+          "text": "终端与呈现技术",
+          "refs": [
+            "P02",
+            "T01"
+          ]
+        },
+        {
+          "id": "t05-clientRuntime-0",
+          "text": "<div style=\"font-size:22px;font-weight:bold;line-height:1.25\">移动端／桌面端</div><div style=\"font-size:18px;line-height:1.45;margin-top:6px\">Android · Linux · Windows<br/>共享业务与跨端布局</div>",
+          "refs": [
+            "P02",
+            "T01"
+          ]
+        },
+        {
+          "id": "t05-clientRuntime-1",
+          "text": "<div style=\"font-size:22px;font-weight:bold;line-height:1.25\">Flutter／Dart</div><div style=\"font-size:18px;line-height:1.45;margin-top:6px\">Material 3 · 主题令牌 · 状态投影<br/>可访问性 · 可替换档案呈现</div>",
+          "refs": [
+            "P02",
+            "T01"
+          ]
+        },
+        {
+          "id": "t05-clientRuntime-2",
+          "text": "<div style=\"font-size:22px;font-weight:bold;line-height:1.25\">平台插件与FFI</div><div style=\"font-size:18px;line-height:1.45;margin-top:6px\">媒体采集／回放 · 文件与目录<br/>MethodChannel · Native／FFI</div>",
+          "refs": [
+            "P02",
+            "T01"
+          ]
+        },
+        {
+          "id": "t05-applicationRuntimelabel",
+          "text": "应用执行与集成",
+          "refs": [
+            "A02",
+            "T01",
+            "P02"
+          ]
+        },
+        {
+          "id": "t05-applicationRuntime-0",
+          "text": "<div style=\"font-size:24px;font-weight:bold;line-height:1.25\">分层与依赖注入</div><div style=\"font-size:20px;line-height:1.45;margin-top:6px\">Presentation → Application → Core<br/>组合根 · 内部端口 · 具体适配器</div>",
+          "refs": [
+            "A02",
+            "T01",
+            "P02"
+          ]
+        },
+        {
+          "id": "t05-applicationRuntime-1",
+          "text": "<div style=\"font-size:24px;font-weight:bold;line-height:1.25\">本地OCR／语音</div><div style=\"font-size:20px;line-height:1.45;margin-top:6px\">ML Kit／OCR Provider<br/>SenseVoice · sherpa_onnx · CPU</div>",
+          "refs": [
+            "A02",
+            "T01",
+            "P02"
+          ]
+        },
+        {
+          "id": "t05-applicationRuntime-2",
+          "text": "<div style=\"font-size:24px;font-weight:bold;line-height:1.25\">受控Agent运行</div><div style=\"font-size:20px;line-height:1.45;margin-top:6px\">Responses／Chat Completions适配<br/>工具授权 · OS隔离 · 资源限制</div>",
+          "refs": [
+            "A02",
+            "T01",
+            "P02"
+          ]
+        },
+        {
+          "id": "t05-securitylabel",
+          "text": "身份、隐私与密码技术",
+          "refs": [
+            "T01",
+            "S02",
+            "S03",
+            "I01"
+          ]
+        },
+        {
+          "id": "t05-security-0",
+          "text": "<div style=\"font-size:24px;font-weight:bold;line-height:1.25\">凭证与设备因素</div><div style=\"font-size:20px;line-height:1.45;margin-top:6px\">Argon2id · HKDF · 任一／全部分支<br/>平台密钥存储 · 强生物识别</div>",
+          "refs": [
+            "T01",
+            "S02",
+            "S03",
+            "I01"
+          ]
+        },
+        {
+          "id": "t05-security-1",
+          "text": "<div style=\"font-size:24px;font-weight:bold;line-height:1.25\">资料加密与授权包</div><div style=\"font-size:20px;line-height:1.45;margin-top:6px\">SQLCipher · AES-256-GCM<br/>X25519／HPKE · Ed25519签名</div>",
+          "refs": [
+            "T01",
+            "S02",
+            "S03",
+            "I01"
+          ]
+        },
+        {
+          "id": "t05-security-2",
+          "text": "<div style=\"font-size:24px;font-weight:bold;line-height:1.25\">隐私与密钥生命周期</div><div style=\"font-size:20px;line-height:1.45;margin-top:6px\">Tokenization · Schema校验／回填<br/>独立恢复 → 受限重设 → 全库换钥</div>",
+          "refs": [
+            "T01",
+            "S02",
+            "S03",
+            "I01"
+          ]
+        },
+        {
+          "id": "t05-persistencelabel",
+          "text": "持久化与交换技术",
+          "refs": [
+            "T01",
+            "S03",
+            "S02"
+          ]
+        },
+        {
+          "id": "t05-persistence-0",
+          "text": "<div style=\"font-size:24px;font-weight:bold;line-height:1.25\">结构化数据库</div><div style=\"font-size:20px;line-height:1.45;margin-top:6px\">Drift／Repository · SQLCipher<br/>版本迁移 · 事务 · 本地索引</div>",
+          "refs": [
+            "T01",
+            "S03",
+            "S02"
+          ]
+        },
+        {
+          "id": "t05-persistence-1",
+          "text": "<div style=\"font-size:24px;font-weight:bold;line-height:1.25\">文件与归档</div><div style=\"font-size:20px;line-height:1.45;margin-top:6px\">AES-GCM Blob · 认证清单<br/>.lvault／.lridentity／.lrshare</div>",
+          "refs": [
+            "T01",
+            "S03",
+            "S02"
+          ]
+        },
+        {
+          "id": "t05-persistence-2",
+          "text": "<div style=\"font-size:24px;font-weight:bold;line-height:1.25\">恢复与版本保全</div><div style=\"font-size:20px;line-height:1.45;margin-top:6px\">staging／rollback／commit<br/>配对snapshotId · 逐项补齐</div>",
+          "refs": [
+            "T01",
+            "S03",
+            "S02"
+          ]
+        },
+        {
+          "id": "t05-cloudRuntimelabel",
+          "text": "云端／自部署运行环境",
+          "refs": [
+            "P02"
+          ]
+        },
+        {
+          "id": "t05-server",
+          "text": "<div style=\"font-size:26px;font-weight:bold;line-height:1.25\">Python应用／Docker部署</div><div style=\"font-size:22px;line-height:1.45;margin-top:6px\">备份与密文同步 · 摇篮／投递调度<br/>托管服务与自部署采用一致接口</div>",
+          "refs": [
+            "P02"
+          ]
+        },
+        {
+          "id": "t05-protocol",
+          "text": "<div style=\"font-size:26px;font-weight:bold;line-height:1.25\">接口与通信协议</div><div style=\"font-size:22px;line-height:1.45;margin-top:6px\">HTTPS／TLS · JSON服务接口<br/>AI：Responses／Chat Completions<br/>存储：WebDAV／文件与对象存储<br/>通知：邮件／通知服务适配</div>",
+          "refs": [
+            "P02",
+            "T01"
+          ]
+        },
+        {
+          "id": "t05-infra",
+          "text": "<div style=\"font-size:26px;font-weight:bold;line-height:1.25\">云端基础设施</div><div style=\"font-size:22px;line-height:1.45;margin-top:6px\">加密对象／附件存储<br/>调度队列、作业执行与通知通道<br/>请求认证、限额与安全审计</div>",
+          "refs": [
+            "P02"
+          ]
+        },
+        {
+          "id": "t05-trust",
+          "text": "<div style=\"font-size:24px;font-weight:bold;line-height:1.25\">服务与端侧密钥隔离</div><div style=\"font-size:20px;line-height:1.45;margin-top:6px\">服务侧保存密文与最少调度信息<br/>Owner VMK／恢复材料保留在本人侧<br/>Recipient私钥属于接收者身份</div>",
+          "refs": [
+            "S01"
+          ]
+        },
+        {
+          "id": "t05-runtimeUse",
+          "text": "调用",
+          "source": "t05-clientRuntime",
+          "target": "t05-applicationRuntime",
+          "refs": [
+            "A02"
+          ]
+        },
+        {
+          "id": "t05-applicationSecurity",
+          "text": "规则与安全接口",
+          "source": "t05-applicationRuntime",
+          "target": "t05-security",
+          "refs": [
+            "A02"
+          ]
+        },
+        {
+          "id": "t05-securityStore",
+          "text": "加密仓储／文件端口",
+          "source": "t05-security",
+          "target": "t05-persistence",
+          "refs": [
+            "A02"
+          ]
+        },
+        {
+          "id": "t05-clientCloud",
+          "text": "HTTPS",
+          "source": "t05-applicationRuntime",
+          "target": "t05-protocol",
+          "refs": [
+            "P02"
+          ]
+        },
+        {
+          "id": "t05-engineeringlabel",
+          "text": "工程治理与非功能设计",
+          "refs": [
+            "P02",
+            "A03",
+            "S01",
+            "T01"
+          ]
+        },
+        {
+          "id": "t05-engineering-0",
+          "text": "<div style=\"font-size:24px;font-weight:bold;line-height:1.25\">可靠与可恢复</div><div style=\"font-size:20px;line-height:1.45;margin-top:6px\">认证清单 · 一致快照 · 有界输入<br/>中断保留可认证副本 · 明确失败</div>",
+          "refs": [
+            "P02",
+            "A03",
+            "S01",
+            "T01"
+          ]
+        },
+        {
+          "id": "t05-engineering-1",
+          "text": "<div style=\"font-size:24px;font-weight:bold;line-height:1.25\">性能与资源</div><div style=\"font-size:20px;line-height:1.45;margin-top:6px\">后台isolate · CPU／内存预算<br/>附件按需访问 · 大文件加密演进</div>",
+          "refs": [
+            "P02",
+            "A03",
+            "S01",
+            "T01"
+          ]
+        },
+        {
+          "id": "t05-engineering-2",
+          "text": "<div style=\"font-size:24px;font-weight:bold;line-height:1.25\">可维护与可扩展</div><div style=\"font-size:20px;line-height:1.45;margin-top:6px\">端口替换 · 模块边界 · 格式版本<br/>跨端适配 · 可迁移数据格式</div>",
+          "refs": [
+            "P02",
+            "A03",
+            "S01",
+            "T01"
+          ]
+        },
+        {
+          "id": "t05-engineering-3",
+          "text": "<div style=\"font-size:24px;font-weight:bold;line-height:1.25\">安全与长期使用</div><div style=\"font-size:20px;line-height:1.45;margin-top:6px\">密钥生命周期 · 最少遥测 · 日志脱敏<br/>依赖治理 · 无障碍 · 开源可持续</div>",
+          "refs": [
+            "P02",
+            "A03",
+            "S01",
+            "T01"
+          ]
+        }
+      ]
+    }
+  ]
+}
