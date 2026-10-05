@@ -4,6 +4,7 @@ import 'package:drift/drift.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../core/domain/entities.dart';
+import '../../core/ai/review_source.dart';
 import '../../core/domain/lifecycle.dart';
 import '../../core/ports/vault_repository.dart';
 import 'app_database.dart';
@@ -1066,13 +1067,21 @@ class SqliteVaultRepository implements VaultRepository {
     List<CardDraft> drafts, {
     required String providerLabel,
     List<String> originalIds = const [],
+    ReviewSource? reviewSource,
   }) {
     if (!RegExp(r'^[a-zA-Z0-9-]{1,64}$').hasMatch(reviewId) ||
-        sourceText.length > 32000 ||
+        (sourceText.length > 32000 && reviewSource == null) ||
         drafts.isEmpty ||
-        drafts.length > 20) {
+        drafts.length > 20 ||
+        (reviewSource != null &&
+            (reviewSource.reviewId != reviewId ||
+                reviewSource.providerLabel != providerLabel))) {
       throw const FormatException('确认建议数量或来源大小错误');
     }
+    final evidence = reviewSource?.encode();
+    final legacySource = sourceText.length <= 32000
+        ? sourceText
+        : '完整输入和附件已保存在独立确认来源记录 $reviewId；输入共${sourceText.length}字。';
     return database.transaction(() async {
       final receiptKey = 'agent.review.$reviewId';
       final receipt = await readLocalValue(receiptKey);
@@ -1097,7 +1106,7 @@ class SqliteVaultRepository implements VaultRepository {
             ),
             sourceKind: SourceKind.aiGenerated,
             sourceLabel: providerLabel,
-            sourceText: sourceText,
+            sourceText: legacySource,
           ),
         );
       }
@@ -1105,6 +1114,15 @@ class SqliteVaultRepository implements VaultRepository {
         for (var i = 0; i < cards.length; i++) {
           await setCardOriginals(cards[i].id, originalIds);
           cards[i] = (await getCard(cards[i].id))!;
+        }
+      }
+      if (reviewSource != null) {
+        await writeChunkedLocalValue(reviewSource.storageKey, evidence!);
+        for (final card in cards) {
+          await writeLocalValue(
+            ReviewSource.cardKey(card.id),
+            reviewSource.storageKey,
+          );
         }
       }
       await writeLocalValue(
@@ -1120,6 +1138,25 @@ class SqliteVaultRepository implements VaultRepository {
       return cards;
     });
   }
+
+  @override
+  Future<ReviewSource?> cardReviewSource(String cardId) =>
+      database.transaction(() async {
+        if (await getCard(cardId) == null) return null;
+        final key = await readLocalValue(ReviewSource.cardKey(cardId));
+        if (key == null) return null;
+        if (!RegExp(r'^ars\.[a-zA-Z0-9-]{1,64}$').hasMatch(key)) {
+          throw const FormatException('确认来源链接无效');
+        }
+        final value = await readChunkedLocalValue(key);
+        if (value == null) throw const FormatException('确认来源记录缺失');
+        final source = ReviewSource.decode(value);
+        if (source.storageKey != key) {
+          source.wipe();
+          throw const FormatException('确认来源链接不匹配');
+        }
+        return source;
+      });
 
   @override
   Future<List<CredentialEntry>> listCredentials({

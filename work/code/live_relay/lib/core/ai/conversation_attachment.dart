@@ -15,10 +15,12 @@ class ConversationAttachment {
     this.bytes,
     this.kind, {
     this.cardId,
+    this.cardRevision,
     this.blobId,
   });
   final String id, name, mimeType;
   final String? cardId;
+  final int? cardRevision;
   String? blobId;
   final Uint8List bytes;
   final ConversationAttachmentKind kind;
@@ -30,6 +32,7 @@ class ConversationAttachment {
     String name,
     Uint8List bytes, {
     String? cardId,
+    int? cardRevision,
     String? blobId,
   }) {
     if (name.isEmpty ||
@@ -37,6 +40,9 @@ class ConversationAttachment {
         bytes.isEmpty ||
         bytes.length > maxBytes) {
       throw const FormatException('附件为空或过大；每个最多 2 MB');
+    }
+    if (cardRevision != null && (cardId == null || cardRevision < 1)) {
+      throw const FormatException('所选卡片修订无效');
     }
     bool prefix(List<int> signature) =>
         bytes.length >= signature.length &&
@@ -104,6 +110,7 @@ class ConversationAttachment {
       bytes,
       kind,
       cardId: cardId,
+      cardRevision: cardRevision,
       blobId: blobId,
     );
   }
@@ -114,6 +121,7 @@ class ConversationAttachment {
     'bytes': base64Encode(bytes),
     'kind': kind.name,
     'card': cardId,
+    'cardRevision': cardRevision,
     'blob': blobId,
     'frames': [
       for (final f in frames)
@@ -126,6 +134,7 @@ class ConversationAttachment {
       raw['name'] as String,
       bytes,
       cardId: raw['card'] as String?,
+      cardRevision: raw['cardRevision'] as int?,
       blobId: raw['blob'] as String?,
     );
     if ((checked.kind.name != raw['kind'] || checked.mimeType != raw['mime']) &&
@@ -143,6 +152,7 @@ class ConversationAttachment {
       bytes,
       checked.kind,
       cardId: checked.cardId,
+      cardRevision: checked.cardRevision,
       blobId: checked.blobId,
     );
     for (final f in raw['frames'] as List? ?? []) {

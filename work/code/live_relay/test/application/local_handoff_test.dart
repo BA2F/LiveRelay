@@ -9,6 +9,8 @@ import 'package:live_relay/core/security/header_encoding.dart';
 import 'package:live_relay/application/local_handoff_service.dart';
 import 'package:live_relay/application/recipient_service.dart';
 import 'package:live_relay/core/domain/entities.dart';
+import 'package:live_relay/core/ai/review_source.dart';
+import 'package:live_relay/core/ai/conversation_attachment.dart';
 import 'package:live_relay/core/identity/local_identity.dart';
 import 'package:live_relay/infrastructure/persistence/app_database.dart';
 import 'package:live_relay/infrastructure/persistence/sqlite_vault_repository.dart';
@@ -54,9 +56,33 @@ void main() {
       ) as Map<String, Object?>;
       await owner.acceptProof(proof);
       await expectLater(owner.acceptProof(proof), throwsStateError);
-      final card = await repository.createCard(
-        const CardDraft(title: '可交付标题', content: 'private-body-not-authorized'),
+      final sourceAttachment = ConversationAttachment.read(
+        'private.txt',
+        Uint8List.fromList(utf8.encode('private-confirmation-attachment')),
       );
+      final card = (await repository.saveReviewedAgentSuggestions(
+        'handoff-review',
+        'private-confirmation-source',
+        [
+          const CardDraft(
+            title: '可交付标题',
+            content: 'private-body-not-authorized',
+          ),
+        ],
+        providerLabel: 'fixture',
+        reviewSource: ReviewSource(
+          reviewId: 'handoff-review',
+          providerLabel: 'fixture',
+          confirmedAt: DateTime.utc(2026),
+          reply: 'private-model-reply',
+          inputs: [
+            ReviewSourceInput('private-confirmation-source', [
+              sourceAttachment,
+            ]),
+          ],
+        ),
+      )).single;
+      sourceAttachment.wipe();
       final credential = await repository.saveCredential(
         const CredentialDraft(
           title: '虚构密码',
@@ -103,6 +129,9 @@ void main() {
         'current-secret',
         'unselected-note',
         'private profile',
+        'private-confirmation-source',
+        'private-confirmation-attachment',
+        'private-model-reply',
       ]) {
         expect(payload, isNot(contains(excluded)));
       }

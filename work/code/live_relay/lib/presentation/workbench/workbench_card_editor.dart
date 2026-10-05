@@ -22,6 +22,7 @@ class WorkbenchCardEditor extends StatefulWidget {
     required this.onDelete,
     required this.onNewTab,
     required this.onCard,
+    this.onReviewSource,
   });
   final LifeCard card;
   final CardEditSessions edits;
@@ -29,6 +30,7 @@ class WorkbenchCardEditor extends StatefulWidget {
   final VoidCallback onHistory, onNewTab, onDelete;
   final ValueChanged<String> onSource;
   final ValueChanged<String> onCard;
+  final VoidCallback? onReviewSource;
   @override
   State<WorkbenchCardEditor> createState() => _WorkbenchCardEditorState();
 }
@@ -138,6 +140,12 @@ class _WorkbenchCardEditorState extends State<WorkbenchCardEditor> {
             onPressed: widget.onHistory,
             icon: const Icon(Icons.history, size: 18),
           ),
+          if (widget.onReviewSource != null)
+            IconButton(
+              tooltip: '查看确认来源',
+              onPressed: widget.onReviewSource,
+              icon: const Icon(Icons.fact_check_outlined, size: 18),
+            ),
           if (_session.card.isDraft)
             IconButton(
               tooltip: '确认当前卡片',

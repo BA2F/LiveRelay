@@ -19,6 +19,7 @@ import 'card_summary.dart';
 import 'workbench/card_references.dart';
 import 'device_capabilities.dart';
 import '../core/domain/entities.dart';
+import '../core/ai/review_source.dart';
 import '../core/ports/ai_provider.dart';
 import '../core/ports/ai_conversation_provider.dart';
 import '../core/ports/device_factor_protection.dart';
@@ -771,6 +772,7 @@ class AppController extends ChangeNotifier {
     List<AiCardSuggestion> suggestions, {
     required String providerLabel,
     List<String> originalIds = const [],
+    ReviewSource? reviewSource,
   }) => _mutate(
     (r) => r.saveReviewedAgentSuggestions(
       reviewId,
@@ -788,6 +790,7 @@ class AppController extends ChangeNotifier {
           .toList(),
       providerLabel: providerLabel,
       originalIds: originalIds,
+      reviewSource: reviewSource,
     ),
   );
 
@@ -830,6 +833,9 @@ class AppController extends ChangeNotifier {
 
   Future<List<CardRevision>> cardHistory(String id) =>
       _requireRepository().cardHistory(id);
+
+  Future<ReviewSource?> cardReviewSource(String id) =>
+      _requireRepository().cardReviewSource(id);
 
   Future<List<CardRelation>> cardRelations(String id) =>
       _requireRepository().relationsForCard(id);

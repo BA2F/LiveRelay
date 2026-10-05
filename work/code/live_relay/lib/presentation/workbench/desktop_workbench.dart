@@ -24,6 +24,7 @@ import '../pages/speech_input_page.dart';
 import '../pages/recycle_page.dart';
 import 'dock_surface.dart';
 import 'workbench_card_editor.dart';
+import 'review_source_view.dart';
 import 'relations_view.dart';
 import 'extensions_view.dart';
 import 'native_window_host.dart';
@@ -343,6 +344,8 @@ class _DesktopWorkbenchState extends State<DesktopWorkbench> {
                     '卡片'
               : view.startsWith('source/')
               ? '来源'
+              : view.startsWith('review/')
+              ? '确认来源'
               : '修订历史'),
   };
   IconData _icon(String view) => switch (view) {
@@ -522,6 +525,7 @@ class _DesktopWorkbenchState extends State<DesktopWorkbench> {
         edits: _edits,
         onNewTab: () => _openCard(card.id, group: group),
         onHistory: () => _layout.open('history/${card.id}', groupId: group),
+        onReviewSource: () => _layout.open('review/${card.id}', groupId: group),
         onSource: (id) => _layout.open('source/$id', groupId: group),
         onCard: (id) => _openCard(id, group: group),
         onDelete: () => _delete([card]),
@@ -687,6 +691,15 @@ class _DesktopWorkbenchState extends State<DesktopWorkbench> {
             );
     }
     if (view.startsWith('history/')) return _history(_cardId(view));
+    if (view.startsWith('review/')) {
+      return ReviewSourceView(
+        key: ValueKey(view),
+        controller: _controller,
+        cardId: _cardId(view),
+        onCard: (id) => _openCard(id, group: group),
+        onOriginal: (id) => _layout.open('source/$id', groupId: group),
+      );
+    }
     if (view.startsWith('source/')) {
       return ListView(
         padding: const EdgeInsets.all(20),
@@ -922,9 +935,9 @@ class _DesktopWorkbenchState extends State<DesktopWorkbench> {
                                     detachableView(d.data),
                                 onAcceptWithDetails: (d) => _action(() async {
                                   await _edits.flush();
-                                    if (_edits.hasUnsaved) {
-                                      throw const FormatException('请先保存修改');
-                                    }
+                                  if (_edits.hasUnsaved) {
+                                    throw const FormatException('请先保存修改');
+                                  }
                                   await _windows.open(d.data);
                                   _layout.close(d.data);
                                 }),

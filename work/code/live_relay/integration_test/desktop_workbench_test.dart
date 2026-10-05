@@ -7,6 +7,9 @@ import 'package:flutter/material.dart';
 import 'package:live_relay/presentation/widgets/local_media_preview.dart';
 import 'package:live_relay/presentation/workbench/attachment_strip.dart';
 import 'package:live_relay/core/ai/conversation_attachment.dart';
+import 'package:live_relay/core/ai/ai_privacy.dart';
+import 'package:live_relay/presentation/workbench/review_source_view.dart';
+import 'package:live_relay/presentation/workbench/workbench_card_editor.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
@@ -1523,6 +1526,172 @@ void main() {
         q.dispose();
         await c.lock();
         c.dispose();
+        await root.delete(recursive: true);
+      }
+    },
+  );
+  testWidgets(
+    'native confirmed source keeps complete image and selected revision after a new conversation',
+    (tester) async {
+      final root = await Directory.systemTemp.createTemp(
+        'liverelay-confirmed-source-native-',
+      );
+      final c = createAppController(
+        root,
+        NoBiometrics(),
+        TestOcr(),
+        RecordingConversationAi(),
+        TestAiSettings(),
+      );
+      final p = AppPreferences();
+      final screenshotKey = GlobalKey();
+      try {
+        await c.initialize();
+        await c.setupVault(
+          password: 'fictional-review-2026',
+          usesChinesePassphrase: false,
+        );
+        await c.createCard(
+          const CardDraft(title: '所选虚构卡片', content: '确认前的卡片正文'),
+        );
+        final selected = c.cards.single;
+        await p.finishOnboarding();
+        await p.setDesktopPreset('assistant');
+        await tester.pumpWidget(
+          MultiProvider(
+            providers: [
+              ChangeNotifierProvider.value(value: c),
+              ChangeNotifierProvider.value(value: p),
+            ],
+            child: RepaintBoundary(
+              key: screenshotKey,
+              child: const LiveRelayApp(),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        final q = tester
+            .widget<ConversationView>(find.byType(ConversationView))
+            .conversation;
+        q.attachCard(selected);
+        final file = File('${root.path}/fixture.png');
+        final recorder = ui.PictureRecorder();
+        final canvas = Canvas(recorder);
+        canvas.drawRect(
+          const Rect.fromLTWH(0, 0, 48, 48),
+          Paint()..color = Colors.blue,
+        );
+        canvas.drawCircle(
+          const Offset(24, 24),
+          12,
+          Paint()..color = Colors.white,
+        );
+        final picture = recorder.endRecording();
+        final fixtureImage = await picture.toImage(48, 48);
+        final imageBytes = (await fixtureImage.toByteData(
+          format: ui.ImageByteFormat.png,
+        ))!.buffer.asUint8List();
+        fixtureImage.dispose();
+        picture.dispose();
+        await file.writeAsBytes(imageBytes);
+        await q.addFilePaths([file.path]);
+        final chosen = List<ConversationAttachment>.of(q.attachments);
+        q.attachments.clear();
+        q.messages.add(
+          ConversationMessage('user', '完整来源虚构输入', attachments: chosen),
+        );
+        final reply = ConversationMessage(
+          'assistant',
+          '虚构模型答复',
+          providerLabel: '本地验收 fixture',
+          suggestions: [
+            const AiCardSuggestion(
+              title: '来源验收卡片',
+              content: '本人核对的总结',
+              kind: CardKind.note,
+              isInference: false,
+            ),
+          ],
+        );
+        q.messages.add(reply);
+        await q.accept(reply);
+        expect(q.error, isNull);
+        final reviewed = c.cards.singleWhere((c) => c.title == '来源验收卡片');
+        await q.newConversation();
+        await c.updateCard(
+          selected.id,
+          const CardDraft(title: '所选虚构卡片', content: '后来修改的正文'),
+        );
+        final surface = tester.widget<DockSurface>(find.byType(DockSurface));
+        surface.layout.open('card/${reviewed.id}');
+        await tester.pumpAndSettle();
+        final editor = find
+            .byWidgetPredicate(
+              (w) => w is WorkbenchCardEditor && w.card.id == reviewed.id,
+            )
+            .first;
+        await tester.tap(
+          find.descendant(of: editor, matching: find.byTooltip('查看确认来源')),
+        );
+        for (
+          var i = 0;
+          i < 100 && find.text('完整来源虚构输入').evaluate().isEmpty;
+          i++
+        ) {
+          await tester.pump(const Duration(milliseconds: 20));
+        }
+        expect(find.byType(ReviewSourceView), findsOneWidget);
+        expect(find.text('完整来源虚构输入'), findsOneWidget);
+        final cardAttachment = find.byKey(
+          ValueKey('review-attachment-${chosen.first.id}'),
+        );
+        await tester.ensureVisible(cardAttachment);
+        await tester.tap(find.text(chosen.first.name));
+        await tester.pumpAndSettle();
+        expect(find.text('所选虚构卡片\n确认前的卡片正文'), findsOneWidget);
+        await tester.tap(find.text(chosen.first.name));
+        await tester.pumpAndSettle();
+        await tester.ensureVisible(find.text('fixture.png'));
+        await tester.tap(find.text('fixture.png'));
+        await tester.pumpAndSettle();
+        expect(find.byType(Image), findsWidgets);
+        expect(c.blobs, isEmpty);
+        final evidence = Platform.environment['LIVERELAY_WORKBENCH_EVIDENCE'];
+        if (evidence != null) {
+          final boundary =
+              screenshotKey.currentContext!.findRenderObject()
+                  as RenderRepaintBoundary;
+          final image = await boundary.toImage();
+          final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
+          await File('$evidence/native-review-source.png')
+              .writeAsBytes(bytes!.buffer.asUint8List());
+          image.dispose();
+          await File('$evidence/review-source-verification.json').writeAsString(
+            jsonEncode({
+              'platform': 'real Flutter Linux',
+              'fixtureOnly': true,
+              'newConversationCleared': q.messages.isEmpty,
+              'originalCardRevisionRetained': selected.revisionNumber,
+              'noAutomaticBlobImport': c.blobs.isEmpty,
+              'confirmedCard': reviewed.id,
+              'imageByteLength': imageBytes.length,
+            }),
+          );
+        }
+        final source = (await c.cardReviewSource(reviewed.id))!;
+        expect(source.inputs.single.attachments.last.bytes, imageBytes);
+        source.wipe();
+        await tester.pumpWidget(const SizedBox());
+        await c.lock();
+        await c.unlockWithPassword('fictional-review-2026');
+        final reopened = (await c.cardReviewSource(reviewed.id))!;
+        expect(reopened.inputs.single.attachments.last.bytes, imageBytes);
+        reopened.wipe();
+      } finally {
+        await tester.pumpWidget(const SizedBox());
+        await c.lock();
+        c.dispose();
+        p.dispose();
         await root.delete(recursive: true);
       }
     },

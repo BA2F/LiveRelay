@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 
 import '../domain/entities.dart';
+import '../ai/review_source.dart';
 
 abstract interface class VaultRepository {
   Future<String?> readChunkedLocalValue(String key);
@@ -92,7 +93,10 @@ abstract interface class VaultRepository {
     List<CardDraft> drafts, {
     required String providerLabel,
     List<String> originalIds = const [],
+    ReviewSource? reviewSource,
   });
+
+  Future<ReviewSource?> cardReviewSource(String cardId);
 
   Future<List<CredentialEntry>> listCredentials({
     String query = '',

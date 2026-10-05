@@ -5,6 +5,7 @@ import 'dart:io';
 import 'package:path/path.dart' as path;
 
 import '../../core/ai/conversation_attachment.dart';
+import '../../core/ai/review_source.dart';
 
 import 'package:flutter/foundation.dart';
 import 'package:uuid/uuid.dart';
@@ -186,6 +187,7 @@ class AgentConversation extends ChangeNotifier {
         '${card.title}.txt',
         Uint8List.fromList(utf8.encode('${card.title}\n${card.content}')),
         cardId: card.id,
+        cardRevision: card.revisionNumber,
       ),
     ]);
   }
@@ -611,7 +613,8 @@ class AgentConversation extends ChangeNotifier {
       await flush();
       final previousInputs = messages
           .take(messages.indexOf(message))
-          .where((m) => m.role == 'user');
+          .where((m) => m.role == 'user')
+          .toList();
       await controller.acceptConversationCards(
         message.reviewId,
         previousInputs
@@ -625,6 +628,16 @@ class AgentConversation extends ChangeNotifier {
             .join('\n'),
         message.suggestions,
         providerLabel: message.providerLabel,
+        reviewSource: ReviewSource(
+          reviewId: message.reviewId,
+          providerLabel: message.providerLabel,
+          confirmedAt: DateTime.now().toUtc(),
+          inputs: [
+            for (final input in previousInputs)
+              ReviewSourceInput(input.text, input.attachments),
+          ],
+          reply: message.text,
+        ),
         originalIds: previousInputs
             .expand((m) => m.attachments)
             .map((a) => a.blobId)

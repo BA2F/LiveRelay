@@ -329,6 +329,7 @@ class ConversationView extends StatelessWidget {
                             ),
                           if (m.suggestions.isNotEmpty) ...[
                             const SizedBox(height: 12),
+                            const Text('确认时会保留此前完整输入和附件，之后可从卡片查看来源。'),
                             if (m.accepted)
                               const Text('已确认并保存 · 交付可见性保持隐藏')
                             else
