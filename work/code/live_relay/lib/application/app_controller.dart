@@ -15,6 +15,7 @@ import 'vault_backup_service.dart';
 
 import '../core/ai/ai_privacy.dart';
 import 'card_summary.dart';
+import 'workbench/card_references.dart';
 import 'device_capabilities.dart';
 import '../core/domain/entities.dart';
 import '../core/ports/ai_provider.dart';
@@ -175,6 +176,9 @@ class AppController extends ChangeNotifier {
   String? get recoveryNotice => _backup.recoveryNotice;
 
   List<LifeCard> cards = const [];
+  List<CardReference> cardReferences = const [];
+  Future<void> setCardReferences(String from, List<String> targets) =>
+      _mutate((r) => CardReferenceStore(r).replace(from, targets));
   List<LifeCard> recycledCards = const [];
   List<CredentialEntry> recycledCredentials = const [];
   DateTime? lastBackupExport;
@@ -338,6 +342,7 @@ class AppController extends ChangeNotifier {
   void _clearUnlockedData() {
     ownerProfile = const {'name': '本人', 'contact': '', 'note': ''};
     cards = const [];
+    cardReferences = const [];
     recycledCards = const [];
     recycledCredentials = const [];
     lastBackupExport = null;
@@ -434,6 +439,10 @@ class AppController extends ChangeNotifier {
   Future<List<CardSource>> cardSources(String id) =>
       _requireRepository().cardSources(id);
   Future<LifeCard?> getCard(String id) => _requireRepository().getCard(id);
+  Future<String?> readWorkbenchState() =>
+      _requireRepository().readLocalValue('desktop.workbench.v1');
+  Future<void> writeWorkbenchState(String value) =>
+      _requireRepository().writeLocalValue('desktop.workbench.v1', value);
   Future<void> createCardFromOriginal(String blobId, CardDraft draft) =>
       _mutate((r) => r.createCardFromOriginal(blobId, draft));
 
@@ -762,6 +771,7 @@ class AppController extends ChangeNotifier {
       repository.listCredentials(recycled: true),
     ]);
     cards = results[0] as List<LifeCard>;
+    cardReferences = await CardReferenceStore(repository).read();
     blobs = results[1] as List<VaultBlob>;
     credentials = results[2] as List<CredentialEntry>;
     releasePolicies = results[3] as List<ReleasePolicy>;

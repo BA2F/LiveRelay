@@ -15,6 +15,7 @@ class AppPreferences extends ChangeNotifier {
   ReadingSize readingSize = ReadingSize.medium;
   bool onboardingStarted = false;
   bool onboardingComplete = false;
+  String? desktopPreset;
   Future<void> _pending = Future.value();
 
   Future<void> load({required bool hasExistingVault}) async {
@@ -33,12 +34,16 @@ class AppPreferences extends ChangeNotifier {
         );
         onboardingStarted = data['onboardingStarted'] == true;
         onboardingComplete = data['onboardingComplete'] == true;
+        desktopPreset = ['library', 'assistant'].contains(data['desktopPreset'])
+            ? data['desktopPreset'] as String
+            : null;
       }
     } on Object {
       appearance = AppearanceMode.system;
       readingSize = ReadingSize.medium;
       onboardingStarted = false;
       onboardingComplete = false;
+      desktopPreset = null;
     }
     // Legacy vaults and damaged device preferences never trigger vault creation.
     if (hasExistingVault && !onboardingStarted) onboardingComplete = true;
@@ -49,20 +54,25 @@ class AppPreferences extends ChangeNotifier {
       _save(mode: mode, size: size);
   Future<void> beginOnboarding() => _save(started: true);
   Future<void> finishOnboarding() => _save(started: true, complete: true);
+  Future<void> setDesktopPreset(String? preset) =>
+      _save(preset: preset, clearPreset: preset == null);
 
   Future<void> _save({
     AppearanceMode? mode,
     ReadingSize? size,
     bool? started,
     bool? complete,
+    String? preset,
+    bool clearPreset = false,
   }) {
     final next = _pending.then((_) async {
-      final data = <String, Object>{
+      final data = <String, Object?>{
         'version': 1,
         'appearance': (mode ?? appearance).name,
         'readingSize': (size ?? readingSize).name,
         'onboardingStarted': started ?? onboardingStarted,
         'onboardingComplete': complete ?? onboardingComplete,
+        'desktopPreset': clearPreset ? null : preset ?? desktopPreset,
       };
       final file = _file;
       if (file != null) {
@@ -79,6 +89,7 @@ class AppPreferences extends ChangeNotifier {
       readingSize = size ?? readingSize;
       onboardingStarted = started ?? onboardingStarted;
       onboardingComplete = complete ?? onboardingComplete;
+      desktopPreset = clearPreset ? null : preset ?? desktopPreset;
       notifyListeners();
     });
     _pending = next.then<void>((_) {}, onError: (Object _) {});

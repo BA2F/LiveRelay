@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:provider/provider.dart';
 
 import '../../application/app_controller.dart';
@@ -9,6 +10,7 @@ import 'capture_page.dart';
 import 'handoff_page.dart';
 import 'passwords_page.dart';
 import 'profile_page.dart';
+import '../workbench/desktop_workbench.dart';
 
 class HomeShell extends StatefulWidget {
   const HomeShell({super.key});
@@ -56,6 +58,11 @@ class _HomeShellState extends State<HomeShell> {
 
   @override
   Widget build(BuildContext context) {
+    if (defaultTargetPlatform == TargetPlatform.linux ||
+        defaultTargetPlatform == TargetPlatform.windows ||
+        defaultTargetPlatform == TargetPlatform.macOS) {
+      return const DesktopWorkbench();
+    }
     final controller = context.watch<AppController>();
     final wide = MediaQuery.sizeOf(context).width >= 840;
     final content = IndexedStack(
