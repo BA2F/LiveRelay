@@ -16,10 +16,11 @@ class AiProviderSettings {
     this.protocol = AiProtocol.chatCompletions,
     this.supportsImages = false,
     this.supportsFiles = false,
+    this.supportsAudio = false,
   });
   final String id, name;
   final List<String> models;
-  final bool supportsImages, supportsFiles;
+  final bool supportsImages, supportsFiles, supportsAudio;
   final AiProtocol protocol;
   final String endpoint, model;
   final bool hasApiKey;
@@ -98,6 +99,7 @@ class AiProviderSettingsStore {
     protocol: AiProtocol.values.byName(item['protocol'] as String),
     supportsImages: item['images'] == true,
     supportsFiles: item['files'] == true,
+    supportsAudio: item['audio'] == true,
   );
   static const empty = AiProviderSettings(
     endpoint: '',
@@ -138,6 +140,7 @@ class AiProviderSettingsStore {
     required AiProtocol protocol,
     required bool images,
     required bool files,
+    bool audio = false,
     String? apiKey,
   }) async {
     final uri = Uri.tryParse(endpoint.trim());
@@ -184,6 +187,7 @@ class AiProviderSettingsStore {
       'protocol': protocol.name,
       'images': images,
       'files': files,
+      'audio': audio,
       'key': apiKey?.trim().isNotEmpty == true
           ? apiKey!.trim()
           : previous?['key'] ?? '',
@@ -236,6 +240,7 @@ class AiProviderSettingsStore {
       protocol: previous.protocol,
       images: previous.supportsImages,
       files: previous.supportsFiles,
+      audio: previous.supportsAudio,
       apiKey: apiKey,
     );
   }
@@ -253,12 +258,14 @@ class AiProviderSettingsStore {
   Future<void> saveCapabilities({
     required bool images,
     required bool files,
+    bool audio = false,
   }) async {
     final data = await _load();
     for (final p in data['profiles'] as List) {
       if (p['id'] == data['active']) {
         p['images'] = images;
         p['files'] = files;
+        p['audio'] = audio;
       }
     }
     await _write(data);

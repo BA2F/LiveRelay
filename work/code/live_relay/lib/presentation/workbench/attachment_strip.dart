@@ -1,9 +1,13 @@
+import 'dart:io';
+import 'dart:typed_data';
+
 import 'package:desktop_drop/desktop_drop.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 
 import '../../application/agent/agent_conversation.dart';
 import '../../core/ai/conversation_attachment.dart';
+import '../widgets/local_media_preview.dart';
 
 class AttachmentStrip extends StatefulWidget {
   const AttachmentStrip({super.key, required this.conversation});
@@ -161,6 +165,84 @@ class AttachmentTile extends StatelessWidget {
   final ConversationAttachment attachment;
   final AgentConversation conversation;
   final bool removable;
+  Future<void> _preview(BuildContext context) async {
+    final a = attachment;
+    final key = GlobalKey<LocalMediaPreviewState>();
+    var busy = false;
+    await showDialog<void>(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, update) => AlertDialog(
+          title: Text(a.name),
+          content: SizedBox(
+            width: 640,
+            child: SingleChildScrollView(
+              child:
+                  Platform.isLinux &&
+                      {
+                        ConversationAttachmentKind.audio,
+                        ConversationAttachmentKind.video,
+                      }.contains(a.kind)
+                  ? LocalMediaPreview(
+                      key: key,
+                      controller: conversation.controller,
+                      name: a.name,
+                      video: a.kind == ConversationAttachmentKind.video,
+                      compact: true,
+                      readBytes: () async => Uint8List.fromList(a.bytes),
+                    )
+                  : a.kind == ConversationAttachmentKind.image
+                  ? Image.memory(
+                      a.bytes,
+                      cacheWidth: 1024,
+                      errorBuilder: (_, _, _) => const Text('无法显示图片'),
+                    )
+                  : SelectableText(
+                      a.kind == ConversationAttachmentKind.text
+                          ? a.text
+                          : '${a.mimeType} · ${a.bytes.length} 字节',
+                    ),
+            ),
+          ),
+          actions: [
+            if (a.kind == ConversationAttachmentKind.video &&
+                removable &&
+                Platform.isLinux)
+              FilledButton(
+                onPressed: busy || conversation.working
+                    ? null
+                    : () async {
+                        update(() => busy = true);
+                        try {
+                          final frames = await key.currentState!.sampleFrames();
+                          conversation.replaceVideoFrames(a, frames);
+                          if (context.mounted) Navigator.pop(context);
+                        } on Object catch (e) {
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                  e is FormatException ? e.message : '无法选取视频帧',
+                                ),
+                              ),
+                            );
+                          }
+                        } finally {
+                          if (context.mounted) update(() => busy = false);
+                        }
+                      },
+                child: Text(busy ? '正在选帧…' : '选取4帧供发送前检查'),
+              ),
+            TextButton(
+              onPressed: busy ? null : () => Navigator.pop(context),
+              child: const Text('关闭'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final a = attachment;
@@ -193,34 +275,8 @@ class AttachmentTile extends StatelessWidget {
                 ],
               ),
               InkWell(
-                onTap: () => showDialog<void>(
-                  context: context,
-                  builder: (context) => AlertDialog(
-                    title: Text(a.name),
-                    content: SizedBox(
-                      width: 520,
-                      child: SingleChildScrollView(
-                        child: a.kind == ConversationAttachmentKind.image
-                            ? Image.memory(
-                                a.bytes,
-                                cacheWidth: 1024,
-                                errorBuilder: (_, _, _) => const Text('无法显示图片'),
-                              )
-                            : SelectableText(
-                                a.kind == ConversationAttachmentKind.text
-                                    ? a.text
-                                    : '${a.mimeType} · ${a.bytes.length} 字节\n此文件预览仅展示元信息',
-                              ),
-                      ),
-                    ),
-                    actions: [
-                      TextButton(
-                        onPressed: () => Navigator.pop(context),
-                        child: const Text('关闭'),
-                      ),
-                    ],
-                  ),
-                ),
+                key: ValueKey('attachment-preview-${a.id}'),
+                onTap: () => _preview(context),
                 child: a.kind == ConversationAttachmentKind.image
                     ? Image.memory(
                         a.bytes,
@@ -235,6 +291,22 @@ class AttachmentTile extends StatelessWidget {
                 '${(a.bytes.length / 1024).toStringAsFixed(1)} KB',
                 style: Theme.of(context).textTheme.labelSmall,
               ),
+              if (a.frames.isNotEmpty)
+                Wrap(
+                  children: [
+                    for (final frame in a.frames)
+                      Column(
+                        children: [
+                          Image.memory(frame.bytes, width: 72, height: 42),
+                          Text(
+                            '${(frame.milliseconds / 1000).toStringAsFixed(1)} s',
+                          ),
+                        ],
+                      ),
+                  ],
+                ),
+              if (a.kind == ConversationAttachmentKind.video)
+                const Text('只发送选帧，不发送音轨', style: TextStyle(fontSize: 11)),
               if (a.kind == ConversationAttachmentKind.unsupported)
                 const Text('当前协议不支持发送', style: TextStyle(fontSize: 11)),
               if (a.blobId != null || a.cardId != null)

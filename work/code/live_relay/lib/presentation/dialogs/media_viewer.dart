@@ -14,6 +14,7 @@ import '../../application/app_controller.dart';
 import '../../application/device_capabilities.dart';
 import '../../core/domain/entities.dart';
 import 'capability_dialog.dart';
+import '../widgets/local_media_preview.dart';
 
 Future<void> showEncryptedOriginal(
   BuildContext context,
@@ -45,9 +46,17 @@ Future<void> showEncryptedOriginal(
               _ImageViewer(name: blob.originalName, bytes: clearBytes!),
         );
       case BlobMediaKind.audio:
-        await _showAudio(context, blob, clearBytes);
+        if (Platform.isLinux) {
+          await _showLinuxMedia(context, controller, blob, clearBytes);
+        } else {
+          await _showAudio(context, blob, clearBytes);
+        }
       case BlobMediaKind.video:
-        await _showVideo(context, blob, clearBytes);
+        if (Platform.isLinux) {
+          await _showLinuxMedia(context, controller, blob, clearBytes);
+        } else {
+          await _showVideo(context, blob, clearBytes);
+        }
       case BlobMediaKind.document:
       case BlobMediaKind.other:
         throw const FormatException('此文件类型暂不支持预览');
@@ -61,6 +70,33 @@ Future<void> showEncryptedOriginal(
     clearBytes?.fillRange(0, clearBytes.length, 0);
   }
 }
+
+Future<void> _showLinuxMedia(
+  BuildContext context,
+  AppController controller,
+  VaultBlob blob,
+  Uint8List bytes,
+) => showDialog<void>(
+  context: context,
+  builder: (context) => AlertDialog(
+    title: const Text('本地原件播放'),
+    content: SizedBox(
+      width: 720,
+      child: LocalMediaPreview(
+        controller: controller,
+        name: blob.originalName,
+        video: blob.mediaKind == BlobMediaKind.video,
+        readBytes: () async => Uint8List.fromList(bytes),
+      ),
+    ),
+    actions: [
+      TextButton(
+        onPressed: () => Navigator.pop(context),
+        child: const Text('关闭'),
+      ),
+    ],
+  ),
+);
 
 Future<void> _showAudio(
   BuildContext context,

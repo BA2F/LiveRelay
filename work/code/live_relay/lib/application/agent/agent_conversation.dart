@@ -64,7 +64,7 @@ class AgentConversation extends ChangeNotifier {
 
   String get _configuration {
     final s = controller.aiSettings;
-    return '${s.id}:${s.protocol.name}:${s.endpoint}:${s.model}:${s.supportsImages}:${s.supportsFiles}';
+    return '${s.id}:${s.protocol.name}:${s.endpoint}:${s.model}:${s.supportsImages}:${s.supportsFiles}:${s.supportsAudio}';
   }
 
   final AppController controller;
@@ -85,10 +85,11 @@ class AgentConversation extends ChangeNotifier {
     final selected = List<ConversationAttachment>.of(attachments);
     final settings = controller.aiSettings;
     for (final a in selected) {
-      a.wire(
+      a.wireParts(
         settings.protocol,
         images: settings.supportsImages,
         files: settings.supportsFiles,
+        audio: settings.supportsAudio,
       );
     }
     final input = text.trim().isEmpty && selected.isNotEmpty
@@ -113,9 +114,27 @@ class AgentConversation extends ChangeNotifier {
     );
   }
 
-  String get disclosureHistory => jsonEncode(
-    _history,
-  ).replaceAll(RegExp(r'data:[^;]+;base64,[A-Za-z0-9+/=]+'), '[附件二进制；见历史附件预览]');
+  String get disclosureHistory {
+    Object? preview(Object? value) {
+      if (value is List) return value.map(preview).toList();
+      if (value is Map) {
+        return {
+          for (final entry in value.entries)
+            entry.key:
+                entry.key == 'data' && {'wav', 'mp3'}.contains(value['format'])
+                ? '[完整音频；见历史附件预览]'
+                : preview(entry.value),
+        };
+      }
+      return value;
+    }
+
+    return jsonEncode(preview(_history)).replaceAll(
+      RegExp(r'data:[^;]+;base64,[A-Za-z0-9+/=]+'),
+      '[附件二进制；见历史附件预览]',
+    );
+  }
+
   String get attachmentStamp => attachments.map((a) => a.id).join(',');
   Future<void> addFilePaths(Iterable<String> paths) async {
     if (working || !controller.isUnlocked) return;
@@ -192,6 +211,37 @@ class AgentConversation extends ChangeNotifier {
     }
   }
 
+  void replaceVideoFrames(
+    ConversationAttachment attachment,
+    List<({int milliseconds, Uint8List bytes})> frames,
+  ) {
+    if (working ||
+        !controller.isUnlocked ||
+        !attachments.contains(attachment)) {
+      for (final f in frames) {
+        f.bytes.fillRange(0, f.bytes.length, 0);
+      }
+      return;
+    }
+    if (frames.isEmpty ||
+        frames.length > 4 ||
+        frames.any((f) => f.bytes.length > 256 * 1024)) {
+      for (final f in frames) {
+        f.bytes.fillRange(0, f.bytes.length, 0);
+      }
+      throw const FormatException('视频最多4帧，每帧256KB');
+    }
+    for (final f in attachment.frames) {
+      f.bytes.fillRange(0, f.bytes.length, 0);
+    }
+    attachment.frames
+      ..clear()
+      ..addAll(frames);
+    _generation++;
+    _scheduleSave();
+    notifyListeners();
+  }
+
   void removeAttachment(ConversationAttachment attachment) {
     if (working || !attachments.remove(attachment)) return;
     attachment.wipe();
@@ -210,9 +260,12 @@ class AgentConversation extends ChangeNotifier {
         bytes: Uint8List.fromList(attachment.bytes),
         originalName: attachment.name,
         mimeType: attachment.mimeType,
-        mediaKind: attachment.kind == ConversationAttachmentKind.image
-            ? BlobMediaKind.image
-            : BlobMediaKind.document,
+        mediaKind: switch (attachment.kind) {
+          ConversationAttachmentKind.image => BlobMediaKind.image,
+          ConversationAttachmentKind.audio => BlobMediaKind.audio,
+          ConversationAttachmentKind.video => BlobMediaKind.video,
+          _ => BlobMediaKind.document,
+        },
       );
       attachment.blobId = (await controller.cardSources(original.id))
           .first
@@ -345,9 +398,11 @@ class AgentConversation extends ChangeNotifier {
     final withCapabilities =
         '$oldConfiguration:${settings.supportsImages}:${settings.supportsFiles}';
     _providerFingerprint = provider == oldConfiguration
-        ? '${settings.id}:$provider:false:false'
+        ? '${settings.id}:$provider:false:false:false'
         : provider == withCapabilities
-        ? '${settings.id}:$provider'
+        ? '${settings.id}:$provider:false'
+        : provider == '${settings.id}:$withCapabilities'
+        ? '$provider:false'
         : provider;
     draft = loadedDraft;
     marks.addAll(loadedMarks);
@@ -438,10 +493,11 @@ class AgentConversation extends ChangeNotifier {
                 'text': turn.payload.redactedText,
               },
               for (final a in turn.attachments)
-                a.wire(
+                ...a.wireParts(
                   settings.protocol,
                   images: settings.supportsImages,
                   files: settings.supportsFiles,
+                  audio: settings.supportsAudio,
                 ),
             ];
       final response = await controller.converse(

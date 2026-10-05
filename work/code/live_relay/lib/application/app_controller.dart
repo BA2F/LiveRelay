@@ -589,6 +589,7 @@ class AppController extends ChangeNotifier {
     AiProtocol? protocol,
     bool? supportsImages,
     bool? supportsFiles,
+    bool? supportsAudio,
     String? profileId,
     String? name,
     List<String>? models,
@@ -607,6 +608,7 @@ class AppController extends ChangeNotifier {
           protocol: protocol ?? aiSettings.protocol,
           images: supportsImages ?? false,
           files: supportsFiles ?? false,
+          audio: supportsAudio ?? false,
           apiKey: apiKey,
         );
       } else {
@@ -616,10 +618,13 @@ class AppController extends ChangeNotifier {
           apiKey: apiKey,
         );
         if (protocol != null) await _aiSettingsStore.saveProtocol(protocol);
-        if (supportsImages != null || supportsFiles != null) {
+        if (supportsImages != null ||
+            supportsFiles != null ||
+            supportsAudio != null) {
           await _aiSettingsStore.saveCapabilities(
             images: supportsImages ?? aiSettings.supportsImages,
             files: supportsFiles ?? aiSettings.supportsFiles,
+            audio: supportsAudio ?? aiSettings.supportsAudio,
           );
         }
       }

@@ -63,7 +63,9 @@ class DeviceCapabilities {
               '请先在设备设置中启用生物识别',
             ),
     AppFeature.mediaPlayback =>
-      isMobile || platform == DevicePlatform.macos
+      isMobile ||
+              platform == DevicePlatform.macos ||
+              platform == DevicePlatform.linux
           ? const FeatureCapability(CapabilityStatus.available, '可用')
           : const FeatureCapability(
               CapabilityStatus.unsupported,

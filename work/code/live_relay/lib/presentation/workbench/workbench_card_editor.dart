@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'dart:convert';
 import 'dart:typed_data';
 
@@ -7,6 +8,7 @@ import '../../application/app_controller.dart';
 import '../../application/workbench/card_edit_sessions.dart';
 import '../../core/domain/entities.dart';
 import '../dialogs/media_viewer.dart';
+import '../widgets/local_media_preview.dart';
 import 'reference_panel.dart';
 
 class WorkbenchCardEditor extends StatefulWidget {
@@ -304,6 +306,7 @@ class _InlineOriginalState extends State<InlineOriginal> {
   Uint8List? _bytes;
   String? _error;
   bool _loading = false;
+  bool _playInline = false;
   VaultBlob? get _blob =>
       widget.controller.blobs.where((b) => b.id == widget.blobId).firstOrNull;
   Future<void> _load() async {
@@ -350,10 +353,25 @@ class _InlineOriginalState extends State<InlineOriginal> {
                 ? null
                 : image || text
                 ? _load
+                : Platform.isLinux &&
+                      {
+                        BlobMediaKind.audio,
+                        BlobMediaKind.video,
+                      }.contains(blob.mediaKind)
+                ? () => setState(() => _playInline = !_playInline)
                 : () => showEncryptedOriginal(context, widget.controller, blob),
             child: const Text('查看原件'),
           ),
         ),
+        if (_playInline)
+          LocalMediaPreview(
+            key: ValueKey(widget.blobId),
+            controller: widget.controller,
+            name: blob.originalName,
+            video: blob.mediaKind == BlobMediaKind.video,
+            compact: true,
+            readBytes: () => widget.controller.readOriginal(widget.blobId),
+          ),
         if (_loading) const LinearProgressIndicator(),
         if (_error != null) Text(_error!),
         if (_bytes != null && image)

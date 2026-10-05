@@ -72,7 +72,10 @@ void main() {
       final d = DeviceCapabilities(platform);
       expect(d.feature(AppFeature.camera).status, CapabilityStatus.unsupported);
       expect(d.feature(AppFeature.ocr).status, CapabilityStatus.unsupported);
-      expect(d.feature(AppFeature.mediaPlayback).isAvailable, isFalse);
+      expect(
+        d.feature(AppFeature.mediaPlayback).isAvailable,
+        platform == DevicePlatform.linux,
+      );
       expect(d.feature(AppFeature.biometric).isAvailable, isFalse);
     }
     const android = DeviceCapabilities(DevicePlatform.android);

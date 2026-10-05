@@ -4,6 +4,9 @@ import 'dart:typed_data';
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
+import 'package:live_relay/presentation/widgets/local_media_preview.dart';
+import 'package:live_relay/presentation/workbench/attachment_strip.dart';
+import 'package:live_relay/core/ai/conversation_attachment.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
@@ -720,7 +723,10 @@ void main() {
         await tester.tap(find.text('发送'));
         await tester.pumpAndSettle();
         expect(ai.requests, isEmpty);
-        expect(find.text('附件将以完整内容发送，敏感行标记仅适用于主输入文字：'), findsOneWidget);
+        expect(
+          find.text('图片/文件/音频发送完整内容；视频仅发送已检查的采样帧及时间，不发送音轨。敏感行标记仅适用于主输入：'),
+          findsOneWidget,
+        );
         await tester.tap(find.text('允许本次发送'));
         await tester.pump(const Duration(milliseconds: 100));
         await settle(() => !q.working && ai.requests.isNotEmpty);
@@ -1183,6 +1189,340 @@ void main() {
         c.dispose();
         remote.close();
         FilePickerPlatform.instance = oldPicker;
+        await root.delete(recursive: true);
+      }
+    },
+  );
+  testWidgets(
+    'native Linux decrypts audio/video, renders frames, seeks, pauses and clears playback on lock',
+    (tester) async {
+      final root = await Directory.systemTemp.createTemp(
+        'liverelay-media-native-',
+      );
+      final c = createAppController(
+        root,
+        NoBiometrics(),
+        TestOcr(),
+        RecordingAi(),
+        TestAiSettings(),
+      );
+      final audioKey = GlobalKey<LocalMediaPreviewState>();
+      final videoKey = GlobalKey<LocalMediaPreviewState>();
+      final screenshotKey = GlobalKey();
+      try {
+        await c.initialize();
+        await c.setupVault(
+          password: 'fixture-media-password',
+          usesChinesePassphrase: false,
+        );
+        final audioPath = '${root.path}/fixture.wav';
+        final videoPath = '${root.path}/fixture.mp4';
+        final wav = await Process.run('ffmpeg', [
+          '-hide_banner',
+          '-loglevel',
+          'error',
+          '-f',
+          'lavfi',
+          '-i',
+          'sine=frequency=440:sample_rate=16000',
+          '-t',
+          '3',
+          '-ac',
+          '1',
+          '-c:a',
+          'pcm_s16le',
+          audioPath,
+        ]);
+        final mp4 = await Process.run('ffmpeg', [
+          '-hide_banner',
+          '-loglevel',
+          'error',
+          '-f',
+          'lavfi',
+          '-i',
+          'color=c=red:s=160x90:r=24',
+          '-t',
+          '3',
+          '-c:v',
+          'libx264',
+          '-pix_fmt',
+          'yuv420p',
+          videoPath,
+        ]);
+        expect(wav.exitCode, 0);
+        expect(mp4.exitCode, 0);
+        final audio = await c.importOriginal(
+          bytes: await File(audioPath).readAsBytes(),
+          originalName: 'fixture.wav',
+          mimeType: 'audio/wav',
+          mediaKind: BlobMediaKind.audio,
+        );
+        final audioId = (await c.currentCardSources(audio.id)).single.blobId!;
+        final video = await c.importOriginal(
+          bytes: await File(videoPath).readAsBytes(),
+          originalName: 'fixture.mp4',
+          mimeType: 'video/mp4',
+          mediaKind: BlobMediaKind.video,
+        );
+        final videoId = (await c.currentCardSources(video.id)).single.blobId!;
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Scaffold(
+              body: RepaintBoundary(
+                key: screenshotKey,
+                child: Column(
+                  children: [
+                    LocalMediaPreview(
+                      key: audioKey,
+                      controller: c,
+                      name: 'fixture.wav',
+                      video: false,
+                      readBytes: () => c.readOriginal(audioId),
+                    ),
+                    LocalMediaPreview(
+                      key: videoKey,
+                      controller: c,
+                      name: 'fixture.mp4',
+                      video: true,
+                      compact: true,
+                      readBytes: () => c.readOriginal(videoId),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+        for (
+          var i = 0;
+          i < 150 &&
+              find.byKey(const ValueKey('local-media-play')).evaluate().length <
+                  2;
+          i++
+        ) {
+          await tester.pump(const Duration(milliseconds: 100));
+        }
+        expect(
+          find.byKey(const ValueKey('local-media-play')),
+          findsNWidgets(2),
+        );
+        final ap = audioKey.currentState!.player!;
+        final vp = videoKey.currentState!.player!;
+        for (var i = 0; i < 100 && vp.state.width == null; i++) {
+          await tester.pump(const Duration(milliseconds: 100));
+        }
+        expect(vp.state.width, 160);
+        expect(vp.state.height, 90);
+        expect(ap.state.playing, false);
+        expect(vp.state.playing, false);
+        await ap.setVolume(0);
+        await vp.setVolume(0);
+        await tester.tap(find.byKey(const ValueKey('local-media-play')).first);
+        for (
+          var i = 0;
+          i < 100 && ap.state.position.inMilliseconds < 100;
+          i++
+        ) {
+          await tester.pump(const Duration(milliseconds: 50));
+        }
+        expect(ap.state.position.inMilliseconds, greaterThanOrEqualTo(100));
+        await tester.tap(find.byKey(const ValueKey('local-media-play')).first);
+        await tester.pump(const Duration(milliseconds: 200));
+        expect(ap.state.playing, false);
+        await vp.seek(const Duration(seconds: 1));
+        for (
+          var i = 0;
+          i < 100 && vp.state.position.inMilliseconds < 900;
+          i++
+        ) {
+          await tester.pump(const Duration(milliseconds: 50));
+        }
+        expect(vp.state.position.inMilliseconds, greaterThanOrEqualTo(900));
+        final frame = await vp.screenshot();
+        expect(frame, isNotNull);
+        expect(frame!.length, greaterThan(100));
+        final audioFile = audioKey.currentState!.temporaryFile!;
+        final videoFile = videoKey.currentState!.temporaryFile!;
+        final evidence = Platform.environment['LIVERELAY_WORKBENCH_EVIDENCE'];
+        if (evidence != null) {
+          final image =
+              await (screenshotKey.currentContext!.findRenderObject()
+                      as RenderRepaintBoundary)
+                  .toImage();
+          final data = await image.toByteData(format: ui.ImageByteFormat.png);
+          await File('$evidence/native-media.png')
+              .writeAsBytes(data!.buffer.asUint8List());
+          image.dispose();
+          await File('$evidence/media-verification.json').writeAsString(
+            jsonEncode({
+              'audioDurationMs': ap.state.duration.inMilliseconds,
+              'videoDurationMs': vp.state.duration.inMilliseconds,
+              'width': vp.state.width,
+              'height': vp.state.height,
+              'seekMs': vp.state.position.inMilliseconds,
+              'frameBytes': frame.length,
+              'fixtureOnly': true,
+            }),
+          );
+        }
+        await c.lock();
+        for (
+          var i = 0;
+          i < 100 && (await audioFile.exists() || await videoFile.exists());
+          i++
+        ) {
+          await tester.pump(const Duration(milliseconds: 100));
+        }
+        expect(await audioFile.exists(), false);
+        expect(await videoFile.exists(), false);
+        expect(audioKey.currentState!.player, isNull);
+        expect(videoKey.currentState!.player, isNull);
+      } finally {
+        await tester.pumpWidget(const SizedBox());
+        if (c.isUnlocked) await c.lock();
+        c.dispose();
+        await root.delete(recursive: true);
+      }
+    },
+  );
+  testWidgets(
+    'native Agent audio preview and video frame selection send reviewed multimodal content',
+    (tester) async {
+      final root = await Directory.systemTemp.createTemp(
+        'liverelay-multimodal-native-',
+      );
+      final provider = RecordingConversationAi();
+      final c = createAppController(
+        root,
+        NoBiometrics(),
+        TestOcr(),
+        provider,
+        TestAiSettings()
+          ..configured = true
+          ..images = true
+          ..audio = true,
+      );
+      final q = AgentConversation(c);
+      final screenshotKey = GlobalKey();
+      try {
+        await c.initialize();
+        await c.setupVault(
+          password: 'fixture-multimodal-password',
+          usesChinesePassphrase: false,
+        );
+        final audioFile = await File('${root.path}/fixture.wav')
+            .writeAsBytes(wave());
+        final videoPath = '${root.path}/fixture.mp4';
+        final result = await Process.run('ffmpeg', [
+          '-hide_banner',
+          '-loglevel',
+          'error',
+          '-f',
+          'lavfi',
+          '-i',
+          'color=c=blue:s=160x90:r=24',
+          '-t',
+          '2',
+          '-c:v',
+          'libx264',
+          '-pix_fmt',
+          'yuv420p',
+          videoPath,
+        ]);
+        expect(result.exitCode, 0);
+        await q.addFilePaths([audioFile.path, videoPath]);
+        expect(c.blobs, isEmpty);
+        expect(q.attachments.map((a) => a.kind), [
+          ConversationAttachmentKind.audio,
+          ConversationAttachmentKind.video,
+        ]);
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Scaffold(
+              body: RepaintBoundary(
+                key: screenshotKey,
+                child: ColoredBox(
+                  color: Colors.white,
+                  child: AnimatedBuilder(
+                    animation: q,
+                    builder: (_, _) => AttachmentStrip(conversation: q),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+        final audio = q.attachments.first;
+        final video = q.attachments.last;
+        await tester.tap(
+          find.byKey(ValueKey('attachment-preview-${audio.id}')),
+        );
+        for (
+          var i = 0;
+          i < 100 &&
+              find.byKey(const ValueKey('local-media-play')).evaluate().isEmpty;
+          i++
+        ) {
+          await tester.pump(const Duration(milliseconds: 100));
+        }
+        expect(find.byKey(const ValueKey('local-media-play')), findsOneWidget);
+        await tester.tap(find.text('关闭'));
+        await tester.pumpAndSettle();
+        await tester.tap(
+          find.byKey(ValueKey('attachment-preview-${video.id}')),
+        );
+        for (
+          var i = 0;
+          i < 100 &&
+              find.byKey(const ValueKey('local-media-play')).evaluate().isEmpty;
+          i++
+        ) {
+          await tester.pump(const Duration(milliseconds: 100));
+        }
+        await tester.tap(find.text('选取4帧供发送前检查'));
+        for (var i = 0; i < 100 && video.frames.isEmpty; i++) {
+          await tester.pump(const Duration(milliseconds: 100));
+        }
+        await tester.pumpAndSettle();
+        expect(
+          video.frames,
+          hasLength(4),
+          reason: tester
+              .widgetList<Text>(find.byType(Text))
+              .map((w) => w.data)
+              .join(' | '),
+        );
+        expect(
+          video.frames.last.milliseconds,
+          greaterThan(video.frames.first.milliseconds),
+        );
+        expect(c.blobs, isEmpty);
+        final evidence = Platform.environment['LIVERELAY_WORKBENCH_EVIDENCE'];
+        if (evidence != null) {
+          final image =
+              await (screenshotKey.currentContext!.findRenderObject()
+                      as RenderRepaintBoundary)
+                  .toImage();
+          final data = await image.toByteData(format: ui.ImageByteFormat.png);
+          await File('$evidence/native-multimodal.png')
+              .writeAsBytes(data!.buffer.asUint8List());
+          image.dispose();
+        }
+        final turn = q.prepare('理解这段虚构媒体', []);
+        expect(await q.send(turn), true);
+        final parts = provider.requests.single.inputContent!;
+        expect(parts.where((p) => p['type'] == 'input_audio'), hasLength(1));
+        expect(parts.where((p) => p['type'] == 'image_url'), hasLength(4));
+        expect(jsonEncode(parts), contains('不发送视频原件或音轨'));
+        expect(q.disclosureHistory, isNot(contains(base64Encode(audio.bytes))));
+        expect(q.disclosureHistory, contains('完整音频'));
+        await q.flush();
+        expect(await c.readConversationState(), contains('frames'));
+      } finally {
+        await tester.pumpWidget(const SizedBox());
+        q.dispose();
+        await c.lock();
+        c.dispose();
         await root.delete(recursive: true);
       }
     },

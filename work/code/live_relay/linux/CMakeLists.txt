@@ -72,6 +72,8 @@ set_target_properties(${BINARY_NAME}
 
 # Generated plugin build rules, which manage building the plugins and adding
 # them to the application.
+# Keep the system allocator; playback does not require a static mimalloc override.
+set(MIMALLOC_USE_STATIC_LIBS OFF CACHE BOOL "Use existing allocator" FORCE)
 include(flutter/generated_plugins.cmake)
 
 

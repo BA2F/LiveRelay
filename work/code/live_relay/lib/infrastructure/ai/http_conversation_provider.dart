@@ -26,6 +26,12 @@ class HttpConversationProvider implements AiConversationProvider {
       'content': request.inputContent ?? request.redactedText,
     };
     final input = [...history, current];
+    bool containsAudio(Object? value) => value is List
+        ? value.any(containsAudio)
+        : value is Map
+        ? value['type'] == 'input_audio' || value.values.any(containsAudio)
+        : false;
+    final audio = containsAudio(input);
     if (utf8.encode(jsonEncode(input)).length > 12 * 1024 * 1024) {
       throw const FormatException('会话内容过长，请开始新会话');
     }
@@ -46,7 +52,8 @@ class HttpConversationProvider implements AiConversationProvider {
               {'role': 'system', 'content': _instructions},
               ...input,
             ],
-            'response_format': {'type': 'json_object'},
+            if (!audio) 'response_format': {'type': 'json_object'},
+            if (audio) 'modalities': ['text'],
           };
     final message =
         http.AbortableRequest(

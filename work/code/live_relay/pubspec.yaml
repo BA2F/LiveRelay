@@ -66,6 +66,9 @@ dependencies:
   video_player: ^2.14.0
   http: ^1.6.0
   sherpa_onnx: ^1.13.8
+  media_kit: ^1.2.6
+  media_kit_video: ^2.0.1
+  media_kit_libs_linux: ^1.2.1
   desktop_drop: ^0.8.4
 
 dev_dependencies:

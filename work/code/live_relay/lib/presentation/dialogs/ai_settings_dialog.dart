@@ -33,6 +33,7 @@ class AiSettingsDialogState extends State<AiSettingsDialog> {
   bool _create = false;
   late AiProtocol _protocol = widget.controller.aiSettings.protocol;
   late bool _images = widget.controller.aiSettings.supportsImages;
+  late bool _audio = widget.controller.aiSettings.supportsAudio;
   late bool _files = widget.controller.aiSettings.supportsFiles;
   bool _busy = false;
   bool _showKey = false;
@@ -56,6 +57,7 @@ class AiSettingsDialogState extends State<AiSettingsDialog> {
       _protocol = settings?.protocol ?? AiProtocol.chatCompletions;
       _images = settings?.supportsImages ?? false;
       _files = settings?.supportsFiles ?? false;
+      _audio = settings?.supportsAudio ?? false;
       _apiKey.clear();
       _error = null;
     });
@@ -86,6 +88,7 @@ class AiSettingsDialogState extends State<AiSettingsDialog> {
         protocol: _protocol,
         supportsImages: _images,
         supportsFiles: _files,
+        supportsAudio: _audio,
         model: _model.text,
         apiKey: _apiKey.text.isEmpty ? null : _apiKey.text,
       );
@@ -218,6 +221,14 @@ class AiSettingsDialogState extends State<AiSettingsDialog> {
             onChanged: _busy
                 ? null
                 : (v) => setState(() => _files = v ?? false),
+          ),
+          CheckboxListTile(
+            contentPadding: EdgeInsets.zero,
+            title: const Text('此Chat模型支持WAV/MP3音频输入'),
+            value: _audio,
+            onChanged: _busy
+                ? null
+                : (v) => setState(() => _audio = v ?? false),
           ),
           TextField(
             controller: _apiKey,
