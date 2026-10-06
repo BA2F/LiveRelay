@@ -948,7 +948,7 @@ void main() {
         await c.saveAiSettings(
           name: '服务乙',
           create: true,
-          endpoint: 'https://b.invalid/responses',
+          endpoint: 'https://b.invalid',
           model: '模型乙',
           models: ['模型乙'],
           apiKey: 'fixture-key-b',
@@ -992,6 +992,7 @@ void main() {
         await tester.pumpAndSettle();
         expect(c.aiSettings.name, '服务乙');
         expect(c.aiSettings.protocol, AiProtocol.responses);
+        expect(c.aiSettings.endpoint, 'https://b.invalid/responses');
         expect(conversation.draft, isEmpty);
         expect(conversation.messages, isEmpty);
         expect(await store.readApiKey(), 'fixture-key-b');
@@ -1010,7 +1011,12 @@ void main() {
               w is TextField &&
               w.decoration?.labelText == 'HTTPS 服务地址（Chat Completions）',
         );
-        await tester.enterText(endpoint, 'https://c.invalid/chat');
+        await tester.enterText(endpoint, 'https://c.invalid/v1/');
+        await tester.pump();
+        expect(
+          find.text('实际请求：https://c.invalid/v1/chat/completions'),
+          findsOneWidget,
+        );
         final model = find.byWidgetPredicate(
           (w) => w is TextField && w.decoration?.labelText == '模型名称',
         );
@@ -1025,6 +1031,7 @@ void main() {
         await tester.pumpAndSettle();
         expect(c.aiProfiles.length, 3);
         expect(c.aiSettings.name, '服务丙');
+        expect(c.aiSettings.endpoint, 'https://c.invalid/v1/chat/completions');
         final evidence = Platform.environment['LIVERELAY_WORKBENCH_EVIDENCE'];
         if (evidence != null) {
           final image =

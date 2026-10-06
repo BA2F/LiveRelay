@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../application/app_controller.dart';
 import '../../core/ports/ai_provider.dart';
+import '../../core/ai/ai_service_endpoint.dart';
 import '../../infrastructure/ai/ai_provider_settings_store.dart';
 
 class AiSettingsDialog extends StatefulWidget {
@@ -38,6 +39,21 @@ class AiSettingsDialogState extends State<AiSettingsDialog> {
   bool _busy = false;
   bool _showKey = false;
   String? _error;
+
+  String get _effectiveAddress {
+    final uri = Uri.tryParse(_endpoint.text.trim());
+    if (uri == null || uri.scheme != 'https' || uri.host.isEmpty) {
+      return '可填 HTTPS 基础地址或完整接口地址';
+    }
+    final effective = resolveAiEndpoint(uri, _protocol);
+    final display = Uri(
+      scheme: effective.scheme,
+      host: effective.host,
+      port: effective.hasPort ? effective.port : null,
+      path: effective.path,
+    );
+    return '实际请求：$display';
+  }
 
   @override
   void initState() {
@@ -162,18 +178,11 @@ class AiSettingsDialogState extends State<AiSettingsDialog> {
                     setState(() {
                       _protocol = value;
                       final uri = Uri.tryParse(_endpoint.text);
-                      if (uri != null &&
-                          (uri.path.endsWith('/chat/completions') ||
-                              uri.path.endsWith('/responses'))) {
-                        final prefix = uri.path.endsWith('/responses')
-                            ? uri.path.substring(0, uri.path.length - 10)
-                            : uri.path.substring(0, uri.path.length - 17);
-                        _endpoint.text = uri
-                            .replace(
-                              path:
-                                  '$prefix/${value == AiProtocol.responses ? 'responses' : 'chat/completions'}',
-                            )
-                            .toString();
+                      if (uri != null) {
+                        _endpoint.text = resolveAiEndpoint(
+                          uri,
+                          value,
+                        ).toString();
                       }
                     });
                   },
@@ -183,10 +192,13 @@ class AiSettingsDialogState extends State<AiSettingsDialog> {
             controller: _endpoint,
             enabled: !_busy,
             keyboardType: TextInputType.url,
+            onChanged: (_) => setState(() {}),
             decoration: InputDecoration(
               labelText: _protocol == AiProtocol.responses
                   ? 'HTTPS 服务地址（Responses）'
                   : 'HTTPS 服务地址（Chat Completions）',
+              helperText: _effectiveAddress,
+              helperMaxLines: 3,
             ),
           ),
           const SizedBox(height: 12),

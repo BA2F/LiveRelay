@@ -4,6 +4,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../core/ports/ai_provider.dart';
+import '../../core/ai/ai_service_endpoint.dart';
 
 class AiProviderSettings {
   const AiProviderSettings({
@@ -92,7 +93,10 @@ class AiProviderSettingsStore {
   AiProviderSettings _settings(Map item) => AiProviderSettings(
     id: item['id'] as String,
     name: item['name'] as String,
-    endpoint: item['endpoint'] as String,
+    endpoint: resolveAiEndpoint(
+      Uri.parse(item['endpoint'] as String),
+      AiProtocol.values.byName(item['protocol'] as String),
+    ).toString(),
     model: item['model'] as String,
     models: List<String>.unmodifiable((item['models'] as List).cast<String>()),
     hasApiKey: (item['key'] as String).isNotEmpty,
@@ -181,7 +185,7 @@ class AiProviderSettingsStore {
     final item = <String, dynamic>{
       'id': selectedId,
       'name': name.trim(),
-      'endpoint': uri.toString(),
+      'endpoint': resolveAiEndpoint(uri, protocol).toString(),
       'model': model.trim(),
       'models': choices,
       'protocol': protocol.name,

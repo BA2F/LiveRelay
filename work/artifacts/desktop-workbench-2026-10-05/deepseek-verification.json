@@ -1,0 +1,24 @@
+{
+  "date": "2026-10-06",
+  "realUpstream": true,
+  "fixtureOnly": true,
+  "model": "deepseek-flash",
+  "modelsHttpStatus": 200,
+  "availableModelIds": ["deepseek-flash", "deepseek-v4-pro"],
+  "responsesHttpStatus": {"/responses": 200, "/v1/responses": 200},
+  "originalAdapterWithFullEndpoint": {
+    "firstConversationReply": true,
+    "replayedSecondTurnCards": 1,
+    "controlledToolDraftCards": 1
+  },
+  "updatedAdapterWithBaseEndpoint": {
+    "base": "https://api.deepseek.com",
+    "firstConversationReply": true,
+    "replayedSecondTurnCards": 1,
+    "controlledToolDraftCards": 1
+  },
+  "vaultWritten": false,
+  "credentialStoredInFiles": false,
+  "original404ReproducedWithFullEndpoint": false,
+  "attachmentsAndSpeechTested": false
+}

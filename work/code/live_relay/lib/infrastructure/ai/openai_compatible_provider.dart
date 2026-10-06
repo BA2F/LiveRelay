@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 import '../../core/ports/ai_provider.dart';
+import '../../core/ai/ai_service_endpoint.dart';
 
 class OpenAiCompatibleProvider implements AiProvider {
   OpenAiCompatibleProvider({http.Client? client})
@@ -20,35 +21,41 @@ class OpenAiCompatibleProvider implements AiProvider {
     if (request.apiKey.trim().isEmpty || request.model.trim().isEmpty) {
       throw const FormatException('AI Provider 配置不完整');
     }
-    final httpRequest = http.Request('POST', request.endpoint)
-      ..followRedirects = false
-      ..headers.addAll(<String, String>{
-        'authorization': 'Bearer ${request.apiKey}',
-        'content-type': 'application/json',
-        'accept': 'application/json',
-      })
-      ..body = jsonEncode(<String, Object?>{
-        'model': request.model,
-        'temperature': 0.1,
-        'response_format': <String, String>{'type': 'json_object'},
-        'messages': <Map<String, String>>[
-          <String, String>{'role': 'system', 'content': _systemPrompt},
-          <String, String>{
-            'role': 'user',
-            'content': jsonEncode(<String, String>{
-              'task': '把以下资料整理成可独立理解的待确认卡片',
-              'user_data': request.redactedText,
-            }),
-          },
-        ],
-      });
+    final httpRequest =
+        http.Request(
+            'POST',
+            resolveAiEndpoint(request.endpoint, AiProtocol.chatCompletions),
+          )
+          ..followRedirects = false
+          ..headers.addAll(<String, String>{
+            'authorization': 'Bearer ${request.apiKey}',
+            'content-type': 'application/json',
+            'accept': 'application/json',
+          })
+          ..body = jsonEncode(<String, Object?>{
+            'model': request.model,
+            'temperature': 0.1,
+            'response_format': <String, String>{'type': 'json_object'},
+            'messages': <Map<String, String>>[
+              <String, String>{'role': 'system', 'content': _systemPrompt},
+              <String, String>{
+                'role': 'user',
+                'content': jsonEncode(<String, String>{
+                  'task': '把以下资料整理成可独立理解的待确认卡片',
+                  'user_data': request.redactedText,
+                }),
+              },
+            ],
+          });
     final response = await _client
         .send(httpRequest)
         .timeout(const Duration(seconds: 60));
     if (response.isRedirect ||
         response.statusCode < 200 ||
         response.statusCode >= 300) {
-      throw FormatException('AI Provider 请求失败（HTTP ${response.statusCode}）');
+      throw FormatException(
+        aiHttpFailure('AI Provider 请求', response.statusCode),
+      );
     }
     if ((response.contentLength ?? 0) > _maximumResponseBytes) {
       throw const FormatException('AI Provider 返回内容过大');

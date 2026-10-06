@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 import '../../core/ports/ai_provider.dart';
+import '../../core/ai/ai_service_endpoint.dart';
 import '../../core/ports/ai_conversation_provider.dart';
 
 class HttpConversationProvider implements AiConversationProvider {
@@ -61,7 +62,7 @@ class HttpConversationProvider implements AiConversationProvider {
     final message =
         http.AbortableRequest(
             'POST',
-            request.endpoint,
+            resolveAiEndpoint(request.endpoint, request.protocol),
             abortTrigger: request.cancellation?.whenCancelled,
           )
           ..followRedirects = false
@@ -77,7 +78,7 @@ class HttpConversationProvider implements AiConversationProvider {
       if (response.isRedirect ||
           response.statusCode < 200 ||
           response.statusCode >= 300) {
-        throw FormatException('对话请求失败（HTTP ${response.statusCode}）');
+        throw FormatException(aiHttpFailure('对话请求', response.statusCode));
       }
       final bytes = <int>[];
       await for (final chunk in response.stream.timeout(

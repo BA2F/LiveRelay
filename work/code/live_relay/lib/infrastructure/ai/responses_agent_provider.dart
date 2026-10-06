@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 import '../../core/ai/ai_privacy.dart';
+import '../../core/ai/ai_service_endpoint.dart';
 import '../../core/ports/ai_provider.dart';
 
 /// A bounded tool loop. Tools stage redacted drafts in this request only.
@@ -151,7 +152,7 @@ class ResponsesAgentProvider implements AiProvider {
     final message =
         http.AbortableRequest(
             'POST',
-            request.endpoint,
+            resolveAiEndpoint(request.endpoint, AiProtocol.responses),
             abortTrigger: request.cancellation?.whenCancelled,
           )
           ..followRedirects = false
@@ -178,7 +179,7 @@ class ResponsesAgentProvider implements AiProvider {
     if (response.isRedirect ||
         response.statusCode < 200 ||
         response.statusCode >= 300) {
-      throw FormatException('Agent 请求失败（HTTP ${response.statusCode}）');
+      throw FormatException(aiHttpFailure('Agent 请求', response.statusCode));
     }
     final bytes = <int>[];
     await for (final chunk in response.stream.timeout(
