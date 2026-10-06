@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:convert';
 import 'dart:io';
 import 'dart:ui' show AppExitResponse;
 
@@ -29,6 +28,7 @@ import 'relations_view.dart';
 import 'extensions_view.dart';
 import 'native_window_host.dart';
 import '../../application/workbench/window_projection.dart';
+import '../../application/workbench/workbench_runtime.dart';
 
 class DesktopWorkbench extends StatefulWidget {
   const DesktopWorkbench({super.key});
@@ -38,20 +38,18 @@ class DesktopWorkbench extends StatefulWidget {
 
 class _DesktopWorkbenchState extends State<DesktopWorkbench> {
   late final AppController _controller;
-  late final WorkbenchLayout _layout;
-  late final CardEditSessions _edits;
-  late final ExtensionRegistry _extensions;
-  late final AgentConversation _conversation;
-  late final NativeWindowHost _windows;
+  late final WorkbenchRuntime _runtime;
+  WorkbenchLayout get _layout => _runtime.layout;
+  CardEditSessions get _edits => _runtime.edits;
+  ExtensionRegistry get _extensions => _runtime.extensions;
+  AgentConversation get _conversation => _runtime.conversation;
+  NativeWindowHost get _windows => _runtime.windows;
   late final AppLifecycleListener _lifecycle;
-  bool _exiting = false;
   final _dragging = ValueNotifier<String?>(null);
   final _search = TextEditingController();
   final _selected = <String>{};
-  bool _loaded = false, _restoring = true;
-  Timer? _layoutTimer;
-  Future<void> _layoutWrite = Future.value();
-  String? _layoutError;
+  bool get _loaded => _runtime.loaded;
+  String? get _layoutError => _runtime.layoutError;
   int _tabSerial = DateTime.now().microsecondsSinceEpoch;
   static const _views = [
     'cards',
@@ -70,27 +68,8 @@ class _DesktopWorkbenchState extends State<DesktopWorkbench> {
   void initState() {
     super.initState();
     _controller = context.read<AppController>();
-    _layout = WorkbenchLayout();
-    _conversation = AgentConversation(_controller);
-    _lifecycle = AppLifecycleListener(onExitRequested: _requestExit);
-    _controller.desktopExitRequested = _requestExit;
-    _extensions = ExtensionRegistry(
-      read: _controller.readWorkbenchExtensions,
-      write: _controller.writeWorkbenchExtensions,
-    );
-    _extensions.addListener(_extensionsChanged);
-    _edits = CardEditSessions(
-      save: (id, draft) =>
-          _controller.updateCard(id, draft, changeNote: '工作台自动保存'),
-      canSave: () => _controller.isUnlocked && !_controller.isBusy,
-    );
-    _windows = NativeWindowHost(
-      controller: _controller,
-      edits: _edits,
-      conversation: _conversation,
-      onDock: (view) {
-        if (mounted && _controller.isUnlocked) _layout.open(view);
-      },
+    _runtime = WorkbenchRuntime(
+      _controller,
       onSend: () async {
         if (!mounted || !_controller.isUnlocked) return;
         _layout.open('agent');
@@ -103,104 +82,31 @@ class _DesktopWorkbenchState extends State<DesktopWorkbench> {
         ).sendWithConsent(context);
       },
     );
-    _layout.addListener(_layoutChanged);
+    _runtime.addListener(_runtimeChanged);
+    _lifecycle = AppLifecycleListener(onExitRequested: _requestExit);
+    _controller.desktopExitRequested = _requestExit;
     _controller.addListener(_controllerChanged);
-    unawaited(_load());
-  }
-
-  Future<void> _load() async {
-    try {
-      await _conversation.load();
-    } on Object {
-      _layoutError = '会话读取失败，原有加密记录保留';
-    }
-    try {
-      await _extensions.load();
-    } on Object {
-      _layoutError = '扩展配置读取失败，原有配置保留';
-    }
-    try {
-      final saved = await _controller.readWorkbenchState();
-      if (!mounted) return;
-      final preset = context.read<AppPreferences?>()?.desktopPreset;
-      if (saved != null) {
-        _layout.restore(Map<String, dynamic>.from(jsonDecode(saved) as Map));
-      } else {
-        _layout.reset(assistant: preset == 'assistant');
-      }
-    } on Object {
-      _layoutError = '已恢复默认布局；原有资料保留';
-    }
-    try {
-      await _windows.restore();
-    } on Object {
-      _layoutError = '独立窗口恢复失败；可以重新打开，资料保留';
-    }
-    if (mounted) {
-      setState(() {
-        _loaded = true;
-        _restoring = false;
-      });
-    }
-  }
-
-  void _controllerChanged() {
-    if (!_controller.isUnlocked) {
-      _edits.clear();
-      _selected.clear();
-    } else {
-      _edits.synchronize(_controller.cards);
-    }
-  }
-
-  void _extensionsChanged() {
-    final active = _extensions.views.keys.toSet();
-    final obsolete = _layout.groups
-        .expand((g) => g.tabs)
-        .where((v) => v.startsWith('extension/') && !active.contains(v))
-        .toList();
-    for (final view in obsolete) {
-      _layout.close(view);
-    }
-    if (mounted && _loaded) setState(() {});
-  }
-
-  void _layoutChanged() {
-    if (_restoring) return;
-    _layoutTimer?.cancel();
-    _layoutTimer = Timer(
-      const Duration(milliseconds: 400),
-      () => unawaited(_persistLayout()),
+    unawaited(
+      _runtime.load(preset: context.read<AppPreferences?>()?.desktopPreset),
     );
   }
 
-  Future<void> _persistLayout() {
-    final json = jsonEncode(_layout.toJson());
-    final next = _layoutWrite.then((_) async {
-      if (!_controller.isUnlocked) return;
-      try {
-        await _controller.writeWorkbenchState(json);
-        if (mounted) setState(() => _layoutError = null);
-      } on Object {
-        if (mounted) setState(() => _layoutError = '布局保存失败，点击重试');
-      }
-    });
-    _layoutWrite = next;
-    return next;
+  void _runtimeChanged() {
+    if (mounted) setState(() {});
   }
+
+  void _controllerChanged() {
+    if (!_controller.isUnlocked) _selected.clear();
+  }
+
+  Future<void> _persistLayout() => _runtime.persistLayout();
 
   @override
   void dispose() {
     _controller.removeListener(_controllerChanged);
     _controller.desktopExitRequested = null;
-    _layout.removeListener(_layoutChanged);
-    _layoutTimer?.cancel();
-    _layout.dispose();
-    _extensions.removeListener(_extensionsChanged);
-    _extensions.dispose();
-    _edits.dispose();
-    _windows.dispose();
-    _conversation.dispose();
+    _runtime.removeListener(_runtimeChanged);
+    _runtime.dispose();
     _lifecycle.dispose();
     _dragging.dispose();
     _search.dispose();
@@ -208,32 +114,12 @@ class _DesktopWorkbenchState extends State<DesktopWorkbench> {
   }
 
   Future<AppExitResponse> _requestExit() async {
-    if (_exiting || _controller.isBusy || (_controller.speech?.busy ?? false)) {
-      _controller.cancelAgentTask();
-      return AppExitResponse.cancel;
+    final response = await _runtime.requestExit();
+    if (mounted && _runtime.exitError != null) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(_runtime.exitError!)));
     }
-    _exiting = true;
-    try {
-      await _windows.flushChildren();
-      for (final cleanup in List.of(_controller.exitCleanups)) {
-        await cleanup();
-      }
-      await _edits.flush();
-      if (_edits.hasUnsaved) throw const FormatException('仍有修改未保存');
-      await _conversation.flush();
-      await _persistLayout();
-      if (_layoutError != null) throw const FormatException('布局未保存');
-      await _windows.shutdown(preserve: true);
-      return AppExitResponse.exit;
-    } on Object {
-      if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(const SnackBar(content: Text('退出已取消，请重试保存后关闭窗口')));
-      }
-      return AppExitResponse.cancel;
-    } finally {
-      _exiting = false;
-    }
+    return response;
   }
 
   Future<void> _action(Future<void> Function() operation) async {
@@ -254,17 +140,13 @@ class _DesktopWorkbenchState extends State<DesktopWorkbench> {
     }
   }
 
-  Future<void> _preset(String preset) => _action(() async {
-    await _windows.flushChildren();
-    await _edits.flush();
-    if (_edits.hasUnsaved) throw const FormatException('请先重试保存修改');
-    await _conversation.flush();
-    await _windows.shutdown();
-    if (!mounted) return;
-    await context.read<AppPreferences?>()?.setDesktopPreset(preset);
-    _layout.reset(assistant: preset == 'assistant');
-    await _persistLayout();
-  });
+  Future<void> _preset(String preset) => _action(
+    () => _runtime.resetLayout(preset, () async {
+      if (mounted) {
+        await context.read<AppPreferences?>()?.setDesktopPreset(preset);
+      }
+    }),
+  );
   Future<void> _commands() async {
     final entries = [
       for (final view in _views)
@@ -873,14 +755,7 @@ class _DesktopWorkbenchState extends State<DesktopWorkbench> {
                 onPressed: _controller.isBusy
                     ? null
                     : () => _action(() async {
-                        await _windows.flushChildren();
-                        await _edits.flush();
-                        if (_edits.hasUnsaved) {
-                          throw const FormatException('仍有修改未保存，请重试保存后锁定');
-                        }
-                        await _persistLayout();
-                        await _conversation.flush();
-                        await _controller.lock();
+                        await _runtime.saveAndLock();
                       }),
               ),
             ],
