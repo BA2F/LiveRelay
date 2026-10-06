@@ -7,6 +7,7 @@ import 'package:path/path.dart' as path;
 import '../../core/ai/conversation_attachment.dart';
 import '../../core/ai/review_source.dart';
 import '../../core/ai/review_actions.dart';
+import '../../core/ai/review_action_proposal.dart';
 
 import 'package:flutter/foundation.dart';
 import 'package:uuid/uuid.dart';
@@ -24,8 +25,10 @@ class PreparedConversationTurn {
     this.provider,
     this.attachments,
     this.configurationGeneration,
+    this.reviewTargets,
   );
   final List<ConversationAttachment> attachments;
+  final List<ReviewTarget> reviewTargets;
   final int generation, turn;
   final int configurationGeneration;
   final String provider;
@@ -39,17 +42,25 @@ class ConversationMessage {
     this.text, {
     List<AiCardSuggestion> suggestions = const [],
     List<ReviewActions>? actions,
+    List<ReviewActionProposal?>? proposals,
     String? reviewId,
     this.providerLabel = '',
     this.attachments = const [],
     this.accepted = false,
-  }) : actions = actions == null
+  }) : proposals = proposals == null
+           ? List.filled(suggestions.length, null)
+           : List.of(proposals),
+       actions = actions == null
            ? List.generate(suggestions.length, (_) => const ReviewActions())
            : List.of(actions),
        suggestions = List.of(suggestions),
        reviewId = reviewId ?? const Uuid().v7() {
-    if (this.actions.length != this.suggestions.length) {
+    if (this.actions.length != this.suggestions.length ||
+        this.proposals.length != this.suggestions.length) {
       throw const FormatException('建议操作数量不匹配');
+    }
+    for (final proposal in this.proposals) {
+      proposal?.validate();
     }
     for (final action in this.actions) {
       action.validate();
@@ -59,6 +70,7 @@ class ConversationMessage {
   final String role, text, reviewId, providerLabel;
   final List<AiCardSuggestion> suggestions;
   final List<ReviewActions> actions;
+  final List<ReviewActionProposal?> proposals;
   bool accepted;
 }
 
@@ -125,6 +137,12 @@ class AgentConversation extends ChangeNotifier {
       _configuration,
       selected,
       controller.aiConfigurationGeneration,
+      List.unmodifiable([
+        for (final id
+            in selected.map((a) => a.cardId).whereType<String>().toSet())
+          for (final card in controller.cards.where((c) => c.id == id))
+            ReviewTarget(id, bundle: card.kind == CardKind.bundle),
+      ]),
     );
   }
 
@@ -348,6 +366,16 @@ class AgentConversation extends ChangeNotifier {
     notifyListeners();
   }
 
+  void adoptProposal(ConversationMessage message, int index) {
+    if (message.accepted || working || !messages.contains(message)) return;
+    if (index < 0 || index >= message.proposals.length) {
+      throw const FormatException('操作草案已失效');
+    }
+    final proposal = message.proposals[index];
+    if (proposal == null) return;
+    editActions(message, index, proposal.plan);
+  }
+
   void _scheduleSave() {
     _saveTimer?.cancel();
     _saveTimer = Timer(
@@ -399,6 +427,14 @@ class AgentConversation extends ChangeNotifier {
               : [
                   for (final a in raw['actions'] as List)
                     ReviewActions.fromJson(a as Map),
+                ],
+          proposals: raw['proposals'] == null
+              ? null
+              : [
+                  for (final proposal in raw['proposals'] as List)
+                    proposal == null
+                        ? null
+                        : ReviewActionProposal.fromJson(proposal as Map),
                 ],
           reviewId: raw['reviewId'] as String,
           providerLabel: raw['providerLabel'] as String? ?? '',
@@ -470,6 +506,7 @@ class AgentConversation extends ChangeNotifier {
             'attachments': [for (final a in m.attachments) a.toJson()],
             'accepted': m.accepted,
             'actions': [for (final a in m.actions) a.toJson()],
+            'proposals': [for (final p in m.proposals) p?.toJson()],
             'suggestions': [
               for (final s in m.suggestions)
                 {
@@ -541,6 +578,7 @@ class AgentConversation extends ChangeNotifier {
         turn.payload.redactedText,
         List.of(_history),
         inputContent: content,
+        reviewTargets: turn.reviewTargets,
       );
       if (_disposed || generation != _generation || !controller.isUnlocked) {
         return false;
@@ -561,7 +599,34 @@ class AgentConversation extends ChangeNotifier {
           .any((m) => !tokens.containsKey(m.group(0)))) {
         throw const FormatException('对话包含未知敏感占位符');
       }
-      final cardsJson = jsonEncode({'cards': data['cards']});
+      final proposals = <ReviewActionProposal?>[];
+      final draftCards = <Map<String, Object?>>[];
+      for (final item in data['cards'] as List) {
+        if (item is! Map ||
+            item.keys.toSet().difference({
+              'title',
+              'content',
+              'kind',
+              'inference',
+              'actions',
+            }).isNotEmpty) {
+          throw const FormatException('对话建议字段无效');
+        }
+        final proposed = item['actions'];
+        if (proposed != null && proposed is! Map) {
+          throw const FormatException('模型操作草案结构无效');
+        }
+        proposals.add(
+          proposed == null
+              ? null
+              : ReviewActionProposal.parse(proposed as Map, turn.reviewTargets),
+        );
+        draftCards.add({
+          for (final entry in item.entries)
+            if (entry.key != 'actions') entry.key as String: entry.value,
+        });
+      }
+      final cardsJson = jsonEncode({'cards': draftCards});
       final used = _pattern
           .allMatches(cardsJson)
           .map((m) => m.group(0)!)
@@ -592,6 +657,7 @@ class AgentConversation extends ChangeNotifier {
           'assistant',
           _rehydrate(data['reply'] as String, tokens),
           suggestions: suggestions,
+          proposals: proposals,
           providerLabel:
               '本人编辑并确认 · ${settings.model} · ${Uri.parse(settings.endpoint).host}',
         ),
@@ -674,6 +740,7 @@ class AgentConversation extends ChangeNotifier {
           ],
           reply: message.text,
           actions: List.of(message.actions),
+          proposals: List.of(message.proposals),
         ),
         originalIds: previousInputs
             .expand((m) => m.attachments)

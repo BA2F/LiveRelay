@@ -1,6 +1,7 @@
 import '../domain/entities.dart';
 
-/// Explicit owner choices for one reviewed card. Never populated by AI text.
+/// Explicit owner choices for one reviewed card. A model proposal requires an
+/// independent owner adoption before it may populate a message's saving plan.
 class ReviewActions {
   const ReviewActions({
     this.bundleId,

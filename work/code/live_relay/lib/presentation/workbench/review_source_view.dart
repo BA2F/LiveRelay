@@ -201,6 +201,18 @@ class _ReviewSourceViewState extends State<ReviewSourceView> {
             ),
           const Divider(),
         ],
+        if (source.proposals.any((p) => p != null)) ...[
+          Text('模型提出的操作草案', style: Theme.of(context).textTheme.titleMedium),
+          const Text('模型草案与本人最终保存计划分别保留；实际执行以上方确认时的操作为准。'),
+          for (var i = 0; i < source.proposals.length; i++)
+            if (source.proposals[i] case final proposal?) ...[
+              Text(
+                '卡片 ${i + 1}：${reviewPlanSummary(proposal.plan, widget.controller.cards)}',
+              ),
+              if (proposal.reason.isNotEmpty) SelectableText(proposal.reason),
+            ],
+          const Divider(),
+        ],
         for (var i = 0; i < source.inputs.length; i++) ...[
           Text('输入 ${i + 1}', style: Theme.of(context).textTheme.titleMedium),
           SelectableText(source.inputs[i].text),

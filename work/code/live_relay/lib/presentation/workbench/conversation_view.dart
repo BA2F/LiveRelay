@@ -86,6 +86,14 @@ class ConversationView extends StatelessWidget {
                   const Text('将发送以下本轮内容和已有对话历史。已标记的敏感行以占位符发送。'),
                   const SizedBox(height: 12),
                   SelectableText(turn.payload.redactedText),
+                  if (turn.reviewTargets.isNotEmpty) ...[
+                    const SizedBox(height: 8),
+                    const Text('同时发送以下所选卡片标识，供模型提出收纳/引用草案；草案仍需本人采用、核对并确认：'),
+                    for (final target in turn.reviewTargets)
+                      SelectableText(
+                        '${target.id}${target.bundle ? "（组合）" : "（卡片）"}',
+                      ),
+                  ],
                   if (turn.attachments.isNotEmpty) ...[
                     const Text(
                       '图片/文件/音频发送完整内容；视频仅发送已检查的采样帧及时间，不发送音轨。敏感行标记仅适用于主输入：',
@@ -339,7 +347,7 @@ class ConversationView extends StatelessWidget {
                             const Text('确认时会保留此前完整输入和附件，之后可从卡片查看来源。'),
                             for (var i = 0; i < m.actions.length; i++)
                               Text(
-                                '卡片${i + 1}：${m.actions[i].bundleId == null ? "独立保存" : "收纳到所选组合"} · ${m.actions[i].referenceIds.length}项引用 · 失能：${reviewLevelLabel(m.actions[i].incapacitated)} · 身故：${reviewLevelLabel(m.actions[i].deceased)}',
+                                '卡片${i + 1}：${reviewPlanSummary(m.actions[i], c.controller.cards)}',
                               ),
                             if (m.accepted)
                               const Text('已确认并保存 · 本人选择的操作已执行')

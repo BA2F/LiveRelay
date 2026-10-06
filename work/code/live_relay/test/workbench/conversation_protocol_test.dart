@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:live_relay/core/ports/ai_provider.dart';
+import 'package:live_relay/core/ai/review_action_proposal.dart';
 import 'package:live_relay/infrastructure/ai/http_conversation_provider.dart';
 import 'package:live_relay/infrastructure/persistence/app_database.dart';
 import 'package:live_relay/infrastructure/persistence/sqlite_vault_repository.dart';
@@ -26,6 +27,12 @@ void main() {
       client: MockClient((request) async {
         final data = jsonDecode(request.body);
         expect(data['store'], false);
+        expect(
+          data['instructions'],
+          contains(
+            'Allowed targets for THIS turn only: [{"id":"selected-bundle","bundle":true}]',
+          ),
+        );
         expect(data['include'], contains('reasoning.encrypted_content'));
         expect(data['input'].take(3).toList(), history);
         expect(data['input'].last['content'], 'second');
@@ -54,6 +61,7 @@ void main() {
         model: 'fixture',
         redactedText: 'second',
         protocol: AiProtocol.responses,
+        reviewTargets: const [ReviewTarget('selected-bundle', bundle: true)],
       ),
       history,
     );

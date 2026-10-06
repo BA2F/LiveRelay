@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'conversation_attachment.dart';
 import 'review_actions.dart';
+import 'review_action_proposal.dart';
 
 /// Owner-only confirmation evidence, independent of the current conversation.
 /// No credentials, provider wire history or release authority belong here.
@@ -19,11 +20,13 @@ class ReviewSource {
     required this.inputs,
     required this.reply,
     this.actions = const [],
+    this.proposals = const [],
   });
   final String reviewId, providerLabel, reply;
   final DateTime confirmedAt;
   final List<ReviewSourceInput> inputs;
   final List<ReviewActions> actions;
+  final List<ReviewActionProposal?> proposals;
   static const maxLength = 32 * 1024 * 1024;
   String get storageKey => 'ars.$reviewId';
   static String cardKey(String id) => 'card.agent-source.$id';
@@ -34,6 +37,7 @@ class ReviewSource {
     inputs: inputs,
     reply: reply,
     actions: plans,
+    proposals: proposals,
   );
 
   String encode() {
@@ -42,11 +46,15 @@ class ReviewSource {
         reply.length > 128 * 1024 ||
         inputs.length > 1000 ||
         actions.length > 20 ||
+        proposals.length > 20 ||
         inputs.any((i) => i.text.length > 32000 || i.attachments.length > 6)) {
       throw const FormatException('确认来源记录无效或过大');
     }
     for (final action in actions) {
       action.validate();
+    }
+    for (final proposal in proposals) {
+      proposal?.validate();
     }
     final encoded = jsonEncode({
       'version': 1,
@@ -55,6 +63,7 @@ class ReviewSource {
       'confirmedAt': confirmedAt.toUtc().toIso8601String(),
       'reply': reply,
       'actions': [for (final action in actions) action.toJson()],
+      'proposals': [for (final proposal in proposals) proposal?.toJson()],
       'inputs': [
         for (final input in inputs)
           {
@@ -99,6 +108,12 @@ class ReviewSource {
         confirmedAt: DateTime.parse(raw['confirmedAt'] as String),
         inputs: inputs,
         reply: raw['reply'] as String,
+        proposals: [
+          for (final proposal in raw['proposals'] as List? ?? [])
+            proposal == null
+                ? null
+                : ReviewActionProposal.fromJson(proposal as Map),
+        ],
         actions: [
           for (final a in raw['actions'] as List? ?? [])
             ReviewActions.fromJson(a as Map),

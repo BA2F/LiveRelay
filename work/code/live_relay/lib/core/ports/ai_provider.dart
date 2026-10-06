@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'agent_command_provider.dart';
+import '../ai/review_action_proposal.dart';
 
 class AiCancellation {
   final _cancelled = Completer<void>();
@@ -27,9 +28,11 @@ class AiProviderRequest {
     this.cancellation,
     this.commandSession,
     this.inputContent,
+    this.reviewTargets = const [],
   });
 
   final List<Map<String, Object?>>? inputContent;
+  final List<ReviewTarget> reviewTargets;
   final AiCancellation? cancellation;
   final AgentCommandSession? commandSession;
   final AiProtocol protocol;

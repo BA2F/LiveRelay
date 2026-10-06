@@ -39,6 +39,7 @@ import 'package:live_relay/presentation/workbench/dock_surface.dart';
 
 import '../test/support/verification_fakes.dart';
 import '../test/workbench/remote_speech_test.dart' show wave;
+import '../test/workbench/review_action_proposal_test.dart' show PlanningAi;
 
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
@@ -1774,6 +1775,117 @@ void main() {
         await c.lock();
         c.dispose();
         p.dispose();
+        await root.delete(recursive: true);
+      }
+    },
+  );
+
+  testWidgets(
+    'native structured Agent proposals need owner adoption and show selected target scope',
+    (tester) async {
+      final root = await Directory.systemTemp.createTemp(
+        'liverelay-native-proposal-',
+      );
+      final ai = PlanningAi();
+      final c = createAppController(
+        root,
+        NoBiometrics(),
+        TestOcr(),
+        ai,
+        TestAiSettings()..configured = true,
+      );
+      final q = AgentConversation(c);
+      final boundary = GlobalKey();
+      try {
+        await c.initialize();
+        await c.setupVault(
+          password: 'fixture-native-proposal',
+          usesChinesePassphrase: false,
+        );
+        await c.createCard(
+          const CardDraft(
+            title: '已选家庭组合',
+            content: 'fixture bundle',
+            kind: CardKind.bundle,
+          ),
+        );
+        final bundle = c.cards.single;
+        await c.createCard(
+          const CardDraft(title: '已选资料', content: 'fixture information'),
+        );
+        final reference = c.cards.firstWhere((card) => card.id != bundle.id);
+        q.attachCard(bundle);
+        q.attachCard(reference);
+        q.updateDraft('请建议收纳引用以及身故时正文可见层级');
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Scaffold(
+              body: RepaintBoundary(
+                key: boundary,
+                child: ColoredBox(
+                  color: Colors.white,
+                  child: ConversationView(
+                    conversation: q,
+                    openManual: () {},
+                    openSpeech: () {},
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('发送'));
+        await tester.pumpAndSettle();
+        expect(find.textContaining('供模型提出收纳/引用草案'), findsOneWidget);
+        expect(find.textContaining(bundle.id), findsOneWidget);
+        await tester.tap(find.text('允许本次发送'));
+        await tester.pumpAndSettle();
+        final message = q.messages.last;
+        expect(message.actions.single.hasChanges, isFalse);
+        expect(c.cards.length, 2);
+        final adopt = find.byKey(
+          ValueKey('adopt-proposal-${message.reviewId}-0'),
+        );
+        await tester.ensureVisible(adopt);
+        await tester.pumpAndSettle();
+        expect(find.text('模型操作草案（尚未授权执行）'), findsOneWidget);
+        await tester.tap(adopt);
+        await tester.pumpAndSettle();
+        expect(message.actions.single.bundleId, bundle.id);
+        expect(message.actions.single.referenceIds, [reference.id]);
+        expect(c.cards.length, 2);
+        final confirm = find.text('确认并保存 1 张卡片');
+        await tester.ensureVisible(confirm);
+        await tester.pumpAndSettle();
+        final evidence = Directory(
+          '${Directory.current.path}/../../artifacts/desktop-workbench-2026-10-05',
+        );
+        if (await evidence.exists()) {
+          final render =
+              boundary.currentContext!.findRenderObject()
+                  as RenderRepaintBoundary;
+          final image = await render.toImage();
+          final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
+          await File('${evidence.path}/native-model-plan.png')
+              .writeAsBytes(bytes!.buffer.asUint8List());
+          image.dispose();
+        }
+        await tester.tap(confirm);
+        await tester.pumpAndSettle();
+        expect(message.accepted, isTrue);
+        final created = c.cards.firstWhere((card) => card.title == '建议卡片');
+        expect(c.cardReferences.single.from, created.id);
+        expect(c.cardReferences.single.to, reference.id);
+        final source = (await c.cardReviewSource(created.id))!;
+        expect(source.proposals.single!.plan.bundleId, bundle.id);
+        expect(source.actions.single.bundleId, bundle.id);
+        source.wipe();
+      } finally {
+        await tester.pumpWidget(const SizedBox());
+        q.dispose();
+        await c.lock();
+        c.dispose();
         await root.delete(recursive: true);
       }
     },

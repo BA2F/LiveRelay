@@ -21,6 +21,7 @@ import 'device_capabilities.dart';
 import '../core/domain/entities.dart';
 import '../core/ai/review_source.dart';
 import '../core/ai/review_actions.dart';
+import '../core/ai/review_action_proposal.dart';
 import '../core/ports/ai_provider.dart';
 import '../core/ports/ai_conversation_provider.dart';
 import '../core/ports/device_factor_protection.dart';
@@ -725,6 +726,7 @@ class AppController extends ChangeNotifier {
     String text,
     List<Map<String, Object?>> history, {
     List<Map<String, Object?>>? inputContent,
+    List<ReviewTarget> reviewTargets = const [],
   }) async {
     late AiConversationResponse response;
     await _run(() async {
@@ -752,6 +754,7 @@ class AppController extends ChangeNotifier {
             protocol: aiSettings.protocol,
             redactedText: text,
             inputContent: inputContent,
+            reviewTargets: reviewTargets,
             cancellation: cancellation,
           ),
           history,
