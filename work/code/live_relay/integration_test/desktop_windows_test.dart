@@ -15,6 +15,7 @@ import 'package:live_relay/core/ai/ai_privacy.dart';
 import 'package:live_relay/infrastructure/app_composition.dart';
 
 import '../test/support/verification_fakes.dart';
+import '../test/support/pdf_fixture.dart';
 
 Future<void> main(List<String> arguments) async {
   if (arguments.firstOrNull == '--liverelay-workbench') {
@@ -370,6 +371,107 @@ Future<void> main(List<String> arguments) async {
               'playPauseSeek': true,
               'outOfViewReadRejected': true,
               'lockRevokesProcessesAndRemovesCaches': true,
+            }),
+          );
+        }
+      } finally {
+        await host.shutdown(preserve: true);
+        host.dispose();
+        q.dispose();
+        edits.dispose();
+        if (c.isUnlocked) await c.lock();
+        c.dispose();
+        await root.delete(recursive: true);
+      }
+    },
+  );
+  testWidgets(
+    'native detached PDF renders in a scoped child and exits on lock',
+    (tester) async {
+      final root = await Directory.systemTemp.createTemp(
+        'liverelay-child-pdf-',
+      );
+      final c = createAppController(
+        root,
+        NoBiometrics(),
+        TestOcr(),
+        RecordingAi(),
+        TestAiSettings(),
+      );
+      final q = AgentConversation(c);
+      final edits = CardEditSessions(
+        save: (id, draft) => c.updateCard(id, draft),
+        canSave: () => c.isUnlocked && !c.isBusy,
+      );
+      final host = NativeWindowHost(
+        controller: c,
+        edits: edits,
+        conversation: q,
+        onDock: (_) {},
+        onSend: () async {},
+        diagnostics: true,
+      );
+      Future<Map> ready(DetachedWorkbenchSession child, int page) async {
+        for (var i = 0; i < 150; i++) {
+          try {
+            final value = await child.channel.invokeMethod<Map>('inspect');
+            if (value != null &&
+                (value['pdf'] as Map)['ready'] == true &&
+                (value['pdf'] as Map)['page'] == page) {
+              return value;
+            }
+          } on Object {
+            /* child still starting */
+          }
+          await Future<void>.delayed(const Duration(milliseconds: 100));
+        }
+        throw StateError('独立窗口PDF未就绪');
+      }
+
+      try {
+        await c.initialize();
+        await c.setupVault(
+          password: 'fixture-child-pdf',
+          usesChinesePassphrase: false,
+        );
+        await c.importOriginal(
+          bytes: syntheticPdf(),
+          originalName: 'child-fixture.pdf',
+          mimeType: 'application/pdf',
+          mediaKind: BlobMediaKind.document,
+        );
+        final child = await host.open('source/${c.blobs.single.id}');
+        final before = await ready(child, 0);
+        expect(child.window.process.pid, isNot(pid));
+        expect(before['vaultOwner'], false);
+        expect((before['pdf'] as Map)['pages'], 2);
+        await child.channel.invokeMethod('diagnosticPdfPage', 1);
+        await ready(child, 1);
+        final evidence = Platform.environment['LIVERELAY_WORKBENCH_EVIDENCE'];
+        if (evidence != null) {
+          final png = await child.channel.invokeMethod<Uint8List>('capture');
+          await File('$evidence/native-child-pdf.png').writeAsBytes(png!);
+        }
+        await c.lock();
+        expect(
+          await child.window.process.exitCode.timeout(
+            const Duration(seconds: 10),
+          ),
+          0,
+        );
+        await expectLater(
+          child.channel.invokeMethod('snapshot'),
+          throwsA(anything),
+        );
+        if (evidence != null) {
+          await File('$evidence/child-pdf-verification.json').writeAsString(
+            jsonEncode({
+              'fixtureOnly': true,
+              'independentProcess': true,
+              'vaultOwnerInChild': false,
+              'nativePdfiumPages': 2,
+              'turnPage': true,
+              'lockRevokesProcess': true,
             }),
           );
         }

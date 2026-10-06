@@ -1,4 +1,5 @@
 import 'dart:typed_data';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
@@ -12,6 +13,7 @@ import '../design_system/atoms.dart';
 import '../dialogs/ai_privacy_dialogs.dart';
 import '../dialogs/card_dialogs.dart';
 import '../dialogs/media_viewer.dart';
+import '../widgets/local_pdf_preview.dart';
 
 String mediaLabel(BlobMediaKind kind) => switch (kind) {
   BlobMediaKind.image => '照片',
@@ -227,6 +229,12 @@ class _OriginalWorkspaceState extends State<_OriginalWorkspace> {
                               errorBuilder: (_, _, _) => const Text('图像格式无法预览'),
                             ),
                           ),
+                  if (Platform.isLinux && blob.mimeType == 'application/pdf')
+                    LocalPdfPreview(
+                      session: controller,
+                      name: blob.originalName,
+                      readBytes: () => controller.readOriginal(blob.id),
+                    ),
                   const SizedBox(height: 12),
                   OutlinedButton.icon(
                     onPressed: () =>

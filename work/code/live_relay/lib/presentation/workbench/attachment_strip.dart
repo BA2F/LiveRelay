@@ -8,6 +8,7 @@ import 'package:flutter/material.dart';
 import '../../application/agent/agent_conversation.dart';
 import '../../core/ai/conversation_attachment.dart';
 import '../widgets/local_media_preview.dart';
+import '../widgets/local_pdf_preview.dart';
 
 class AttachmentStrip extends StatefulWidget {
   const AttachmentStrip({super.key, required this.conversation});
@@ -188,6 +189,13 @@ class AttachmentTile extends StatelessWidget {
                       controller: conversation.controller,
                       name: a.name,
                       video: a.kind == ConversationAttachmentKind.video,
+                      compact: true,
+                      readBytes: () async => Uint8List.fromList(a.bytes),
+                    )
+                  : Platform.isLinux && a.kind == ConversationAttachmentKind.pdf
+                  ? LocalPdfPreview(
+                      session: conversation.controller,
+                      name: a.name,
                       compact: true,
                       readBytes: () async => Uint8List.fromList(a.bytes),
                     )

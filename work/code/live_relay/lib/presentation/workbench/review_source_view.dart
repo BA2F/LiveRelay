@@ -8,6 +8,7 @@ import '../../application/app_controller.dart';
 import '../../core/ai/conversation_attachment.dart';
 import '../../core/ai/review_source.dart';
 import '../widgets/local_media_preview.dart';
+import '../widgets/local_pdf_preview.dart';
 import 'review_actions_editor.dart';
 
 class ReviewSourceView extends StatefulWidget {
@@ -126,6 +127,13 @@ class _ReviewSourceViewState extends State<ReviewSourceView> {
             height: 320,
             fit: BoxFit.contain,
             errorBuilder: (_, _, _) => const Text('图片无法显示'),
+          )
+        else if (Platform.isLinux && a.kind == ConversationAttachmentKind.pdf)
+          LocalPdfPreview(
+            session: widget.controller,
+            name: a.name,
+            compact: true,
+            readBytes: () async => Uint8List.fromList(a.bytes),
           )
         else if (Platform.isLinux &&
             {

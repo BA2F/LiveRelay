@@ -13,6 +13,7 @@ import 'package:window_manager/window_manager.dart';
 import '../../application/workbench/window_projection.dart';
 import '../../application/preview_session.dart';
 import '../widgets/local_media_preview.dart';
+import '../widgets/local_pdf_preview.dart';
 
 /// Called before constructing any vault services. No AppController, repository,
 /// secure storage, vault paths or cryptographic keys exist in this engine.
@@ -72,6 +73,7 @@ class _DetachedWorkbenchState extends State<DetachedWorkbench>
   final _boundary = GlobalKey();
   final _previewSession = DetachedPreviewSession();
   var _mediaKey = GlobalKey<LocalMediaPreviewState>();
+  var _pdfKey = GlobalKey<LocalPdfPreviewState>();
   BuildContext? _dialogContext;
   List<Map> get _cards => (_data['cards'] as List? ?? []).cast<Map>();
   @override
@@ -138,7 +140,18 @@ class _DetachedWorkbenchState extends State<DetachedWorkbench>
                     .inMilliseconds,
                 'cacheFile': _mediaKey.currentState?.temporaryFile?.path,
               },
+              'pdf': {
+                'ready': _pdfKey.currentState?.isReady ?? false,
+                'pages': _pdfKey.currentState?.pageCount,
+                'page': _pdfKey.currentState?.currentPage,
+              },
             };
+          case 'diagnosticPdfPage':
+            if (!widget.diagnostics || _revoked) throw StateError('诊断未启用');
+            final pdf = _pdfKey.currentState;
+            if (pdf == null || !pdf.isReady) throw StateError('PDF未就绪');
+            await pdf.goToPage(call.arguments as int);
+            return true;
           case 'diagnosticMedia':
             if (!widget.diagnostics || _revoked) throw StateError('诊断未启用');
             final state = _mediaKey.currentState;
@@ -253,6 +266,7 @@ class _DetachedWorkbenchState extends State<DetachedWorkbench>
       _wipeBytes();
       if (_data['view'] != data['view']) {
         _mediaKey = GlobalKey<LocalMediaPreviewState>();
+        _pdfKey = GlobalKey<LocalPdfPreviewState>();
       }
       setState(() => _data = data);
     } on Object {
@@ -327,6 +341,18 @@ class _DetachedWorkbenchState extends State<DetachedWorkbench>
   }
 
   void _navigate(String view) => unawaited(_act('navigate', {'view': view}));
+  Future<Uint8List> _readSource(String id) async {
+    final value = await widget.channel.invokeMethod<Uint8List>('readSource', {
+      'id': id,
+    });
+    if (value == null) throw const FormatException('原件无法读取');
+    if (!_previewSession.isUnlocked || !mounted) {
+      value.fillRange(0, value.length, 0);
+      throw const FormatException('原件视图已关闭');
+    }
+    return value;
+  }
+
   Future<void> _delete(Map card) async {
     final allowed = await showDialog<bool>(
       context: _dialogContext!,
@@ -507,12 +533,22 @@ class _DetachedWorkbenchState extends State<DetachedWorkbench>
       if (source == null) return const Center(child: Text('原件已回收或不存在'));
       final bytes = _data['sourceBytes'];
       final media = {'audio', 'video'}.contains(source['kind']);
+      final pdf = source['mime'] == 'application/pdf';
       return ListView(
         padding: const EdgeInsets.all(20),
         children: [
           Text(source['name'] as String),
-          if (media && (source['size'] as int) > windowSourcePreviewMaxBytes)
+          if ((media || pdf) &&
+              (source['size'] as int) > windowSourcePreviewMaxBytes)
             const Text('独立窗口预览最多8 MB，请在主工作台查看')
+          else if (pdf)
+            LocalPdfPreview(
+              key: _pdfKey,
+              session: _previewSession,
+              name: source['name'] as String,
+              compact: true,
+              readBytes: () => _readSource(source['id'] as String),
+            )
           else if (media)
             LocalMediaPreview(
               key: _mediaKey,
@@ -520,18 +556,7 @@ class _DetachedWorkbenchState extends State<DetachedWorkbench>
               name: source['name'] as String,
               video: source['kind'] == 'video',
               compact: true,
-              readBytes: () async {
-                final value = await widget.channel.invokeMethod<Uint8List>(
-                  'readSource',
-                  {'id': source['id']},
-                );
-                if (value == null) throw const FormatException('原件无法读取');
-                if (!_previewSession.isUnlocked || !mounted) {
-                  value.fillRange(0, value.length, 0);
-                  throw const FormatException('原件视图已关闭');
-                }
-                return value;
-              },
+              readBytes: () => _readSource(source['id'] as String),
             )
           else if (bytes is Uint8List && source['kind'] == 'image')
             Image.memory(bytes)

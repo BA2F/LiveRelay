@@ -71,10 +71,13 @@ class DeviceCapabilities {
               CapabilityStatus.unsupported,
               '此设备暂不支持音视频播放，原件已保留',
             ),
-    AppFeature.documentPreview => const FeatureCapability(
-      CapabilityStatus.notImplemented,
-      '此文件类型暂不支持预览，原件已保留',
-    ),
+    AppFeature.documentPreview =>
+      platform == DevicePlatform.linux
+          ? const FeatureCapability(CapabilityStatus.available, '支持PDF内嵌预览')
+          : const FeatureCapability(
+              CapabilityStatus.notImplemented,
+              '此文件类型暂不支持预览，原件已保留',
+            ),
     AppFeature.speechInput =>
       !{
             DevicePlatform.android,

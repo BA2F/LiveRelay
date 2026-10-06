@@ -5,6 +5,8 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:live_relay/presentation/widgets/local_media_preview.dart';
+import 'package:live_relay/presentation/widgets/local_pdf_preview.dart';
+import 'package:live_relay/presentation/pages/originals_page.dart';
 import 'package:live_relay/presentation/workbench/attachment_strip.dart';
 import 'package:live_relay/core/ai/conversation_attachment.dart';
 import 'package:live_relay/core/ai/ai_privacy.dart';
@@ -38,6 +40,7 @@ import 'package:live_relay/presentation/app.dart';
 import 'package:live_relay/presentation/workbench/dock_surface.dart';
 
 import '../test/support/verification_fakes.dart';
+import '../test/support/pdf_fixture.dart';
 import '../test/workbench/remote_speech_test.dart' show wave;
 import '../test/workbench/review_action_proposal_test.dart' show PlanningAi;
 
@@ -1885,6 +1888,140 @@ void main() {
         await tester.pumpWidget(const SizedBox());
         q.dispose();
         await c.lock();
+        c.dispose();
+        await root.delete(recursive: true);
+      }
+    },
+  );
+  testWidgets(
+    'native PDF original and attachment render, turn pages and revoke on lock',
+    (tester) async {
+      final root = await Directory.systemTemp.createTemp(
+        'liverelay-pdf-native-',
+      );
+      final c = createAppController(
+        root,
+        NoBiometrics(),
+        TestOcr(),
+        RecordingAi(),
+        TestAiSettings(),
+      );
+      final q = AgentConversation(c);
+      final boundary = GlobalKey();
+      Future<LocalPdfPreviewState> ready(int page) async {
+        for (var i = 0; i < 150; i++) {
+          await tester.pump(const Duration(milliseconds: 100));
+          final found = find.byType(LocalPdfPreview);
+          if (found.evaluate().length == 1) {
+            final state = tester.state<LocalPdfPreviewState>(found);
+            if (state.isReady && state.currentPage == page) return state;
+          }
+        }
+        throw StateError(
+          'PDF未就绪: ${tester.widgetList<Text>(find.byType(Text)).map((t) => t.data).join(' | ')}',
+        );
+      }
+
+      try {
+        await c.initialize();
+        await c.setupVault(
+          password: 'fixture-pdf-password',
+          usesChinesePassphrase: false,
+        );
+        await c.importOriginal(
+          bytes: syntheticPdf(),
+          originalName: 'fictional.pdf',
+          mimeType: 'application/pdf',
+          mediaKind: BlobMediaKind.document,
+        );
+        await tester.pumpWidget(
+          RepaintBoundary(
+            key: boundary,
+            child: ChangeNotifierProvider.value(
+              value: c,
+              child: const MaterialApp(home: OriginalsPage()),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('fictional.pdf'));
+        final first = await ready(0);
+        expect(first.pageCount, 2);
+        expect(first.renderedImage!.width, lessThanOrEqualTo(1600));
+        final pageOne = await first.renderedImage!.toByteData(
+          format: ui.ImageByteFormat.png,
+        );
+        await tester.ensureVisible(find.byKey(const ValueKey('pdf-next-page')));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const ValueKey('pdf-next-page')));
+        final second = await ready(1);
+        final pageTwo = await second.renderedImage!.toByteData(
+          format: ui.ImageByteFormat.png,
+        );
+        expect(
+          pageTwo!.buffer.asUint8List(),
+          isNot(orderedEquals(pageOne!.buffer.asUint8List())),
+        );
+        expect(find.text('第 2 / 2 页'), findsOneWidget);
+        final evidence = Platform.environment['LIVERELAY_WORKBENCH_EVIDENCE'];
+        if (evidence != null) {
+          final image =
+              await (boundary.currentContext!.findRenderObject()
+                      as RenderRepaintBoundary)
+                  .toImage();
+          final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
+          await File('$evidence/native-pdf.png')
+              .writeAsBytes(bytes!.buffer.asUint8List());
+          image.dispose();
+        }
+        // Navigation disposes the original preview before attachment preview.
+        await tester.pumpWidget(const SizedBox());
+        await first.closePreview();
+        expect(first.renderedImage, isNull);
+        final attachment = ConversationAttachment.read(
+          'attachment.pdf',
+          syntheticPdf(),
+        );
+        q.attachments.add(attachment);
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Scaffold(
+              body: AttachmentTile(attachment: attachment, conversation: q),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        await tester.tap(
+          find.byKey(ValueKey('attachment-preview-${attachment.id}')),
+        );
+        final preview = await ready(0);
+        expect(preview.pageCount, 2);
+        expect(
+          c.blobs,
+          hasLength(1),
+        ); // Preview does not separately save an original.
+        await c.lock();
+        await tester.pump();
+        expect(preview.renderedImage, isNull);
+        expect(preview.pageCount, 0);
+        expect(find.text('预览已关闭'), findsOneWidget);
+        if (evidence != null) {
+          await File('$evidence/pdf-verification.json').writeAsString(
+            jsonEncode({
+              'fixtureOnly': true,
+              'engine': 'native PDFium',
+              'pages': 2,
+              'distinctRenderedPages': true,
+              'encryptedOriginalAndAttachment': true,
+              'previewDoesNotSaveAttachmentAsOriginal': true,
+              'lockDisposesDocumentAndImage': true,
+            }),
+          );
+        }
+      } finally {
+        await tester.pumpWidget(const SizedBox());
+        q.dispose();
+        if (c.isUnlocked) await c.lock();
         c.dispose();
         await root.delete(recursive: true);
       }

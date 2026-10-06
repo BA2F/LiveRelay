@@ -15,6 +15,7 @@ import '../../application/device_capabilities.dart';
 import '../../core/domain/entities.dart';
 import 'capability_dialog.dart';
 import '../widgets/local_media_preview.dart';
+import '../widgets/local_pdf_preview.dart';
 
 Future<void> showEncryptedOriginal(
   BuildContext context,
@@ -31,6 +32,31 @@ Future<void> showEncryptedOriginal(
       context,
       '查看原件',
       controller.capability(feature),
+    );
+    return;
+  }
+  if (Platform.isLinux && blob.mimeType == 'application/pdf') {
+    await showDialog<void>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('本地PDF原件'),
+        content: SizedBox(
+          width: 720,
+          child: SingleChildScrollView(
+            child: LocalPdfPreview(
+              session: controller,
+              name: blob.originalName,
+              readBytes: () => controller.readOriginal(blob.id),
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('关闭'),
+          ),
+        ],
+      ),
     );
     return;
   }
