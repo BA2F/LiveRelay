@@ -229,7 +229,11 @@ class _OriginalWorkspaceState extends State<_OriginalWorkspace> {
                               errorBuilder: (_, _, _) => const Text('图像格式无法预览'),
                             ),
                           ),
-                  if (Platform.isLinux && blob.mimeType == 'application/pdf')
+                  if (Platform.isLinux &&
+                      LocalPdfPreview.supports(
+                        blob.originalName,
+                        blob.mimeType,
+                      ))
                     LocalPdfPreview(
                       session: controller,
                       name: blob.originalName,

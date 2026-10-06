@@ -276,6 +276,7 @@ class _DesktopWorkbenchState extends State<DesktopWorkbench> {
         'png' => 'image/png',
         'jpg' || 'jpeg' => 'image/jpeg',
         'txt' || 'md' => 'text/plain',
+        'pdf' => 'application/pdf',
         'wav' => 'audio/wav',
         'mp4' => 'video/mp4',
         _ => 'application/octet-stream',

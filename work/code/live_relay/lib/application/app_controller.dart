@@ -170,6 +170,9 @@ class AppController extends ChangeNotifier implements PreviewSession {
   VaultHeaderMetadata? get header => _session.header;
   bool get biometricAvailable => _session.biometricAvailable;
   AiCancellation? _agentCancellation;
+  bool _disposed = false;
+  bool get isAgentBusy =>
+      _agentCancellation != null && !_agentCancellation!.isCancelled;
   void cancelAgentTask() => _agentCancellation?.cancel();
   final exitCleanups = <Future<void> Function()>{};
   @override
@@ -688,6 +691,7 @@ class AppController extends ChangeNotifier implements PreviewSession {
   }) async {
     late AgentDraftBatch batch;
     await _run(() async {
+      if (isAgentBusy) throw StateError('请先结束当前 Agent 请求');
       if (!isUnlocked) throw StateError('请先解锁资料库');
       if (!aiSettings.isConfigured ||
           aiSettings.protocol != AiProtocol.responses) {
@@ -736,46 +740,63 @@ class AppController extends ChangeNotifier implements PreviewSession {
     List<Map<String, Object?>>? inputContent,
     List<ReviewTarget> reviewTargets = const [],
   }) async {
-    late AiConversationResponse response;
-    await _run(() async {
+    // Network waiting owns an Agent slot, not the local mutation gate. Card
+    // edits and encrypted workbench buffers can save while a reply is pending.
+    if (_disposed) throw const FormatException('资料库已关闭');
+    if (isBusy || isAgentBusy) throw const FormatException('请等待当前操作完成');
+    final cancellation = AiCancellation();
+    final settings = aiSettings;
+    final configuration = aiConfigurationGeneration;
+    _agentCancellation = cancellation;
+    notifyListeners();
+    try {
       if (!isUnlocked) throw StateError('请先解锁资料库');
-      if (!aiSettings.isConfigured) {
+      if (!settings.isConfigured) {
         throw const FormatException('请先配置 AI 服务；也可以在我的资料中手动新建卡片');
       }
       final provider = _aiProvider;
       if (provider is! AiConversationProvider) {
         throw const FormatException('此 AI 服务尚未支持持续对话');
       }
-      final cancellation = AiCancellation();
-      _agentCancellation = cancellation;
-      try {
-        final key = await _aiSettingsStore.readApiKey();
-        cancellation.check();
-        if (!isUnlocked || key == null || key.isEmpty) {
-          throw const FormatException('服务密钥不存在或资料库已锁定');
-        }
-        response = await (provider as AiConversationProvider).converse(
-          AiProviderRequest(
-            endpoint: Uri.parse(aiSettings.endpoint),
-            model: aiSettings.model,
-            apiKey: key,
-            protocol: aiSettings.protocol,
-            redactedText: text,
-            inputContent: inputContent,
-            reviewTargets: reviewTargets,
-            cancellation: cancellation,
-          ),
-          history,
-        );
-        cancellation.check();
-        if (!isUnlocked) throw const FormatException('资料库已锁定，本次结果已丢弃');
-      } finally {
-        if (identical(_agentCancellation, cancellation)) {
-          _agentCancellation = null;
-        }
+      final key = await _aiSettingsStore.readApiKey();
+      cancellation.check();
+      if (_disposed || !isUnlocked || key == null || key.isEmpty) {
+        throw const FormatException('服务密钥不存在或资料库已锁定');
       }
-    });
-    return response;
+      if (configuration != aiConfigurationGeneration ||
+          !identical(settings, aiSettings)) {
+        throw const FormatException('服务配置已变化，请重新检查本轮发送范围');
+      }
+      final response = await (provider as AiConversationProvider).converse(
+        AiProviderRequest(
+          endpoint: Uri.parse(settings.endpoint),
+          model: settings.model,
+          apiKey: key,
+          protocol: settings.protocol,
+          redactedText: text,
+          inputContent: inputContent,
+          reviewTargets: reviewTargets,
+          cancellation: cancellation,
+        ),
+        history,
+      );
+      cancellation.check();
+      if (_disposed || !isUnlocked) {
+        throw const FormatException('资料库已锁定，本次结果已丢弃');
+      }
+      if (configuration != aiConfigurationGeneration ||
+          !identical(settings, aiSettings)) {
+        throw const FormatException('服务配置已变化，本次结果已丢弃');
+      }
+      return response;
+    } on Object catch (error) {
+      throw FormatException(_messageFor(error));
+    } finally {
+      if (identical(_agentCancellation, cancellation)) {
+        _agentCancellation = null;
+      }
+      if (!_disposed) notifyListeners();
+    }
   }
 
   Future<void> acceptConversationCards(
@@ -1034,6 +1055,7 @@ class AppController extends ChangeNotifier implements PreviewSession {
 
   @override
   void dispose() {
+    _disposed = true;
     cancelAgentTask();
     _securityService?.removeListener(notifyListeners);
     _securityService?.dispose();

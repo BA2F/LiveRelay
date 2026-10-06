@@ -180,6 +180,7 @@ class WorkbenchRuntime extends ChangeNotifier {
     }
     _exiting = true;
     try {
+      controller.cancelAgentTask();
       await windows.flushChildren();
       for (final cleanup in List.of(controller.exitCleanups)) {
         await cleanup();

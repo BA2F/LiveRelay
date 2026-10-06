@@ -437,7 +437,7 @@ Future<void> main(List<String> arguments) async {
         await c.importOriginal(
           bytes: syntheticPdf(),
           originalName: 'child-fixture.pdf',
-          mimeType: 'application/pdf',
+          mimeType: 'application/octet-stream', // Earlier desktop imports.
           mediaKind: BlobMediaKind.document,
         );
         final child = await host.open('source/${c.blobs.single.id}');

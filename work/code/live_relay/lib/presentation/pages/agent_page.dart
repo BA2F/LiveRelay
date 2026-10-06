@@ -265,7 +265,10 @@ class _AgentPageState extends State<AgentPage> {
                 ],
                 const SizedBox(height: 12),
                 FilledButton.icon(
-                  onPressed: _working || controller.isBusy ? null : _runAgent,
+                  onPressed:
+                      _working || controller.isBusy || controller.isAgentBusy
+                      ? null
+                      : _runAgent,
                   icon: const Icon(Icons.auto_awesome),
                   label: const Text('预览外发范围并整理'),
                 ),

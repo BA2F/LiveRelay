@@ -26,6 +26,10 @@ class LocalPdfPreview extends StatefulWidget {
   final Future<Uint8List> Function() readBytes;
   final bool compact;
   static const maxBytes = 8 * 1024 * 1024;
+  static bool supports(String name, String mimeType) =>
+      mimeType == 'application/pdf' ||
+      (mimeType == 'application/octet-stream' &&
+          name.toLowerCase().endsWith('.pdf'));
   @override
   State<LocalPdfPreview> createState() => LocalPdfPreviewState();
 }

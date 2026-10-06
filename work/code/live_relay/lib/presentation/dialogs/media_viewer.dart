@@ -35,7 +35,8 @@ Future<void> showEncryptedOriginal(
     );
     return;
   }
-  if (Platform.isLinux && blob.mimeType == 'application/pdf') {
+  if (Platform.isLinux &&
+      LocalPdfPreview.supports(blob.originalName, blob.mimeType)) {
     await showDialog<void>(
       context: context,
       builder: (context) => AlertDialog(

@@ -43,6 +43,8 @@ import '../test/support/verification_fakes.dart';
 import '../test/support/pdf_fixture.dart';
 import '../test/workbench/remote_speech_test.dart' show wave;
 import '../test/workbench/review_action_proposal_test.dart' show PlanningAi;
+import '../test/workbench/conversation_concurrency_test.dart'
+    show PendingConversationAi;
 
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
@@ -1938,7 +1940,7 @@ void main() {
         await c.importOriginal(
           bytes: syntheticPdf(),
           originalName: 'fictional.pdf',
-          mimeType: 'application/pdf',
+          mimeType: 'application/octet-stream', // Earlier desktop imports.
           mediaKind: BlobMediaKind.document,
         );
         await tester.pumpWidget(
@@ -1985,6 +1987,22 @@ void main() {
         await tester.pumpWidget(const SizedBox());
         await first.closePreview();
         expect(first.renderedImage, isNull);
+        // The desktop source tab and card source panel use InlineOriginal.
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Scaffold(
+              body: SingleChildScrollView(
+                child: InlineOriginal(controller: c, blobId: c.blobs.single.id),
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('查看原件'));
+        final inline = await ready(0);
+        expect(inline.pageCount, 2);
+        await tester.pumpWidget(const SizedBox());
+        await inline.closePreview();
         final attachment = ConversationAttachment.read(
           'attachment.pdf',
           syntheticPdf(),
@@ -2020,6 +2038,7 @@ void main() {
               'pages': 2,
               'distinctRenderedPages': true,
               'encryptedOriginalAndAttachment': true,
+              'legacyGenericMimeAndDesktopInlineOriginal': true,
               'previewDoesNotSaveAttachmentAsOriginal': true,
               'lockDisposesDocumentAndImage': true,
             }),
@@ -2030,6 +2049,127 @@ void main() {
         q.dispose();
         if (c.isUnlocked) await c.lock();
         c.dispose();
+        await root.delete(recursive: true);
+      }
+    },
+  );
+  testWidgets(
+    'native workbench autosaves local edits while Agent waits and save-lock cancels reply',
+    (tester) async {
+      final root = await Directory.systemTemp.createTemp(
+        'liverelay-native-network-',
+      );
+      final ai = PendingConversationAi();
+      final c = createAppController(
+        root,
+        NoBiometrics(),
+        TestOcr(),
+        ai,
+        TestAiSettings()..configured = true,
+      );
+      final p = AppPreferences(File('${root.path}/preferences.json'));
+      final boundary = GlobalKey();
+      try {
+        await c.initialize();
+        await c.setupVault(
+          password: 'fixture-native-network',
+          usesChinesePassphrase: false,
+        );
+        await c.createCard(
+          const CardDraft(
+            title: '虚构边写边问',
+            content: '修改前的总结',
+            status: CardStatus.draft,
+          ),
+        );
+        await p.finishOnboarding();
+        await p.setDesktopPreset('assistant');
+        await tester.pumpWidget(
+          MultiProvider(
+            providers: [
+              ChangeNotifierProvider.value(value: c),
+              ChangeNotifierProvider.value(value: p),
+            ],
+            child: RepaintBoundary(key: boundary, child: const LiveRelayApp()),
+          ),
+        );
+        await tester.pumpAndSettle();
+        final q = tester
+            .widget<ConversationView>(find.byType(ConversationView))
+            .conversation;
+        final input = find.byWidgetPredicate(
+          (w) => w is TextField && w.decoration?.labelText == '对话输入',
+        );
+        await tester.enterText(input, '虚构长请求，等待时继续编辑卡片');
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('发送'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('允许本次发送'));
+        for (var i = 0; i < 100 && !ai.entered.isCompleted; i++) {
+          await tester.pump(const Duration(milliseconds: 100));
+        }
+        expect(ai.entered.isCompleted, true);
+        expect(q.working, true);
+        expect(c.isBusy, false);
+        await tester.pump(const Duration(milliseconds: 300));
+        final summary = find.byWidgetPredicate(
+          (w) => w is TextField && w.decoration?.labelText == '总结',
+        );
+        await tester.enterText(summary, '网络仍在等待，本地自动保存完成');
+        for (
+          var i = 0;
+          i < 100 && c.cards.single.content != '网络仍在等待，本地自动保存完成';
+          i++
+        ) {
+          await tester.pump(const Duration(milliseconds: 100));
+        }
+        expect(c.cards.single.content, '网络仍在等待，本地自动保存完成');
+        expect(c.cards.single.status, CardStatus.draft);
+        expect(ai.reply.isCompleted, false);
+        final evidence = Platform.environment['LIVERELAY_WORKBENCH_EVIDENCE'];
+        if (evidence != null) {
+          final image =
+              await (boundary.currentContext!.findRenderObject()
+                      as RenderRepaintBoundary)
+                  .toImage();
+          final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
+          await File('$evidence/native-network-autosave.png')
+              .writeAsBytes(bytes!.buffer.asUint8List());
+          image.dispose();
+        }
+        await tester.tap(find.byTooltip('保存并锁定'));
+        await tester.pumpAndSettle();
+        expect(c.isUnlocked, false);
+        expect(ai.requests.single.cancellation!.isCancelled, true);
+        ai.complete();
+        await tester.pump(const Duration(milliseconds: 300));
+        await c.unlockWithPassword('fixture-native-network');
+        await tester.pumpAndSettle();
+        expect(c.cards.single.content, '网络仍在等待，本地自动保存完成');
+        final reopened = tester
+            .widget<ConversationView>(find.byType(ConversationView))
+            .conversation;
+        expect(reopened.messages, isEmpty);
+        expect(reopened.draft, '虚构长请求，等待时继续编辑卡片');
+        if (evidence != null) {
+          await File('$evidence/network-autosave-verification.json')
+              .writeAsString(
+                jsonEncode({
+                  'fixtureOnly': true,
+                  'upstreamDeliberatelyPending': true,
+                  'localAutosaveBeforeReply': true,
+                  'saveLockCancelsRequest': true,
+                  'lateReplyDiscarded': true,
+                  'reopenedDraftAndEditPreserved': true,
+                }),
+              );
+        }
+      } finally {
+        ai.complete();
+        await tester.pumpWidget(const SizedBox());
+        if (c.isUnlocked) await c.lock();
+        c.dispose();
+        p.dispose();
         await root.delete(recursive: true);
       }
     },

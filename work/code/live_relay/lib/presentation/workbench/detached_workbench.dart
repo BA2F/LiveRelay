@@ -533,7 +533,10 @@ class _DetachedWorkbenchState extends State<DetachedWorkbench>
       if (source == null) return const Center(child: Text('原件已回收或不存在'));
       final bytes = _data['sourceBytes'];
       final media = {'audio', 'video'}.contains(source['kind']);
-      final pdf = source['mime'] == 'application/pdf';
+      final pdf = LocalPdfPreview.supports(
+        source['name'] as String,
+        source['mime'] as String,
+      );
       return ListView(
         padding: const EdgeInsets.all(20),
         children: [

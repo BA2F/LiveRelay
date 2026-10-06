@@ -9,6 +9,7 @@ import '../../application/workbench/card_edit_sessions.dart';
 import '../../core/domain/entities.dart';
 import '../dialogs/media_viewer.dart';
 import '../widgets/local_media_preview.dart';
+import '../widgets/local_pdf_preview.dart';
 import 'reference_panel.dart';
 
 class WorkbenchCardEditor extends StatefulWidget {
@@ -344,6 +345,9 @@ class _InlineOriginalState extends State<InlineOriginal> {
     final blob = _blob;
     if (blob == null) return const Text('原件不存在或尚未补齐');
     final image = blob.mediaKind == BlobMediaKind.image;
+    final pdf =
+        Platform.isLinux &&
+        LocalPdfPreview.supports(blob.originalName, blob.mimeType);
     final text =
         blob.mimeType.startsWith('text/') ||
         blob.originalName.toLowerCase().endsWith('.txt');
@@ -361,25 +365,36 @@ class _InlineOriginalState extends State<InlineOriginal> {
                 ? null
                 : image || text
                 ? _load
-                : Platform.isLinux &&
-                      {
-                        BlobMediaKind.audio,
-                        BlobMediaKind.video,
-                      }.contains(blob.mediaKind)
+                : pdf ||
+                      (Platform.isLinux &&
+                          {
+                            BlobMediaKind.audio,
+                            BlobMediaKind.video,
+                          }.contains(blob.mediaKind))
                 ? () => setState(() => _playInline = !_playInline)
                 : () => showEncryptedOriginal(context, widget.controller, blob),
             child: const Text('查看原件'),
           ),
         ),
         if (_playInline)
-          LocalMediaPreview(
-            key: ValueKey(widget.blobId),
-            controller: widget.controller,
-            name: blob.originalName,
-            video: blob.mediaKind == BlobMediaKind.video,
-            compact: true,
-            readBytes: () => widget.controller.readOriginal(widget.blobId),
-          ),
+          pdf
+              ? LocalPdfPreview(
+                  key: ValueKey(widget.blobId),
+                  session: widget.controller,
+                  name: blob.originalName,
+                  compact: true,
+                  readBytes: () =>
+                      widget.controller.readOriginal(widget.blobId),
+                )
+              : LocalMediaPreview(
+                  key: ValueKey(widget.blobId),
+                  controller: widget.controller,
+                  name: blob.originalName,
+                  video: blob.mediaKind == BlobMediaKind.video,
+                  compact: true,
+                  readBytes: () =>
+                      widget.controller.readOriginal(widget.blobId),
+                ),
         if (_loading) const LinearProgressIndicator(),
         if (_error != null) Text(_error!),
         if (_bytes != null && image)
