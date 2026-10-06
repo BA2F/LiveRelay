@@ -11,6 +11,8 @@ import 'package:flutter/rendering.dart';
 import 'package:window_manager/window_manager.dart';
 
 import '../../application/workbench/window_projection.dart';
+import '../../application/preview_session.dart';
+import '../widgets/local_media_preview.dart';
 
 /// Called before constructing any vault services. No AppController, repository,
 /// secure storage, vault paths or cryptographic keys exist in this engine.
@@ -68,6 +70,8 @@ class _DetachedWorkbenchState extends State<DetachedWorkbench>
   Timer? _geometryTimer, _heartbeat;
   Future<void> _commands = Future.value();
   final _boundary = GlobalKey();
+  final _previewSession = DetachedPreviewSession();
+  var _mediaKey = GlobalKey<LocalMediaPreviewState>();
   BuildContext? _dialogContext;
   List<Map> get _cards => (_data['cards'] as List? ?? []).cast<Map>();
   @override
@@ -93,7 +97,7 @@ class _DetachedWorkbenchState extends State<DetachedWorkbench>
           case 'revoke':
             if (_closing) return true;
             _closing = true;
-            _clear();
+            await _clear();
             unawaited(
               Future<void>.delayed(
                 const Duration(milliseconds: 100),
@@ -115,7 +119,47 @@ class _DetachedWorkbenchState extends State<DetachedWorkbench>
               'revoked': _revoked,
               'bounds': await _bounds(),
               'vaultOwner': false,
+              'error': _error,
+              'media': {
+                'ready': _mediaKey.currentState?.isReady ?? false,
+                'playing':
+                    _mediaKey.currentState?.player?.state.playing ?? false,
+                'position': _mediaKey
+                    .currentState
+                    ?.player
+                    ?.state
+                    .position
+                    .inMilliseconds,
+                'duration': _mediaKey
+                    .currentState
+                    ?.player
+                    ?.state
+                    .duration
+                    .inMilliseconds,
+                'cacheFile': _mediaKey.currentState?.temporaryFile?.path,
+              },
             };
+          case 'diagnosticMedia':
+            if (!widget.diagnostics || _revoked) throw StateError('诊断未启用');
+            final state = _mediaKey.currentState;
+            if (state == null || !state.isReady) throw StateError('媒体未就绪');
+            final args = call.arguments as Map;
+            if (args['play'] is bool) {
+              if (args['play'] == true) {
+                await state.player!.play();
+              } else {
+                await state.player!.pause();
+              }
+            } else if (args['milliseconds'] is int) {
+              final ms = args['milliseconds'] as int;
+              if (ms < 0 || ms > state.player!.state.duration.inMilliseconds) {
+                throw const FormatException('位置无效');
+              }
+              await state.player!.seek(Duration(milliseconds: ms));
+            } else {
+              throw const FormatException('媒体诊断操作无效');
+            }
+            return true;
           case 'diagnosticCommand':
             if (!widget.diagnostics) throw StateError('诊断未启用');
             final args = call.arguments as Map;
@@ -178,7 +222,7 @@ class _DetachedWorkbenchState extends State<DetachedWorkbench>
     if (bytes is Uint8List) bytes.fillRange(0, bytes.length, 0);
   }
 
-  void _clear() {
+  Future<void> _clear() {
     _heartbeat?.cancel();
     _geometryTimer?.cancel();
     _wipeBytes();
@@ -188,6 +232,7 @@ class _DetachedWorkbenchState extends State<DetachedWorkbench>
     _revoked = true;
     _request++;
     if (mounted) setState(() {});
+    return _previewSession.revoke();
   }
 
   Future<void> _pull() async {
@@ -206,9 +251,12 @@ class _DetachedWorkbenchState extends State<DetachedWorkbench>
       }
       _applied = request;
       _wipeBytes();
+      if (_data['view'] != data['view']) {
+        _mediaKey = GlobalKey<LocalMediaPreviewState>();
+      }
       setState(() => _data = data);
     } on Object {
-      _clear();
+      await _clear();
     }
   }
 
@@ -259,7 +307,7 @@ class _DetachedWorkbenchState extends State<DetachedWorkbench>
         await widget.channel.invokeMethod('geometry', await _bounds());
         await widget.channel.invokeMethod('close');
       }
-      _clear();
+      await _clear();
       exit(0);
     } on Object {
       _closing = false;
@@ -273,6 +321,7 @@ class _DetachedWorkbenchState extends State<DetachedWorkbench>
     _heartbeat?.cancel();
     _geometryTimer?.cancel();
     _wipeBytes();
+    unawaited(_previewSession.revoke().whenComplete(_previewSession.dispose));
     unawaited(widget.channel.setMethodCallHandler(null));
     super.dispose();
   }
@@ -457,11 +506,34 @@ class _DetachedWorkbenchState extends State<DetachedWorkbench>
       final source = _data['source'] as Map?;
       if (source == null) return const Center(child: Text('原件已回收或不存在'));
       final bytes = _data['sourceBytes'];
+      final media = {'audio', 'video'}.contains(source['kind']);
       return ListView(
         padding: const EdgeInsets.all(20),
         children: [
           Text(source['name'] as String),
-          if (bytes is Uint8List && source['kind'] == 'image')
+          if (media && (source['size'] as int) > windowSourcePreviewMaxBytes)
+            const Text('独立窗口预览最多8 MB，请在主工作台查看')
+          else if (media)
+            LocalMediaPreview(
+              key: _mediaKey,
+              controller: _previewSession,
+              name: source['name'] as String,
+              video: source['kind'] == 'video',
+              compact: true,
+              readBytes: () async {
+                final value = await widget.channel.invokeMethod<Uint8List>(
+                  'readSource',
+                  {'id': source['id']},
+                );
+                if (value == null) throw const FormatException('原件无法读取');
+                if (!_previewSession.isUnlocked || !mounted) {
+                  value.fillRange(0, value.length, 0);
+                  throw const FormatException('原件视图已关闭');
+                }
+                return value;
+              },
+            )
+          else if (bytes is Uint8List && source['kind'] == 'image')
             Image.memory(bytes)
           else if (bytes is Uint8List &&
               source['mime']?.startsWith('text/') == true)

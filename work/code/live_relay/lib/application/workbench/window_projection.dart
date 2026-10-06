@@ -1,6 +1,8 @@
 import '../../core/domain/entities.dart';
 import 'card_edit_sessions.dart';
 
+const windowSourcePreviewMaxBytes = 8 * 1024 * 1024;
+
 /// Explicit, bounded presentation projection. Never contains keys or credentials.
 Map<String, Object?> projectWindowCard(LifeCard card, CardEditSession edit) => {
   'id': card.id,

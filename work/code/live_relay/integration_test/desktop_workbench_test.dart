@@ -1822,7 +1822,7 @@ void main() {
             home: Scaffold(
               body: RepaintBoundary(
                 key: boundary,
-                child: ColoredBox(
+                child: Material(
                   color: Colors.white,
                   child: ConversationView(
                     conversation: q,

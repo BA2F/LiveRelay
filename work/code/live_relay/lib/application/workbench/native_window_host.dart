@@ -10,6 +10,7 @@ import '../app_controller.dart';
 import '../agent/agent_conversation.dart';
 import 'card_edit_sessions.dart';
 import 'window_projection.dart';
+import 'window_source_reader.dart';
 import '../../core/domain/entities.dart';
 
 class DetachedWorkbenchSession {
@@ -178,6 +179,13 @@ class NativeWindowHost {
         return {'epoch': epoch};
       case 'snapshot':
         return _snapshot(s, epoch);
+      case 'readSource':
+        if (id == null) throw const FormatException('请选择原件');
+        return WindowSourceReader(controller).read(
+          id: id,
+          view: () => s.view,
+          active: () => !_disposed && epoch == _epoch && !s.closed,
+        );
       case 'navigate':
         final view = a['view'] as String;
         if (!detachableView(view)) throw const FormatException('不支持的视图');
@@ -351,6 +359,7 @@ class NativeWindowHost {
           'name': b.originalName,
           'kind': b.mediaKind.name,
           'mime': b.mimeType,
+          'size': b.byteLength,
         };
         if ((b.mediaKind == BlobMediaKind.image ||
                 b.mimeType.startsWith('text/')) &&

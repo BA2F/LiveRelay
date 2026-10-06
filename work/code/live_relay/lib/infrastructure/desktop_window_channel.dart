@@ -49,10 +49,29 @@ class LocalWindowChannel {
     return value;
   }
 
+  // Reply buffers are owned by this channel. _send synchronously serializes
+  // them, and the queued serialized frame has its own existing wipe lifecycle.
+  static void _wipeReply(dynamic value) {
+    if (value is Uint8List) {
+      value.fillRange(0, value.length, 0);
+    } else if (value is Map) {
+      for (final child in value.values) {
+        _wipeReply(child);
+      }
+    } else if (value is List) {
+      for (final child in value) {
+        _wipeReply(child);
+      }
+    }
+  }
+
   void _send(Map value) {
     if (_isClosed) throw const SocketException('窗口连接已关闭');
     final body = Uint8List.fromList(utf8.encode(jsonEncode(_encode(value))));
-    if (body.length > maxFrame) throw const FormatException('窗口数据超过允许大小');
+    if (body.length > maxFrame) {
+      body.fillRange(0, body.length, 0);
+      throw const FormatException('窗口数据超过允许大小');
+    }
     final header = ByteData(4)..setUint32(0, body.length);
     _queuedBytes += body.length;
     if (_queuedBytes > 2 * maxFrame) {
@@ -129,7 +148,10 @@ class LocalWindowChannel {
   Future<void> _dispatch(Map message) async {
     if (message['reply'] is int) {
       final pending = _pending[message['reply']];
-      if (pending == null || pending.isCompleted) return;
+      if (pending == null || pending.isCompleted) {
+        _wipeReply(message['result']);
+        return;
+      }
       if (message['error'] != null) {
         pending.completeError(
           PlatformException(code: message['error'] as String),
@@ -143,10 +165,11 @@ class LocalWindowChannel {
       close();
       return;
     }
+    dynamic result;
     try {
       final handler = _handler;
       if (handler == null) throw PlatformException(code: 'NO_HANDLER');
-      final result = await handler(
+      result = await handler(
         MethodCall(message['method'] as String, message['args']),
       );
       _send({'reply': message['id'], 'result': result});
@@ -157,6 +180,8 @@ class LocalWindowChannel {
           'error': e is PlatformException ? e.code : 'COMMAND_FAILED',
         });
       }
+    } finally {
+      _wipeReply(result);
     }
   }
 

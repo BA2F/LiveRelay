@@ -221,4 +221,167 @@ Future<void> main(List<String> arguments) async {
       }
     },
   );
+  testWidgets(
+    'native detached source media plays, seeks and removes caches on revocation',
+    (tester) async {
+      final root = await Directory.systemTemp.createTemp(
+        'liverelay-child-media-',
+      );
+      final c = createAppController(
+        root,
+        NoBiometrics(),
+        TestOcr(),
+        RecordingAi(),
+        TestAiSettings(),
+      );
+      final q = AgentConversation(c);
+      final edits = CardEditSessions(
+        save: (id, draft) => c.updateCard(id, draft),
+        canSave: () => c.isUnlocked && !c.isBusy,
+      );
+      final host = NativeWindowHost(
+        controller: c,
+        edits: edits,
+        conversation: q,
+        onDock: (_) {},
+        onSend: () async {},
+        diagnostics: true,
+      );
+      final caches = <File>[];
+      Future<Map> inspect(
+        DetachedWorkbenchSession child,
+        bool Function(Map) ready,
+      ) async {
+        for (var i = 0; i < 150; i++) {
+          try {
+            final value = await child.channel.invokeMethod<Map>('inspect');
+            if (value != null && ready(value)) return value;
+          } on Object {
+            /* independent child still starting */
+          }
+          await Future<void>.delayed(const Duration(milliseconds: 100));
+        }
+        throw StateError('独立窗口媒体未就绪');
+      }
+
+      try {
+        await c.initialize();
+        await c.setupVault(
+          password: 'fixture-child-media',
+          usesChinesePassphrase: false,
+        );
+        for (final video in [false, true]) {
+          final file = File('${root.path}/fixture.${video ? "mp4" : "wav"}');
+          final result = await Process.run('ffmpeg', [
+            '-hide_banner',
+            '-loglevel',
+            'error',
+            '-f',
+            'lavfi',
+            '-i',
+            video ? 'color=c=blue:s=160x90:r=24' : 'anullsrc=r=16000:cl=mono',
+            '-t',
+            '4',
+            if (video) ...[
+              '-c:v',
+              'libx264',
+              '-pix_fmt',
+              'yuv420p',
+            ] else ...[
+              '-c:a',
+              'pcm_s16le',
+            ],
+            file.path,
+          ]);
+          expect(result.exitCode, 0);
+          await c.importOriginal(
+            bytes: await file.readAsBytes(),
+            originalName: file.uri.pathSegments.last,
+            mimeType: video ? 'video/mp4' : 'audio/wav',
+            mediaKind: video ? BlobMediaKind.video : BlobMediaKind.audio,
+          );
+        }
+        final windows = <DetachedWorkbenchSession>[];
+        for (final blob in c.blobs) {
+          final child = await host.open('source/${blob.id}');
+          windows.add(child);
+          final before = await inspect(
+            child,
+            (v) => (v['media'] as Map)['ready'] == true,
+          );
+          expect(before['vaultOwner'], false);
+          expect((before['media'] as Map)['playing'], false);
+          expect(
+            (before['media'] as Map)['duration'],
+            greaterThanOrEqualTo(3900),
+          );
+          caches.add(File((before['media'] as Map)['cacheFile'] as String));
+          expect(await caches.last.exists(), true);
+          await child.channel.invokeMethod('diagnosticMedia', {'play': true});
+          final playing = await inspect(
+            child,
+            (v) =>
+                (v['media'] as Map)['playing'] == true &&
+                (v['media'] as Map)['position'] >= 100,
+          );
+          expect(
+            (playing['media'] as Map)['position'],
+            greaterThanOrEqualTo(100),
+          );
+          await child.channel.invokeMethod('diagnosticMedia', {'play': false});
+          await inspect(child, (v) => (v['media'] as Map)['playing'] == false);
+          await child.channel.invokeMethod('diagnosticMedia', {
+            'milliseconds': 1000,
+          });
+          await inspect(child, (v) => (v['media'] as Map)['position'] >= 900);
+          final evidence = Platform.environment['LIVERELAY_WORKBENCH_EVIDENCE'];
+          if (evidence != null && blob.mediaKind == BlobMediaKind.video) {
+            final bytes = await child.channel.invokeMethod<Uint8List>(
+              'capture',
+            );
+            await File('$evidence/native-child-media.png').writeAsBytes(bytes!);
+          }
+        }
+        final first = windows.first;
+        final wrong = c.blobs.firstWhere((b) => 'source/${b.id}' != first.view);
+        await first.channel.invokeMethod('diagnosticCommand', {
+          'method': 'readSource',
+          'arguments': {'id': wrong.id},
+        });
+        await inspect(first, (v) => v['error'] != null);
+        await c.lock();
+        for (final window in windows) {
+          await window.window.process.exitCode.timeout(
+            const Duration(seconds: 10),
+          );
+        }
+        for (final file in caches) {
+          expect(await file.exists(), false);
+        }
+        final evidence = Platform.environment['LIVERELAY_WORKBENCH_EVIDENCE'];
+        if (evidence != null) {
+          await File('$evidence/child-media-verification.json').writeAsString(
+            jsonEncode({
+              'fixture': true,
+              'independentProcesses': true,
+              'vaultOwnerInChild': false,
+              'nativeDecode': ['wav', 'mp4'],
+              'defaultPaused': true,
+              'playPauseSeek': true,
+              'outOfViewReadRejected': true,
+              'lockRevokesProcessesAndRemovesCaches': true,
+            }),
+          );
+        }
+      } finally {
+        await host.shutdown(preserve: true);
+        host.dispose();
+        q.dispose();
+        edits.dispose();
+        if (c.isUnlocked) await c.lock();
+        c.dispose();
+        await root.delete(recursive: true);
+      }
+    },
+  );
 }

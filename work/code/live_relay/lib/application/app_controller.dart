@@ -12,6 +12,7 @@ import 'vault_security_service.dart';
 import '../core/security/recovery_credential.dart';
 import 'draft_agent_service.dart';
 import 'speech_service.dart';
+import 'preview_session.dart';
 import 'vault_backup_service.dart';
 
 import '../core/ai/ai_privacy.dart';
@@ -38,7 +39,7 @@ import '../infrastructure/import/edge_password_csv_importer.dart';
 
 export 'vault_session.dart' show VaultSessionState;
 
-class AppController extends ChangeNotifier {
+class AppController extends ChangeNotifier implements PreviewSession {
   AppController({
     required this._session,
     required this._backup,
@@ -171,6 +172,12 @@ class AppController extends ChangeNotifier {
   AiCancellation? _agentCancellation;
   void cancelAgentTask() => _agentCancellation?.cancel();
   final exitCleanups = <Future<void> Function()>{};
+  @override
+  void registerPreviewCleanup(Future<void> Function() cleanup) =>
+      exitCleanups.add(cleanup);
+  @override
+  void unregisterPreviewCleanup(Future<void> Function() cleanup) =>
+      exitCleanups.remove(cleanup);
   Future<AppExitResponse> Function()? desktopExitRequested;
   bool isBusy = false;
   bool agentCommandsAvailable = false;
@@ -206,6 +213,7 @@ class AppController extends ChangeNotifier {
     byKind: {},
   );
 
+  @override
   bool get isUnlocked => sessionState == VaultSessionState.unlocked;
   DeviceCapabilities capabilities = DeviceCapabilities.current();
   void setDemonstrationCapabilities(DeviceCapabilities value) {

@@ -19,10 +19,12 @@ void main() {
         0,
       );
       final accepted = Completer<LocalWindowChannel>();
+      final replyBuffers = <Uint8List>[];
       server.listen((socket) {
         final peer = LocalWindowChannel(socket);
         peer.setMethodCallHandler((call) async {
           if (call.method == 'denied') throw PlatformException(code: 'DENIED');
+          replyBuffers.add((call.arguments as Map)['bytes'] as Uint8List);
           return call.arguments;
         });
         accepted.complete(peer);
@@ -53,6 +55,8 @@ void main() {
           expect(replies[i]!['text'], '虚构资料 $i');
           expect(replies[i]!['bytes'], payload);
         }
+        expect(replyBuffers, hasLength(12));
+        expect(replyBuffers.every((b) => b.every((v) => v == 0)), isTrue);
         await expectLater(
           client.invokeMethod('denied'),
           throwsA(isA<PlatformException>()),

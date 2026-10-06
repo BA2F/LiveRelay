@@ -7,7 +7,7 @@ import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 import 'package:path/path.dart' as path;
 
-import '../../application/app_controller.dart';
+import '../../application/preview_session.dart';
 import '../../infrastructure/private_cache.dart';
 
 /// Linux-only renderer. It never opens network URLs or starts playback itself.
@@ -20,7 +20,7 @@ class LocalMediaPreview extends StatefulWidget {
     required this.readBytes,
     this.compact = false,
   });
-  final AppController controller;
+  final PreviewSession controller;
   final String name;
   final bool video, compact;
   final Future<Uint8List> Function() readBytes;
@@ -33,10 +33,12 @@ class LocalMediaPreviewState extends State<LocalMediaPreview> {
   VideoController? _video;
   File? _file;
   StreamSubscription<String>? _errors;
-  bool _closed = false, _ready = false;
+  bool _closed = false, _ready = false, _disposing = false;
   String? _error;
+  Future<void>? _opening, _closing, _releasing;
   Player? get player => _player;
   File? get temporaryFile => _file;
+  bool get isReady => _ready && !_closed && _player != null;
   Future<List<({int milliseconds, Uint8List bytes})>> sampleFrames() async {
     final player = _player;
     if (player == null || !_ready || _closed || !widget.video) {
@@ -80,14 +82,13 @@ class LocalMediaPreviewState extends State<LocalMediaPreview> {
   void initState() {
     super.initState();
     widget.controller.addListener(_sessionChanged);
-    unawaited(_open());
+    widget.controller.registerPreviewCleanup(closePreview);
+    _opening = _open();
   }
 
   void _sessionChanged() {
     if (!widget.controller.isUnlocked && !_closed) {
-      _closed = true;
-      unawaited(_release());
-      if (mounted) setState(() {});
+      unawaited(closePreview());
     }
   }
 
@@ -148,7 +149,26 @@ class LocalMediaPreviewState extends State<LocalMediaPreview> {
     }
   }
 
-  Future<void> _release() async {
+  Future<void> closePreview() {
+    if (_closing != null) return _closing!;
+    _closed = true;
+    if (mounted && !_disposing) setState(() {});
+    return _closing = _finishClosing();
+  }
+
+  Future<void> _finishClosing() async {
+    await _opening;
+    await _release();
+  }
+
+  Future<void> _release() {
+    if (_releasing != null) return _releasing!;
+    final work = _releaseResources();
+    _releasing = work;
+    return work.whenComplete(() => _releasing = null);
+  }
+
+  Future<void> _releaseResources() async {
     await _errors?.cancel();
     _errors = null;
     final player = _player;
@@ -164,9 +184,14 @@ class LocalMediaPreviewState extends State<LocalMediaPreview> {
 
   @override
   void dispose() {
+    _disposing = true;
     _closed = true;
     widget.controller.removeListener(_sessionChanged);
-    unawaited(_release());
+    unawaited(
+      closePreview().whenComplete(
+        () => widget.controller.unregisterPreviewCleanup(closePreview),
+      ),
+    );
     super.dispose();
   }
 
@@ -175,7 +200,7 @@ class LocalMediaPreviewState extends State<LocalMediaPreview> {
   @override
   Widget build(BuildContext context) {
     final player = _player;
-    if (_closed) return const Text('资料库已锁定，播放已停止');
+    if (_closed) return const Text('预览已关闭，播放已停止');
     if (_error != null) return Text(_error!);
     if (!_ready || player == null) {
       return const Center(child: CircularProgressIndicator());
