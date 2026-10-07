@@ -53,6 +53,9 @@ class AgentService {
   }) async {
     if (_disposed) throw const FormatException('资料库已关闭');
     if (isBusy) throw const FormatException('请等待当前操作完成');
+    if (configuration.isChanging) {
+      throw const FormatException('服务配置正在保存，请等待保存完成后重新检查本轮发送范围');
+    }
     if (!vault.isUnlocked) throw StateError('请先解锁资料库');
     final settings = configuration.settings;
     if (!settings.isConfigured) {

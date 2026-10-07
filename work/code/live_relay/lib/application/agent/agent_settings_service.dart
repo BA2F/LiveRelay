@@ -23,6 +23,7 @@ class AgentSettingsService {
   AiProviderSettings get settings => _settings;
   List<AiProviderSettings> get profiles => _profiles;
   int get generation => _generation;
+  bool get isChanging => _changing;
   Stream<int> get changes => _changes.stream;
 
   Future<void> initialize() async {
@@ -50,6 +51,13 @@ class AgentSettingsService {
     try {
       await action();
       if (!_disposed) _changes.add(_generation);
+    } on Object {
+      // A catalog write may have committed before cleanup/readback failed.
+      // Never pair stale endpoint metadata with the newly stored credential.
+      _settings = empty;
+      _profiles = const [];
+      if (!_disposed) _changes.add(_generation);
+      rethrow;
     } finally {
       _changing = false;
     }

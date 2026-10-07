@@ -142,11 +142,19 @@ Map<String, Future<void> Function()> agentServiceChecks() => {
             'fixture write failed',
           );
           require(
-            fixture.configuration.settings.model == 'fixture-model',
-            'Failed write replaced active settings',
+            !fixture.configuration.settings.isConfigured,
+            'Failed write retained a sendable stale configuration',
           );
           fixture.provider.complete(0);
           await rejected;
+          await rejects(
+            fixture.agent.converse('new request after failed save', []),
+            '请先配置 AI 服务',
+          );
+          require(
+            fixture.provider.requests.length == 1,
+            'Failed configuration allowed a new upstream request',
+          );
         } finally {
           fixture.dispose();
         }
@@ -201,6 +209,14 @@ Map<String, Future<void> Function()> agentServiceChecks() => {
             model: 'new',
           );
           await rejects(fixture.configuration.clear(), '等待当前服务配置');
+          await rejects(
+            fixture.agent.converse('request during configuration write', []),
+            '服务配置正在保存',
+          );
+          require(
+            fixture.provider.requests.isEmpty,
+            'Configuration write allowed an upstream request',
+          );
           write.complete();
           await save;
           require(
@@ -490,12 +506,12 @@ class _Settings implements AiSettingsRepository {
     String? apiKey,
   }) async {
     await pendingSave;
-    if (rejectSave) throw StateError('fixture write failed');
     selected = AiProviderSettings(
       endpoint: endpoint,
       model: model,
       hasApiKey: true,
     );
+    if (rejectSave) throw StateError('fixture write failed');
   }
 
   @override
