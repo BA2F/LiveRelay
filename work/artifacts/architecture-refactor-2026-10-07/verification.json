@@ -1,0 +1,81 @@
+{
+  "verifiedAt": "2026-10-07T14:59:26.250064+00:00",
+  "sourceCommit": "66a3147da3edd7d68213b10f2e8d8dc91f8523b3",
+  "normalClient": true,
+  "entrypoint": "lib/main.dart",
+  "originalDesktopGoalAcceptedComplete": true,
+  "completionBasis": "2026-10-07 explicit human acceptance; unverified external/hardware checks remain deferred",
+  "architectureStageComplete": true,
+  "wholeRepositoryFrontendIndependent": false,
+  "checks": {
+    "flutterTests": 223,
+    "headlessDartChecks": 11,
+    "headlessChecksIncludedInFlutterTotal": true,
+    "waylandMainNativeCases": 15,
+    "x11DetachedNativeCases": 7,
+    "productionMainNativeCases": 1,
+    "analysis": "no issues"
+  },
+  "logs": {
+    "final-analysis": {
+      "path": "work/artifacts/architecture-refactor-2026-10-07/logs/liverelay-architecture-final-analysis.log",
+      "sha256": "4f272413d45a3174a562b70fb1c09aad0ffb85a41010813a9d70bea86198441f"
+    },
+    "final-test": {
+      "path": "work/artifacts/architecture-refactor-2026-10-07/logs/liverelay-architecture-final-test.log",
+      "sha256": "804ac57bca15ef81428420ba203233d5cafee70d7f5f0f027b46bbfb3c7d6d2f"
+    },
+    "final-headless": {
+      "path": "work/artifacts/architecture-refactor-2026-10-07/logs/liverelay-architecture-final-headless.log",
+      "sha256": "4c3c86ecafc45e110d64d7afa14f15c16394381fcf97b15ec6469ed6526348e3"
+    },
+    "native-main": {
+      "path": "work/artifacts/architecture-refactor-2026-10-07/logs/liverelay-architecture-native-main.log",
+      "sha256": "d748e2c4309e78ed4f6962e23dcbb468f4592173ae7adae0199a145ef84db72c"
+    },
+    "native-windows": {
+      "path": "work/artifacts/architecture-refactor-2026-10-07/logs/liverelay-architecture-native-windows.log",
+      "sha256": "86c76fe9d062429df216cbe39e191e55039490a47a42ccd8e8d062a2d090ef93"
+    },
+    "production-startup": {
+      "path": "work/artifacts/architecture-refactor-2026-10-07/logs/liverelay-architecture-production-startup.log",
+      "sha256": "41ebeb4728514972522d80c5ededf9e0828c698e4d8a330ee708d9f13538e3f6"
+    },
+    "linux-main": {
+      "path": "work/artifacts/architecture-refactor-2026-10-07/logs/liverelay-architecture-linux-main.log",
+      "sha256": "f5d12ffbf438c511b676dc6d5a6d10ec24eabde2599b74c90e895b25f50d24ba"
+    },
+    "android-main": {
+      "path": "work/artifacts/architecture-refactor-2026-10-07/logs/liverelay-architecture-android-main.log",
+      "sha256": "667fd6890a04cd20b7dd11c9a804d2cfa01d6943e9a42d75e485ccdf5f138246"
+    }
+  },
+  "linux": {
+    "path": "work/exports/release-artifacts/architecture-refactor-2026-10-07/liverelay-linux-debug-main.tar.gz",
+    "size": 62314408,
+    "sha256": "144a8ca1972510328b308407722351dbd60e80f270f2da6db51063ebe7d545ec",
+    "bundleFiles": 34,
+    "bundleBytes": 195432585,
+    "archiveMatchesEveryBundleFile": true,
+    "kind": "current-host debug, not portable release"
+  },
+  "android": {
+    "path": "work/exports/release-artifacts/architecture-refactor-2026-10-07/liverelay-android-debug-main.apk",
+    "size": 330373067,
+    "sha256": "d2f82bd599cd0135e1c6104dad1132f59367e26239ebdd0b08a88a7964a09bd9",
+    "copyMatchesNormalMainBuild": true,
+    "installed": false
+  },
+  "deferred": {
+    "newMicrophoneCapture": false,
+    "realRemoteAsr": false,
+    "manualWaylandCrossMonitor": false,
+    "wholeAppOwnerDailyUse": false,
+    "rustOrGpuiBridgeImplemented": false
+  },
+  "notes": [
+    "No user vault/API key read; public/fictional fixtures only.",
+    "Linux targets ran sequentially; final normal main rebuilt.",
+    "No main merge, tag movement or release publication."
+  ]
+}
