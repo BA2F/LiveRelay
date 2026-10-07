@@ -1,1 +1,1 @@
-{"fixtureOnly":true,"independentProcess":true,"vaultOwnerInChild":false,"immutableInputsAndAttachments":true,"scopedReadRejected":true,"navigateReload":true,"lockRevokesProcess":true,"unlockRestoresView":true,"closeRedocks":true}
+{"fixtureOnly":true,"independentProcess":true,"vaultOwnerInChild":false,"immutableInputsAndAttachments":true,"scopedReadRejected":true,"navigateReload":true,"consecutiveRoundTrips":5,"lockRevokesProcess":true,"unlockRestoresView":true,"closeRedocks":true}

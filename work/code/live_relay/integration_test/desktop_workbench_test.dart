@@ -42,6 +42,8 @@ import 'package:live_relay/presentation/workbench/dock_surface.dart';
 import '../test/support/verification_fakes.dart';
 import '../test/support/pdf_fixture.dart';
 import '../test/workbench/remote_speech_test.dart' show wave;
+import '../test/workbench/window_speech_bridge_test.dart'
+    show FixtureWindowSpeech;
 import '../test/workbench/review_action_proposal_test.dart' show PlanningAi;
 import '../test/workbench/conversation_concurrency_test.dart'
     show PendingConversationAi;
@@ -49,6 +51,10 @@ import '../test/workbench/conversation_concurrency_test.dart'
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
   WidgetController.hitTestWarningShouldBeFatal = true;
+  testWidgets(
+    'native M4A prepares full WAV or reviewed transcript and preserves original confirmation evidence',
+    _mediaConversionTest,
+  );
   testWidgets(
     'native desktop edits and layout persist in encrypted vault without confirming drafts',
     (tester) async {
@@ -131,7 +137,77 @@ void main() {
           (await c.releasePolicy('card', id)).visibleAt(LifeState.deceased),
           VisibilityLevel.hidden,
         );
-        surface.layout.move('changes', '', DockPlacement.floating);
+        final targetGroup = surface.layout.containing('cards')!;
+        final originalGroups = surface.layout.groups.length;
+        Future<void> dockDrag(Finder source, DockPlacement placement) async {
+          await tester.ensureVisible(source);
+          final gesture = await tester.startGesture(tester.getCenter(source));
+          await gesture.moveBy(const Offset(40, 0));
+          await tester.pump();
+          final target = find.byKey(
+            ValueKey('dock-target-${targetGroup.id}-${placement.name}'),
+          );
+          expect(target, findsOneWidget);
+          await gesture.moveTo(tester.getCenter(target));
+          await tester.pump();
+          final highlight = tester.widget<Container>(
+            find.descendant(of: target, matching: find.byType(Container)).first,
+          );
+          expect(
+            (highlight.decoration! as BoxDecoration).color,
+            Theme.of(tester.element(target)).colorScheme.primaryContainer,
+          );
+          await gesture.up();
+          await tester.pumpAndSettle();
+        }
+
+        Finder viewDrag(bool tab) => find
+            .byWidgetPredicate(
+              (w) => w is Draggable<String> && w.data == 'changes',
+            )
+            .at(tab ? 1 : 0);
+        for (final placement in [
+          DockPlacement.left,
+          DockPlacement.right,
+          DockPlacement.top,
+          DockPlacement.bottom,
+        ]) {
+          await dockDrag(viewDrag(false), placement);
+          expect(surface.layout.groups.length, originalGroups + 1);
+          expect(
+            surface.layout.containing('changes')!.id,
+            isNot(targetGroup.id),
+          );
+          await dockDrag(viewDrag(true), DockPlacement.center);
+          expect(surface.layout.containing('changes')!.id, targetGroup.id);
+          expect(surface.layout.groups.length, originalGroups);
+        }
+        final split = surface.layout.root as DockSplit;
+        final fraction = split.fraction;
+        await tester.drag(find.byKey(ObjectKey(split)), const Offset(35, 0));
+        await tester.pumpAndSettle();
+        expect(split.fraction, greaterThan(fraction));
+        await tester.tap(find.byTooltip('移动当前视图').first);
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('工作台内浮动').last);
+        await tester.pumpAndSettle();
+        final floating = surface.layout.floating.single;
+        final oldPosition = Offset(floating.x, floating.y);
+        await tester.drag(
+          find.byKey(ValueKey('dock-floating-move-${floating.group.id}')),
+          const Offset(35, 25),
+        );
+        await tester.pumpAndSettle();
+        expect(floating.x, greaterThan(oldPosition.dx));
+        expect(floating.y, greaterThan(oldPosition.dy));
+        final oldSize = Size(floating.width, floating.height);
+        await tester.drag(
+          find.byKey(ValueKey('dock-floating-resize-${floating.group.id}')),
+          const Offset(-45, -35),
+        );
+        await tester.pumpAndSettle();
+        expect(floating.width, lessThan(oldSize.width));
+        expect(floating.height, lessThan(oldSize.height));
         await tester.pump(const Duration(seconds: 1));
         await tester.pumpAndSettle();
         final state = await c.readWorkbenchState();
@@ -173,6 +249,17 @@ void main() {
               'confirmationDoesNotGrantRelease': true,
               'encryptedReopen': true,
               'layoutPersistence': true,
+              'nativePointerDocking': [
+                'left',
+                'right',
+                'top',
+                'bottom',
+                'center',
+              ],
+              'dropHighlight': true,
+              'iconAndTabDrag': true,
+              'splitResize': true,
+              'floatingMoveResize': true,
               'revisions': 4,
               'recycleRestore': true,
             }),
@@ -733,7 +820,7 @@ void main() {
         await tester.pumpAndSettle();
         expect(ai.requests, isEmpty);
         expect(
-          find.text('图片/文件/音频发送完整内容；视频仅发送已检查的采样帧及时间，不发送音轨。敏感行标记仅适用于主输入：'),
+          find.text('请核对每个附件的实际发送范围。敏感行标记仅适用于主输入，附件及核对转写不会自动替换敏感内容：'),
           findsOneWidget,
         );
         await tester.tap(find.text('允许本次发送'));
@@ -1137,7 +1224,7 @@ void main() {
         await tester.tap(find.text('远程语音服务').last);
         await tester.pumpAndSettle();
         expect(speech.usingRemote, true);
-        await tester.tap(find.text('识别 WAV 文件'));
+        await tester.tap(find.text('识别音频／视频音轨'));
         for (
           var i = 0;
           i < 100 && find.text('允许上传本次音频？').evaluate().isEmpty;
@@ -1158,7 +1245,7 @@ void main() {
         await tester.pumpAndSettle();
         expect(requests, 0);
         expect(c.blobs, isEmpty);
-        await tester.tap(find.text('识别 WAV 文件'));
+        await tester.tap(find.text('识别音频／视频音轨'));
         for (
           var i = 0;
           i < 100 && find.text('允许上传本次音频？').evaluate().isEmpty;
@@ -1354,9 +1441,10 @@ void main() {
           await tester.pump(const Duration(milliseconds: 50));
         }
         expect(vp.state.position.inMilliseconds, greaterThanOrEqualTo(900));
-        final frame = await vp.screenshot();
-        expect(frame, isNotNull);
-        expect(frame!.length, greaterThan(100));
+        final frames = await videoKey.currentState!.sampleFrames();
+        expect(frames, hasLength(4));
+        final frame = frames.first.bytes;
+        expect(frame.length, greaterThan(100));
         final audioFile = audioKey.currentState!.temporaryFile!;
         final videoFile = videoKey.currentState!.temporaryFile!;
         final evidence = Platform.environment['LIVERELAY_WORKBENCH_EVIDENCE'];
@@ -1377,9 +1465,13 @@ void main() {
               'height': vp.state.height,
               'seekMs': vp.state.position.inMilliseconds,
               'frameBytes': frame.length,
+              'frameExport': 'bounded-offline-ffmpeg',
               'fixtureOnly': true,
             }),
           );
+        }
+        for (final f in frames) {
+          f.bytes.fillRange(0, f.bytes.length, 0);
         }
         await c.lock();
         for (
@@ -1529,7 +1621,8 @@ void main() {
         final parts = provider.requests.single.inputContent!;
         expect(parts.where((p) => p['type'] == 'input_audio'), hasLength(1));
         expect(parts.where((p) => p['type'] == 'image_url'), hasLength(4));
-        expect(jsonEncode(parts), contains('不发送视频原件或音轨'));
+        expect(jsonEncode(parts), contains('不发送视频原件'));
+        expect(jsonEncode(parts), contains('不发送音轨'));
         expect(q.disclosureHistory, isNot(contains(base64Encode(audio.bytes))));
         expect(q.disclosureHistory, contains('完整音频'));
         await q.flush();
@@ -2228,4 +2321,185 @@ final class _FixtureFile extends PlatformFile {
   Future<Uint8List> readAsBytes() => xFile.readAsBytes();
   @override
   Stream<Uint8List> readAsByteStream() => xFile.openRead();
+}
+
+Future<void> _mediaConversionTest(WidgetTester tester) async {
+  FlutterSecureStorage.setMockInitialValues({});
+  final root = await Directory.systemTemp.createTemp('liverelay-media-ui-');
+  final source = await File('${root.path}/fixture.wav').writeAsBytes(wave());
+  final m4a = File('${root.path}/fixture.m4a');
+  expect(
+    (await Process.run('ffmpeg', [
+      '-v',
+      'error',
+      '-i',
+      source.path,
+      '-c:a',
+      'aac',
+      m4a.path,
+    ])).exitCode,
+    0,
+  );
+  final originalBytes = await m4a.readAsBytes();
+  final provider = RecordingConversationAi();
+  final local = FixtureWindowSpeech();
+  final speech = SpeechService(local, supported: true, remoteProvider: local);
+  final c = createAppController(
+    root,
+    NoBiometrics(),
+    TestOcr(),
+    provider,
+    TestAiSettings()
+      ..configured = true
+      ..audio = true,
+    null,
+    null,
+    null,
+    speech,
+  );
+  final q = AgentConversation(c);
+  final shot = GlobalKey();
+  Future<void> wait(bool Function() ready) async {
+    for (var i = 0; i < 120 && !ready(); i++) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+    expect(ready(), true);
+  }
+
+  try {
+    await c.initialize();
+    await c.setupVault(
+      password: 'fixture-media-password',
+      usesChinesePassphrase: false,
+    );
+    await q.addFilePaths([m4a.path]);
+    final attachment = q.attachments.single;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: RepaintBoundary(
+          key: shot,
+          child: Scaffold(
+            body: AnimatedBuilder(
+              animation: q,
+              builder: (context, _) => AttachmentStrip(conversation: q),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(ValueKey('attachment-preview-${attachment.id}')),
+    );
+    await tester.pump(const Duration(milliseconds: 500));
+    await tester.tap(find.text('准备完整WAV音轨'));
+    await wait(
+      () =>
+          attachment.normalizedAudio != null &&
+          find.text('准备完整WAV音轨').evaluate().isEmpty,
+    );
+    expect(attachment.bytes, originalBytes);
+    final oldTurn = q.prepare('音轨', []);
+    final wire = attachment.wireParts(
+      AiProtocol.chatCompletions,
+      images: false,
+      files: false,
+      audio: true,
+    );
+    expect(wire.single['type'], 'input_audio');
+    await tester.tap(
+      find.byKey(ValueKey('attachment-preview-${attachment.id}')),
+    );
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.tap(find.text('转写并核对音轨'));
+    await tester.pump(const Duration(milliseconds: 500));
+    await tester.tap(find.text('转写当前附件音轨'));
+    final field = find.byWidgetPredicate(
+      (w) => w is TextField && w.decoration?.labelText == '检查或修改识别文字',
+    );
+    await wait(
+      () =>
+          field.evaluate().isNotEmpty &&
+          tester.widget<TextField>(field).controller!.text == '虚构转写',
+    );
+    await tester.enterText(field, '本人核对M4A转写');
+    await tester.ensureVisible(find.text('使用核对文字发送此附件'));
+    await tester.pump(const Duration(milliseconds: 100));
+    await tester.tap(find.text('使用核对文字发送此附件'));
+    await wait(
+      () =>
+          attachment.transcript == '本人核对M4A转写' &&
+          find.text('转写并核对音轨').evaluate().isEmpty,
+    );
+    expect(attachment.bytes, originalBytes);
+    expect(c.blobs, isEmpty);
+    expect(await q.send(oldTurn), false);
+    expect(provider.requests, isEmpty);
+    final evidence = Platform.environment['LIVERELAY_WORKBENCH_EVIDENCE'];
+    if (evidence != null) {
+      final image =
+          await (shot.currentContext!.findRenderObject()
+                  as RenderRepaintBoundary)
+              .toImage();
+      final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
+      await File('$evidence/native-media-conversion.png')
+          .writeAsBytes(bytes!.buffer.asUint8List());
+      image.dispose();
+    }
+    expect(await q.send(q.prepare('核对音频', [])), true);
+    expect(
+      provider.requests.single.inputContent!.where(
+        (p) => p['type'] == 'input_audio',
+      ),
+      isEmpty,
+    );
+    expect(
+      jsonEncode(provider.requests.single.inputContent),
+      contains('本人核对M4A转写'),
+    );
+    expect(await q.send(q.prepare('整理为草稿', [])), true);
+    await q.accept(q.messages.last);
+    final card = c.cards.single;
+    final review = (await c.cardReviewSource(card.id))!;
+    final retained = review.inputs.first.attachments.single;
+    expect(retained.bytes, originalBytes);
+    expect(retained.transcript, '本人核对M4A转写');
+    expect(retained.normalizedAudio, isNotNull);
+    retained.wipe();
+    await q.flush();
+    await tester.pumpWidget(const SizedBox());
+    await c.lock();
+    await c.unlockWithPassword('fixture-media-password');
+    await q.load();
+    final restored = (await c.cardReviewSource(card.id))!
+        .inputs
+        .first
+        .attachments
+        .single;
+    expect(restored.bytes, originalBytes);
+    expect(restored.transcript, '本人核对M4A转写');
+    restored.wipe();
+    if (evidence != null) {
+      await File('$evidence/media-conversion-verification.json').writeAsString(
+        jsonEncode({
+          'fixtureOnly': true,
+          'realFfmpegM4a': true,
+          'fullWavPrepared': true,
+          'reviewedTranscriptAdopted': true,
+          'staleAuthorizationRejected': true,
+          'originalM4aRetained': true,
+          'noImplicitBlob': true,
+          'confirmationEvidenceReopened': true,
+          'microphoneHardwareTested': false,
+          'upstreamAsrTested': false,
+        }),
+      );
+    }
+  } finally {
+    await tester.pumpWidget(const SizedBox());
+    q.dispose();
+    await c.lock();
+    c.dispose();
+    await root.delete(recursive: true);
+  }
 }

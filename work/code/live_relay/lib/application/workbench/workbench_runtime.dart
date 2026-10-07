@@ -14,7 +14,10 @@ import 'workbench_layout.dart';
 /// One owner for desktop sessions and persistence, independent of the view tree.
 /// Detached windows remain presentation clients; they never own a vault session.
 class WorkbenchRuntime extends ChangeNotifier {
-  WorkbenchRuntime(this.controller) {
+  WorkbenchRuntime(
+    this.controller, {
+    Future<void> Function()? activateMainWindow,
+  }) {
     conversation = AgentConversation(controller);
     extensions = ExtensionRegistry(
       read: controller.readWorkbenchExtensions,
@@ -30,6 +33,7 @@ class WorkbenchRuntime extends ChangeNotifier {
       edits: edits,
       conversation: conversation,
       extensions: extensions,
+      activateMain: activateMainWindow,
       onDock: (view) {
         if (!_disposed && controller.isUnlocked) layout.open(view);
       },

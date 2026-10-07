@@ -2,8 +2,10 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:uuid/uuid.dart';
+import 'package:crypto/crypto.dart';
 
 import '../ports/ai_provider.dart';
+import '../media/pcm_wave.dart';
 
 enum ConversationAttachmentKind { text, image, pdf, audio, video, unsupported }
 
@@ -24,7 +26,35 @@ class ConversationAttachment {
   String? blobId;
   final Uint8List bytes;
   final ConversationAttachmentKind kind;
+  Uint8List? _normalizedAudio;
+  String? _audioStamp;
+  Uint8List? get normalizedAudio => _normalizedAudio;
+  String? get audioStamp => _audioStamp;
+  set normalizedAudio(Uint8List? bytes) {
+    _normalizedAudio = bytes;
+    _audioStamp = bytes == null ? null : sha256.convert(bytes).toString();
+  }
+
+  String? transcript;
   final frames = <({int milliseconds, Uint8List bytes})>[];
+  String get sendDescription {
+    if (kind == ConversationAttachmentKind.audio) {
+      return transcript != null
+          ? '仅发送本人核对转写（${transcript!.length}字）'
+          : normalizedAudio != null
+          ? '发送完整转换WAV音轨（${normalizedAudio!.length}字节）'
+          : '发送完整音频（${bytes.length}字节）';
+    }
+    if (kind == ConversationAttachmentKind.video) {
+      return '发送${frames.length}个已检查视频帧与时间；${transcript != null
+          ? "仅发送核对音轨文字"
+          : normalizedAudio != null
+          ? "另发送完整转换音轨"
+          : "不发送音轨"}';
+    }
+    return '发送完整所选内容（${bytes.length}字节）';
+  }
+
   String get text => utf8.decode(bytes);
   String get dataUrl => 'data:$mimeType;base64,${base64Encode(bytes)}';
   static const maxBytes = 2 * 1024 * 1024;
@@ -123,6 +153,9 @@ class ConversationAttachment {
     'card': cardId,
     'cardRevision': cardRevision,
     'blob': blobId,
+    if (normalizedAudio != null)
+      'normalizedAudio': base64Encode(normalizedAudio!),
+    if (transcript != null) 'transcript': transcript,
     'frames': [
       for (final f in frames)
         {'ms': f.milliseconds, 'bytes': base64Encode(f.bytes)},
@@ -155,6 +188,34 @@ class ConversationAttachment {
       cardRevision: checked.cardRevision,
       blobId: checked.blobId,
     );
+    try {
+      if (raw['normalizedAudio'] != null) {
+        result.normalizedAudio = base64Decode(raw['normalizedAudio'] as String);
+        PcmWave.validate(result.normalizedAudio!);
+        if (!{
+          ConversationAttachmentKind.audio,
+          ConversationAttachmentKind.video,
+        }.contains(result.kind)) {
+          throw const FormatException('附件音轨类型无效');
+        }
+      }
+      final transcript = raw['transcript'];
+      if (transcript != null) {
+        if (transcript is! String ||
+            transcript.trim().isEmpty ||
+            transcript.length > 32000 ||
+            !{
+              ConversationAttachmentKind.audio,
+              ConversationAttachmentKind.video,
+            }.contains(result.kind)) {
+          throw const FormatException('附件转写无效');
+        }
+        result.transcript = transcript;
+      }
+    } on Object {
+      result.wipe();
+      rethrow;
+    }
     for (final f in raw['frames'] as List? ?? []) {
       final frame = ConversationAttachment.read(
         'frame.jpg',
@@ -197,9 +258,16 @@ class ConversationAttachment {
         }
         return {'type': 'input_file', 'filename': name, 'file_data': dataUrl};
       case ConversationAttachmentKind.audio:
+        if (transcript != null) {
+          return {
+            'type': protocol == AiProtocol.responses ? 'input_text' : 'text',
+            'text': '音频 $name：仅发送本人核对的转写，不发送音频。\n$transcript',
+          };
+        }
         if (!audio ||
             protocol != AiProtocol.chatCompletions ||
-            !{'audio/wav', 'audio/mpeg'}.contains(mimeType)) {
+            (normalizedAudio == null &&
+                !{'audio/wav', 'audio/mpeg'}.contains(mimeType))) {
           throw const FormatException(
             '此音频需要声明音频输入能力的Chat服务和WAV/MP3格式；也可使用独立语音转写。',
           );
@@ -207,8 +275,10 @@ class ConversationAttachment {
         return {
           'type': 'input_audio',
           'input_audio': {
-            'data': base64Encode(bytes),
-            'format': mimeType == 'audio/wav' ? 'wav' : 'mp3',
+            'data': base64Encode(normalizedAudio ?? bytes),
+            'format': normalizedAudio != null || mimeType == 'audio/wav'
+                ? 'wav'
+                : 'mp3',
           },
         };
       case ConversationAttachmentKind.video:
@@ -228,13 +298,30 @@ class ConversationAttachment {
       return [wire(protocol, images: images, files: files, audio: audio)];
     }
     if (!images || frames.isEmpty) {
-      throw const FormatException('请先选取并检查视频帧；服务还需支持图片');
+      if (transcript == null || frames.isNotEmpty) {
+        throw const FormatException('请先选取并检查视频帧；服务还需支持图片');
+      }
     }
     return [
       {
         'type': protocol == AiProtocol.responses ? 'input_text' : 'text',
-        'text': '视频 $name：仅发送以下${frames.length}个采样帧及对应时间，不发送视频原件或音轨。',
+        'text':
+            '视频 $name：发送${frames.length}个已检查采样帧及时间；不发送视频原件。${transcript != null
+                ? "音轨只发送本人核对的转写。"
+                : normalizedAudio != null
+                ? "另发送完整转换音轨。"
+                : "不发送音轨。"}',
       },
+      if (transcript != null)
+        {
+          'type': protocol == AiProtocol.responses ? 'input_text' : 'text',
+          'text': '本人核对的视频音轨转写：\n$transcript',
+        },
+      if (transcript == null && normalizedAudio != null)
+        ConversationAttachment.read(
+          'video-audio.wav',
+          normalizedAudio!,
+        ).wire(protocol, images: false, files: false, audio: audio),
       for (final frame in frames) ...[
         {
           'type': protocol == AiProtocol.responses ? 'input_text' : 'text',
@@ -250,6 +337,9 @@ class ConversationAttachment {
 
   void wipe() {
     bytes.fillRange(0, bytes.length, 0);
+    normalizedAudio?.fillRange(0, normalizedAudio!.length, 0);
+    normalizedAudio = null;
+    transcript = null;
     for (final f in frames) {
       f.bytes.fillRange(0, f.bytes.length, 0);
     }

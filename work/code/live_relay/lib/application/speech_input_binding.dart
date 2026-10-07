@@ -2,6 +2,7 @@ import 'dart:typed_data';
 
 import 'speech_access.dart';
 import '../core/domain/entities.dart';
+import '../core/ai/conversation_attachment.dart';
 import 'app_controller.dart';
 import 'preview_session.dart';
 
@@ -28,7 +29,11 @@ class SpeechRecognition {
 abstract class SpeechInputBinding {
   PreviewSession get session;
   SpeechAccess? get speech;
-  Future<SpeechPreparation> prepare(Uint8List wav);
+  Future<SpeechPreparation> prepare(
+    Uint8List wav, {
+    Uint8List? original,
+    String? originalName,
+  });
   Future<SpeechRecognition> recognize(
     SpeechPreparation prepared, {
     required bool saveOriginal,
@@ -42,6 +47,7 @@ class LocalSpeechInputBinding implements SpeechInputBinding {
   LocalSpeechInputBinding(this.controller);
   final AppController controller;
   Uint8List? _wav;
+  ConversationAttachment? _original;
   SpeechPreparation? _prepared;
   int? _configuration;
   @override
@@ -49,8 +55,24 @@ class LocalSpeechInputBinding implements SpeechInputBinding {
   @override
   SpeechAccess? get speech => controller.speech;
   @override
-  Future<SpeechPreparation> prepare(Uint8List wav) async {
+  Future<SpeechPreparation> prepare(
+    Uint8List wav, {
+    Uint8List? original,
+    String? originalName,
+  }) async {
+    if (!controller.isUnlocked) throw const FormatException('资料库已锁定');
     final service = controller.speech!;
+    final source = ConversationAttachment.read(
+      originalName ?? '语音-${DateTime.now().millisecondsSinceEpoch}.wav',
+      original ?? wav,
+    );
+    if (!{
+      ConversationAttachmentKind.audio,
+      ConversationAttachmentKind.video,
+    }.contains(source.kind)) {
+      throw const FormatException('请选择音频或视频原件');
+    }
+    _original = source;
     _wav = wav;
     _configuration = service.configurationGeneration;
     final settings = service.remoteSettings;
@@ -78,15 +100,19 @@ class LocalSpeechInputBinding implements SpeechInputBinding {
       throw const FormatException('语音配置或识别范围已变化，请重新核对');
     }
     final configuration = _configuration!;
+    final source = _original!;
+    _original = null;
     _prepared = null;
     _wav = null;
     String? blobId;
     if (saveOriginal) {
       final original = await controller.importOriginal(
-        bytes: Uint8List.fromList(wav),
-        originalName: '语音-${DateTime.now().millisecondsSinceEpoch}.wav',
-        mimeType: 'audio/wav',
-        mediaKind: BlobMediaKind.audio,
+        bytes: Uint8List.fromList(source.bytes),
+        originalName: source.name,
+        mimeType: source.mimeType,
+        mediaKind: source.kind == ConversationAttachmentKind.video
+            ? BlobMediaKind.video
+            : BlobMediaKind.audio,
       );
       if (!controller.isUnlocked) throw const FormatException('资料库已锁定');
       blobId = (await controller.cardSources(original.id)).first.blobId;
@@ -104,6 +130,7 @@ class LocalSpeechInputBinding implements SpeechInputBinding {
     if (identical(_prepared, prepared)) {
       _prepared = null;
       _wav = null;
+      _original = null;
     }
   }
 

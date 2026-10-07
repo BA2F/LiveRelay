@@ -2,6 +2,12 @@ import '../../core/domain/entities.dart';
 import 'card_edit_sessions.dart';
 
 const windowSourcePreviewMaxBytes = 8 * 1024 * 1024;
+const ownerWorkbenchTools = {
+  'settings': '资料库与服务设置',
+  'passwords': '密码库',
+  'handoff': '身份与交接',
+  'recycle': '回收站',
+};
 
 /// Explicit, bounded presentation projection. Never contains keys or credentials.
 Map<String, Object?> projectWindowCard(LifeCard card, CardEditSession edit) => {

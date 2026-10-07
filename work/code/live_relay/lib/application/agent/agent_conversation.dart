@@ -5,6 +5,7 @@ import 'dart:io';
 import 'package:path/path.dart' as path;
 
 import '../../core/ai/conversation_attachment.dart';
+import '../../core/media/pcm_wave.dart';
 import '../../core/ai/review_source.dart';
 import '../../core/ai/review_actions.dart';
 import '../../core/ai/review_action_proposal.dart';
@@ -270,6 +271,55 @@ class AgentConversation extends ChangeNotifier {
     attachment.frames
       ..clear()
       ..addAll(frames);
+    _generation++;
+    _scheduleSave();
+    notifyListeners();
+  }
+
+  void setAttachmentAudio(ConversationAttachment attachment, Uint8List? wav) {
+    if (working ||
+        !controller.isUnlocked ||
+        !attachments.contains(attachment) ||
+        !{
+          ConversationAttachmentKind.audio,
+          ConversationAttachmentKind.video,
+        }.contains(attachment.kind)) {
+      wav?.fillRange(0, wav.length, 0);
+      throw const FormatException('附件已变化');
+    }
+    try {
+      if (wav != null) PcmWave.validate(wav);
+    } on Object {
+      wav?.fillRange(0, wav.length, 0);
+      rethrow;
+    }
+    attachment.normalizedAudio?.fillRange(
+      0,
+      attachment.normalizedAudio!.length,
+      0,
+    );
+    attachment.normalizedAudio = wav;
+    attachment.transcript = null;
+    _generation++;
+    _scheduleSave();
+    notifyListeners();
+  }
+
+  void setAttachmentTranscript(
+    ConversationAttachment attachment,
+    String? text,
+  ) {
+    if (working ||
+        !controller.isUnlocked ||
+        !attachments.contains(attachment) ||
+        !{
+          ConversationAttachmentKind.audio,
+          ConversationAttachmentKind.video,
+        }.contains(attachment.kind) ||
+        (text != null && (text.trim().isEmpty || text.length > 32000))) {
+      throw const FormatException('附件转写无效');
+    }
+    attachment.transcript = text?.trim();
     _generation++;
     _scheduleSave();
     notifyListeners();

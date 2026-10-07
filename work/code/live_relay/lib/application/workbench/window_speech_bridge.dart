@@ -4,9 +4,10 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:uuid/uuid.dart';
 
-import '../../infrastructure/speech/pcm_wave.dart';
+import '../../core/media/pcm_wave.dart';
 import '../../infrastructure/speech/remote_speech_settings_store.dart';
 import '../../core/domain/entities.dart';
+import '../../core/ai/conversation_attachment.dart';
 import '../app_controller.dart';
 import '../agent/agent_conversation.dart';
 import '../preview_session.dart';
@@ -44,6 +45,7 @@ class WindowSpeechBridge {
   final AgentConversation conversation;
   final bool Function() active;
   Uint8List? _wav;
+  ConversationAttachment? _original;
   String? _ticket;
   int? _configuration;
   int _generation = 0;
@@ -73,6 +75,8 @@ class WindowSpeechBridge {
   void _discard() {
     _wav?.fillRange(0, _wav!.length, 0);
     _wav = null;
+    _original?.wipe();
+    _original = null;
     _ticket = null;
     _configuration = null;
   }
@@ -122,8 +126,33 @@ class WindowSpeechBridge {
         if (bytes is! Uint8List || bytes.length > 2 * 1024 * 1024) {
           throw const FormatException('音频超过识别范围');
         }
-        PcmWave.decode(bytes);
+        PcmWave.validate(bytes);
         if (!s.ready || s.busy) throw const FormatException('语音服务尚未就绪');
+        final raw = a['original'] ?? bytes;
+        final name =
+            a['originalName'] ??
+            '语音-${DateTime.now().millisecondsSinceEpoch}.wav';
+        if (raw is! Uint8List ||
+            raw.length > 2 * 1024 * 1024 ||
+            name is! String) {
+          throw const FormatException('音频原件无效');
+        }
+        final owned = Uint8List.fromList(raw);
+        late final ConversationAttachment source;
+        try {
+          source = ConversationAttachment.read(name, owned);
+        } on Object {
+          owned.fillRange(0, owned.length, 0);
+          rethrow;
+        }
+        if (!{
+          ConversationAttachmentKind.audio,
+          ConversationAttachmentKind.video,
+        }.contains(source.kind)) {
+          source.wipe();
+          throw const FormatException('请选择音频或视频原件');
+        }
+        _original = source;
         _wav = Uint8List.fromList(bytes);
         _ticket = const Uuid().v4();
         _configuration = s.configurationGeneration;
@@ -155,9 +184,9 @@ class WindowSpeechBridge {
         _ticket = null;
         _configuration = null;
         final generation = _generation;
-        final original = a['saveOriginal'] == true
-            ? Uint8List.fromList(wav)
-            : null;
+        final original = a['saveOriginal'] == true ? _original : null;
+        if (original == null) _original?.wipe();
+        _original = null;
         final work = (() async {
           try {
             final text = await s.transcribe(
@@ -169,10 +198,12 @@ class WindowSpeechBridge {
             String? blobId;
             if (original != null) {
               final card = await controller.importOriginal(
-                bytes: original,
-                originalName: '语音-${DateTime.now().millisecondsSinceEpoch}.wav',
-                mimeType: 'audio/wav',
-                mediaKind: BlobMediaKind.audio,
+                bytes: Uint8List.fromList(original.bytes),
+                originalName: original.name,
+                mimeType: original.mimeType,
+                mediaKind: original.kind == ConversationAttachmentKind.video
+                    ? BlobMediaKind.video
+                    : BlobMediaKind.audio,
               );
               _check();
               if (generation != _generation) {
@@ -186,7 +217,7 @@ class WindowSpeechBridge {
             return <String, Object?>{'text': text, 'blobId': blobId};
           } finally {
             wav.fillRange(0, wav.length, 0);
-            original?.fillRange(0, original.length, 0);
+            original?.wipe();
           }
         })();
         _work = work;
@@ -313,8 +344,16 @@ class RemoteSpeechInputBinding extends ChangeNotifier
   }
 
   @override
-  Future<SpeechPreparation> prepare(Uint8List wav) async {
-    final d = await request('prepareSpeech', {'wav': wav}) as Map;
+  Future<SpeechPreparation> prepare(
+    Uint8List wav, {
+    Uint8List? original,
+    String? originalName,
+  }) async {
+    final d = await request('prepareSpeech', {
+      'wav': wav,
+      'original': ?original,
+      'originalName': ?originalName,
+    }) as Map;
     return SpeechPreparation(
       ticket: d['ticket'] as String,
       remote: d['remote'] == true,

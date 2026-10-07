@@ -25,6 +25,7 @@ class DetachedWorkbenchSession {
   final PresentationWindow window;
   Map<String, double>? bounds;
   bool closed = false;
+  bool navigating = false;
   WindowReviewReader? reviewReader;
   WindowSpeechBridge? speechBridge;
   WindowConversationBridge? conversationBridge;
@@ -38,6 +39,7 @@ class NativeWindowHost {
     required this.edits,
     required this.conversation,
     required this.onDock,
+    this.activateMain,
     this.extensions,
     this.diagnostics = false,
   }) {
@@ -55,6 +57,7 @@ class NativeWindowHost {
       (!view.startsWith('extension/') ||
           (extensions?.views.containsKey(view) ?? false));
   final void Function(String) onDock;
+  final Future<void> Function()? activateMain;
   final bool diagnostics;
   final sessions = <DetachedWorkbenchSession>[];
   bool _disposed = false, _unlocked = true;
@@ -209,7 +212,11 @@ class NativeWindowHost {
         controller,
         conversation,
         active: () =>
-            !_disposed && epoch == _epoch && !s.closed && s.view == 'speech',
+            !_disposed &&
+            epoch == _epoch &&
+            !s.closed &&
+            !s.navigating &&
+            {'speech', 'agent'}.contains(s.view),
       );
       return bridge.invoke(call);
     }
@@ -223,6 +230,7 @@ class NativeWindowHost {
             epoch == _epoch &&
             controller.isUnlocked &&
             !s.closed &&
+            !s.navigating &&
             s.view == 'extensions',
       ).invoke(call);
       return true;
@@ -232,7 +240,11 @@ class NativeWindowHost {
       final bridge = s.conversationBridge ??= WindowConversationBridge(
         conversation,
         active: () =>
-            !_disposed && epoch == _epoch && !s.closed && s.view == 'agent',
+            !_disposed &&
+            epoch == _epoch &&
+            !s.closed &&
+            !s.navigating &&
+            s.view == 'agent',
       );
       return bridge.invoke(call);
     }
@@ -258,6 +270,7 @@ class NativeWindowHost {
               !_disposed &&
               epoch == _epoch &&
               !s.closed &&
+              !s.navigating &&
               controller.isUnlocked &&
               s.view == 'review/$cardId' &&
               controller.cards.any((c) => c.id == cardId && !c.isDeleted),
@@ -266,13 +279,26 @@ class NativeWindowHost {
       case 'navigate':
         final view = a['view'] as String;
         if (!_supported(view)) throw const FormatException('不支持的视图');
-        s.conversationBridge?.clear();
-        s.view = view;
-        s.conversationBridge?.clear();
-        await s.reviewReader?.clear();
-        await s.speechBridge?.clear();
-        _version++;
-        await _persist();
+        if (s.navigating) throw const FormatException('视图切换尚未完成');
+        s.navigating = true;
+        try {
+          s.conversationBridge?.clear();
+          await s.reviewReader?.clear();
+          await s.speechBridge?.clear();
+          if (_disposed ||
+              epoch != _epoch ||
+              s.closed ||
+              !controller.isUnlocked) {
+            throw PlatformException(code: 'SESSION_REVOKED');
+          }
+          // Publish the new scope only after the previous scope has finished
+          // clearing. A late snapshot must not mount a reader during cleanup.
+          s.view = view;
+          _version++;
+          await _persist();
+        } finally {
+          s.navigating = false;
+        }
       case 'edit':
         if (!{'title', 'content', 'tags'}.contains(a['field']) ||
             a['text'] is! String ||
@@ -313,10 +339,11 @@ class NativeWindowHost {
           (a['targets'] as List).cast<String>(),
         );
       case 'openMain':
-        if (!{'settings', 'speech'}.contains(a['view'])) {
+        if (!{...ownerWorkbenchTools.keys, 'speech'}.contains(a['view'])) {
           throw const FormatException('入口无效');
         }
         onDock(a['view'] as String);
+        await activateMain?.call();
       case 'newCard':
         if (s.view != 'agent') throw const FormatException('请在助手视图新建');
         final existing = controller.cards.map((c) => c.id).toSet();
@@ -364,15 +391,16 @@ class NativeWindowHost {
     return true;
   }
 
-  Future<Map<String, Object?>> _snapshot(
+  Future<Map<String, Object?>?> _snapshot(
     DetachedWorkbenchSession s,
     int epoch,
   ) async {
-    final version = _version;
-    final selectedId = s.view.split('/').elementAtOrNull(1);
-    final cards = s.view.startsWith('card/') || s.view.startsWith('history/')
+    if (s.navigating) return null;
+    final version = _version, view = s.view;
+    final selectedId = view.split('/').elementAtOrNull(1);
+    final cards = view.startsWith('card/') || view.startsWith('history/')
         ? controller.cards.where((c) => c.id == selectedId).toList()
-        : {'cards', 'relations', 'changes'}.contains(s.view)
+        : {'cards', 'relations', 'changes'}.contains(view)
         ? controller.cards
         : <LifeCard>[];
     final projected = [
@@ -388,7 +416,7 @@ class NativeWindowHost {
     }
     final data = <String, Object?>{
       'version': version,
-      'view': s.view,
+      'view': view,
       'cards': projected,
       'sources': sources,
       'references': [
@@ -404,10 +432,10 @@ class NativeWindowHost {
         for (final command in registry.commands)
           {'id': command.id, 'title': command.title, 'view': command.view},
       ];
-      if (s.view == 'extensions') {
+      if (view == 'extensions') {
         data['extensions'] = windowExtensions(registry);
       }
-      if (s.view.startsWith('extension/')) {
+      if (view.startsWith('extension/')) {
         final sourced = <String>{};
         for (final c in controller.cards) {
           if ((await controller.currentCardSources(c.id))
@@ -417,7 +445,7 @@ class NativeWindowHost {
         }
         data['contributed'] = [
           for (final c in registry.filter(
-            s.view,
+            view,
             controller.findInformationCards(''),
             sourced,
           ))
@@ -425,7 +453,7 @@ class NativeWindowHost {
         ];
       }
     }
-    if (s.view == 'originals') {
+    if (view == 'originals') {
       data['originals'] = [
         for (final b in controller.blobs.where(
           (b) => !controller.recycledBlobIds.contains(b.id),
@@ -438,7 +466,7 @@ class NativeWindowHost {
           },
       ];
     }
-    if (s.view.startsWith('source/')) {
+    if (view.startsWith('source/')) {
       final b = controller.blobs
           .where(
             (b) =>
@@ -466,7 +494,7 @@ class NativeWindowHost {
         }
       }
     }
-    if (s.view.startsWith('history/')) {
+    if (view.startsWith('history/')) {
       data['history'] = [
         for (final r in await controller.cardHistory(selectedId!))
           {
@@ -478,12 +506,18 @@ class NativeWindowHost {
           },
       ];
     }
-    if (s.view == 'speech') data['speech'] = windowSpeech(controller);
-    if (s.view == 'agent') {
+    if ({'speech', 'agent'}.contains(view)) {
+      data['speech'] = windowSpeech(controller);
+    }
+    if (view == 'agent') {
       final bridge = s.conversationBridge ??= WindowConversationBridge(
         conversation,
         active: () =>
-            !_disposed && epoch == _epoch && !s.closed && s.view == 'agent',
+            !_disposed &&
+            epoch == _epoch &&
+            !s.closed &&
+            !s.navigating &&
+            s.view == 'agent',
       );
       data.addAll(bridge.snapshot());
     }
@@ -491,6 +525,11 @@ class NativeWindowHost {
       final bytes = data['sourceBytes'];
       if (bytes is Uint8List) bytes.fillRange(0, bytes.length, 0);
       throw PlatformException(code: 'SESSION_REVOKED');
+    }
+    if (s.navigating || s.view != view) {
+      final bytes = data['sourceBytes'];
+      if (bytes is Uint8List) bytes.fillRange(0, bytes.length, 0);
+      return null;
     }
     return data;
   }

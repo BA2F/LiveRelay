@@ -37,6 +37,8 @@ class ReviewSourceViewState extends State<ReviewSourceView> {
   int _generation = 0;
   final _pendingReads = <Future<void>>{};
   String? get reviewId => _source?.reviewId;
+  bool get isLoading => _loading;
+  String? get loadError => _error;
   int get inputCount => _source?.inputs.length ?? 0;
   int get attachmentCount =>
       _source?.inputs.fold<int>(

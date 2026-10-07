@@ -8,6 +8,7 @@ import 'package:flutter/material.dart';
 
 import '../../application/agent/agent_conversation.dart';
 import '../../application/preview_session.dart';
+import '../../application/speech_input_binding.dart';
 import '../../core/ai/ai_privacy.dart';
 import '../../core/ai/conversation_attachment.dart';
 import '../../core/ai/review_actions.dart';
@@ -27,7 +28,11 @@ class DetachedConversationView extends StatefulWidget {
     required this.openSettings,
     required this.openSpeech,
     required this.openManual,
+    this.speechBinding,
+    this.openSpeechSettings,
   });
+  final SpeechInputBinding? speechBinding;
+  final VoidCallback? openSpeechSettings;
   final Map data;
   final PreviewSession session;
   final Future<void> Function(String, Map<String, Object?>) act;
@@ -173,9 +178,13 @@ class _DetachedConversationViewState extends State<DetachedConversationView> {
                       ),
                   ],
                   if ((value['attachments'] as List).isNotEmpty) ...[
-                    const Text('图片/文件/音频发送完整内容；视频发送已检查的采样帧和时间。敏感行标记仅适用于主输入。'),
-                    for (final a in value['attachments'] as List)
+                    const Text('核对以下实际附件范围；敏感行标记仅适用于主输入，附件及转写不会自动替换敏感内容。'),
+                    for (final a in value['attachments'] as List) ...[
+                      Text(a['sendDescription'] as String? ?? ''),
+                      if (a['transcript'] != null)
+                        SelectableText(a['transcript'] as String),
                       _attachment(a as Map, false),
+                    ],
                   ],
                   const Divider(),
                   const Text('将重发的对话历史'),
@@ -215,12 +224,18 @@ class _DetachedConversationViewState extends State<DetachedConversationView> {
           owned = ConversationAttachment.fromJson({
             ...value,
             'bytes': base64Encode(value['bytes'] as Uint8List),
+            if (value['normalizedAudio'] != null)
+              'normalizedAudio': base64Encode(
+                value['normalizedAudio'] as Uint8List,
+              ),
             'frames': [
               for (final f in value['frames'] as List)
                 {'ms': f['ms'], 'bytes': base64Encode(f['bytes'] as Uint8List)},
             ],
           });
         } finally {
+          final audio = value['normalizedAudio'] as Uint8List?;
+          audio?.fillRange(0, audio.length, 0);
           final bytes = value['bytes'] as Uint8List;
           bytes.fillRange(0, bytes.length, 0);
           for (final f in value['frames'] as List) {
@@ -233,6 +248,20 @@ class _DetachedConversationViewState extends State<DetachedConversationView> {
           context,
           attachment: owned,
           session: widget.session,
+          speechBinding: editable && !_working ? widget.speechBinding : null,
+          onSpeechSettings: widget.openSpeechSettings,
+          onAudio: editable && !_working
+              ? (wav) => widget.act('attachmentAudio', {
+                  'id': meta['id'],
+                  'wav': wav,
+                })
+              : null,
+          onTranscript: editable && !_working
+              ? (text) => widget.act('attachmentTranscript', {
+                  'id': meta['id'],
+                  'text': text,
+                })
+              : null,
           onDialog: (value) {
             _dialogs.remove(dialog);
             dialog = value == null ? null : ModalRoute.of(value);

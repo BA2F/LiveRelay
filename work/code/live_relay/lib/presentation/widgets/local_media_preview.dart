@@ -9,6 +9,7 @@ import 'package:path/path.dart' as path;
 
 import '../../application/preview_session.dart';
 import '../../infrastructure/private_cache.dart';
+import '../../infrastructure/local_media_processor.dart';
 
 /// Linux-only renderer. It never opens network URLs or starts playback itself.
 class LocalMediaPreview extends StatefulWidget {
@@ -29,6 +30,10 @@ class LocalMediaPreview extends StatefulWidget {
 }
 
 class LocalMediaPreviewState extends State<LocalMediaPreview> {
+  late final _processor = LocalMediaProcessor(
+    widget.controller,
+    active: () => !_closed && mounted,
+  );
   Player? _player;
   VideoController? _video;
   File? _file;
@@ -44,37 +49,12 @@ class LocalMediaPreviewState extends State<LocalMediaPreview> {
     if (player == null || !_ready || _closed || !widget.video) {
       throw const FormatException('请先等待视频加载完成');
     }
-    final frames = <({int milliseconds, Uint8List bytes})>[];
+    await player.pause();
+    final bytes = await widget.readBytes();
     try {
-      await player.pause();
-      final duration = player.state.duration.inMilliseconds;
-      if (duration <= 0 || duration > 10 * 60 * 1000) {
-        throw const FormatException('视频需在10分钟以内');
-      }
-      for (final fraction in [0.05, 0.35, 0.65, 0.95]) {
-        await player.seek(
-          Duration(milliseconds: (duration * fraction).round()),
-        );
-        await Future<void>.delayed(const Duration(milliseconds: 200));
-        if (_closed || !mounted || !widget.controller.isUnlocked) {
-          throw const FormatException('视频预览已关闭');
-        }
-        final bytes = await player.screenshot();
-        if (bytes == null || bytes.length > 256 * 1024) {
-          bytes?.fillRange(0, bytes.length, 0);
-          throw const FormatException('无法生成适合发送的视频帧');
-        }
-        frames.add((
-          milliseconds: player.state.position.inMilliseconds,
-          bytes: bytes,
-        ));
-      }
-      return frames;
-    } on Object {
-      for (final f in frames) {
-        f.bytes.fillRange(0, f.bytes.length, 0);
-      }
-      rethrow;
+      return await _processor.sampleFrames(bytes);
+    } finally {
+      bytes.fillRange(0, bytes.length, 0);
     }
   }
 
@@ -157,6 +137,7 @@ class LocalMediaPreviewState extends State<LocalMediaPreview> {
   }
 
   Future<void> _finishClosing() async {
+    await _processor.close();
     await _opening;
     await _release();
   }

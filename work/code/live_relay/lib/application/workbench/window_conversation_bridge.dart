@@ -47,6 +47,11 @@ Map<String, Object?> windowAttachment(
   'blob': a.blobId,
   'size': a.bytes.length,
   if (bytes) 'bytes': Uint8List.fromList(a.bytes),
+  'transcript': a.transcript,
+  'sendDescription': a.sendDescription,
+  'audioStamp': a.audioStamp,
+  if (bytes && a.normalizedAudio != null)
+    'normalizedAudio': Uint8List.fromList(a.normalizedAudio!),
   'frames': [
     for (final frame in a.frames)
       {
@@ -85,6 +90,8 @@ class WindowConversationBridge {
     'saveAttachment',
     'readAttachment',
     'videoFrames',
+    'attachmentAudio',
+    'attachmentTranscript',
   };
   void clear() {
     _prepared = null;
@@ -347,6 +354,23 @@ class WindowConversationBridge {
         await c.saveOriginal(attachment(current: false));
       case 'readAttachment':
         return windowAttachment(attachment(current: false), bytes: true);
+      case 'attachmentAudio':
+        _check(idle: true);
+        final wav = a['wav'];
+        if (wav != null && wav is! Uint8List) {
+          throw const FormatException('音轨无效');
+        }
+        c.setAttachmentAudio(
+          attachment(),
+          wav == null ? null : Uint8List.fromList(wav as Uint8List),
+        );
+      case 'attachmentTranscript':
+        _check(idle: true);
+        final text = a['text'];
+        if (text != null && text is! String) {
+          throw const FormatException('转写无效');
+        }
+        c.setAttachmentTranscript(attachment(), text as String?);
       case 'videoFrames':
         _check(idle: true);
         final item = attachment(), values = a['frames'];

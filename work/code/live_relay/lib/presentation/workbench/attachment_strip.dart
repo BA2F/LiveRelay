@@ -7,6 +7,9 @@ import 'package:flutter/material.dart';
 
 import '../../application/agent/agent_conversation.dart';
 import '../../application/preview_session.dart';
+import '../../application/speech_input_binding.dart';
+import '../../infrastructure/local_media_processor.dart';
+import '../pages/speech_input_page.dart';
 import '../../core/ai/conversation_attachment.dart';
 import '../widgets/local_media_preview.dart';
 import '../widgets/local_pdf_preview.dart';
@@ -172,6 +175,19 @@ class AttachmentTile extends StatelessWidget {
       context,
       attachment: attachment,
       session: conversation.controller,
+      speechBinding: removable
+          ? LocalSpeechInputBinding(conversation.controller)
+          : null,
+      onAudio: removable && !conversation.working
+          ? (wav) async => conversation.setAttachmentAudio(
+              attachment,
+              wav == null ? null : Uint8List.fromList(wav),
+            )
+          : null,
+      onTranscript: removable && !conversation.working
+          ? (text) async =>
+                conversation.setAttachmentTranscript(attachment, text)
+          : null,
       onFrames: removable && !conversation.working
           ? (frames) async =>
                 conversation.replaceVideoFrames(attachment, frames)
@@ -210,6 +226,7 @@ class AttachmentTile extends StatelessWidget {
                     ),
                 ],
               ),
+              Text(a.sendDescription, style: const TextStyle(fontSize: 11)),
               InkWell(
                 key: ValueKey('attachment-preview-${a.id}'),
                 onTap: () => _preview(context),
@@ -241,8 +258,6 @@ class AttachmentTile extends StatelessWidget {
                       ),
                   ],
                 ),
-              if (a.kind == ConversationAttachmentKind.video)
-                const Text('只发送选帧，不发送音轨', style: TextStyle(fontSize: 11)),
               if (a.kind == ConversationAttachmentKind.unsupported)
                 const Text('当前协议不支持发送', style: TextStyle(fontSize: 11)),
               if (a.blobId != null || a.cardId != null)
@@ -277,6 +292,10 @@ Future<void> showAttachmentPreview(
   required ConversationAttachment attachment,
   required PreviewSession session,
   ValueChanged<BuildContext?>? onDialog,
+  SpeechInputBinding? speechBinding,
+  VoidCallback? onSpeechSettings,
+  Future<void> Function(Uint8List? wav)? onAudio,
+  Future<void> Function(String? text)? onTranscript,
   Future<void> Function(List<({int milliseconds, Uint8List bytes})> frames)?
   onFrames,
 }) async {
@@ -284,7 +303,54 @@ Future<void> showAttachmentPreview(
   final key = GlobalKey<LocalMediaPreviewState>();
   var busy = false;
   BuildContext? dialogContext;
+  BuildContext? speechDialogContext;
+  final processor = LocalMediaProcessor(
+    session,
+    active: () => dialogContext?.mounted == true,
+  );
+  final pending = <Future<void>>{};
+  Future<void> action(
+    BuildContext context,
+    StateSetter update,
+    Future<void> Function() work,
+  ) async {
+    update(() => busy = true);
+    final operation = (() async {
+      try {
+        await work();
+      } on Object catch (e) {
+        if (context.mounted && session.isUnlocked) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(e is FormatException ? e.message : '媒体处理失败'),
+            ),
+          );
+        }
+      } finally {
+        if (context.mounted && session.isUnlocked) update(() => busy = false);
+      }
+    })();
+    pending.add(operation);
+    try {
+      await operation;
+    } finally {
+      pending.remove(operation);
+    }
+  }
+
+  final media = {
+    ConversationAttachmentKind.audio,
+    ConversationAttachmentKind.video,
+  }.contains(a.kind);
   Future<void> dismiss() async {
+    final speechDialog = speechDialogContext;
+    speechDialogContext = null;
+    if (speechDialog != null && speechDialog.mounted) {
+      final route = ModalRoute.of(speechDialog);
+      if (route != null && route.isActive) {
+        Navigator.of(speechDialog).removeRoute(route);
+      }
+    }
     final current = dialogContext;
     if (current != null && current.mounted) {
       final route = ModalRoute.of(current);
@@ -292,6 +358,8 @@ Future<void> showAttachmentPreview(
         Navigator.of(current).removeRoute(route);
       }
     }
+    await processor.close();
+    await Future.wait(List.of(pending));
   }
 
   session.registerPreviewCleanup(dismiss);
@@ -343,7 +411,21 @@ Future<void> showAttachmentPreview(
                                 : '${a.mimeType} · ${a.bytes.length} 字节',
                           ),
                     if (a.kind == ConversationAttachmentKind.video)
-                      const Text('发送已检查的采样帧和时间，不发送原视频音轨。'),
+                      Text(
+                        '发送已检查采样帧和时间。${a.transcript != null
+                            ? "音轨只发送核对转写。"
+                            : a.normalizedAudio != null
+                            ? "另发送完整转换音轨。"
+                            : "尚未选择音轨。"}',
+                      ),
+                    if (media)
+                      Text(
+                        a.transcript != null
+                            ? '本轮音频：仅发送本人核对文字\n${a.transcript}'
+                            : a.normalizedAudio != null
+                            ? '本轮音频：完整16 kHz WAV（${a.normalizedAudio!.length}字节）；需要Chat音频模型。'
+                            : '音频需要Chat音频模型；Responses可使用核对转写。',
+                      ),
                     if (a.frames.isNotEmpty)
                       Wrap(
                         children: [
@@ -367,6 +449,73 @@ Future<void> showAttachmentPreview(
               ),
             ),
             actions: [
+              if (media && onAudio != null && Platform.isLinux)
+                OutlinedButton(
+                  onPressed: busy
+                      ? null
+                      : () => action(context, update, () async {
+                          final wav = await processor.normalizeAudio(a.bytes);
+                          try {
+                            if (!session.isUnlocked || !context.mounted) return;
+                            await onAudio(wav);
+                            if (context.mounted) Navigator.pop(context);
+                          } finally {
+                            wav.fillRange(0, wav.length, 0);
+                          }
+                        }),
+                  child: const Text('准备完整WAV音轨'),
+                ),
+              if (media && speechBinding != null && onTranscript != null)
+                OutlinedButton(
+                  onPressed: busy
+                      ? null
+                      : () => action(context, update, () async {
+                          String? adopted;
+                          await showDialog<void>(
+                            context: context,
+                            builder: (dialog) {
+                              speechDialogContext = dialog;
+                              return Dialog(
+                                child: SizedBox(
+                                  width: 680,
+                                  height: 620,
+                                  child: SpeechInputPage(
+                                    binding: speechBinding,
+                                    onSettings: onSpeechSettings,
+                                    readAudio: () async =>
+                                        Uint8List.fromList(a.bytes),
+                                    audioName: a.name,
+                                    transcriptActionLabel: '使用核对文字发送此附件',
+                                    onTranscript: (text) {
+                                      adopted = text;
+                                      Navigator.pop(dialog);
+                                    },
+                                  ),
+                                ),
+                              );
+                            },
+                          );
+                          speechDialogContext = null;
+                          if (adopted != null &&
+                              session.isUnlocked &&
+                              context.mounted) {
+                            await onTranscript(adopted);
+                            if (context.mounted) Navigator.pop(context);
+                          }
+                        }),
+                  child: const Text('转写并核对音轨'),
+                ),
+              if (media && a.transcript != null && onTranscript != null)
+                TextButton(
+                  onPressed: busy
+                      ? null
+                      : () => action(context, update, () async {
+                          await onTranscript(null);
+                          if (context.mounted) Navigator.pop(context);
+                        }),
+                  child: const Text('恢复音频输入'),
+                ),
+
               if (a.kind == ConversationAttachmentKind.video &&
                   onFrames != null &&
                   Platform.isLinux)
@@ -408,6 +557,8 @@ Future<void> showAttachmentPreview(
       },
     );
   } finally {
+    await processor.close();
+    await Future.wait(List.of(pending));
     onDialog?.call(null);
     session.unregisterPreviewCleanup(dismiss);
   }

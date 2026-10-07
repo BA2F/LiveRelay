@@ -1,0 +1,37 @@
+{
+  "date": "2026-10-07",
+  "normalClient": true,
+  "artifacts": [
+    {
+      "name": "Android正常main Debug APK",
+      "relativeToApp": "build/app/outputs/flutter-apk/app-debug.apk",
+      "size": 330357615,
+      "sha256": "9feb240757befc0159ed332eed0e78227c813b73d6dad3474129d5e6799d0680",
+      "entrypoint": "lib/main.dart",
+      "published": false,
+      "installed": false
+    },
+    {
+      "name": "Linux正常main Debug executable",
+      "relativeToApp": "build/linux/x64/debug/bundle/live_relay",
+      "size": 64328,
+      "sha256": "3d599a51fe38e3af69aa991aa141724085c0c8ded338469f8b0247f4c2c114ec",
+      "entrypoint": "lib/main.dart",
+      "published": false,
+      "installed": false
+    }
+  ],
+  "linuxRequiresCompleteBundle": true,
+  "sourceGitBase": "a32cab702d939507e9ea2258681c931bc97e3959",
+  "sourceWasUncommittedAtBuild": true,
+  "linuxDartKernel": {
+    "size": 100635680,
+    "sha256": "1a5269e7021f770312bbd18c7735ce494ce2a9248fcddeded249a96862aea575"
+  },
+  "linuxCompleteBundle": {
+    "files": 34,
+    "bytes": 195377185,
+    "sha256OfFileHashManifest": "6c074375eaa608e55f2d1397bd9e8039995fd9cb5812b51dece9d2d3c5b55363",
+    "hashRule": "sorted relative POSIX path + NUL + file SHA256 hex + LF"
+  }
+}

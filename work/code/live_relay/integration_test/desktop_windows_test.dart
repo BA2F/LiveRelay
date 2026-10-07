@@ -5,6 +5,8 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
+import 'package:window_manager/window_manager.dart';
+import 'package:live_relay/infrastructure/desktop_owner_window.dart';
 import 'package:live_relay/presentation/workbench/detached_workbench.dart';
 import 'package:live_relay/presentation/workbench/native_window_host.dart';
 import 'package:live_relay/application/workbench/card_edit_sessions.dart';
@@ -136,6 +138,47 @@ Future<void> main(List<String> arguments) async {
         var data = await inspect(child);
         expect(data['vaultOwner'], false);
         expect((data['cards'] as List).single['title'], '双窗口草稿');
+        final monitors = await Process.run('xrandr', ['--listmonitors']);
+        final screens = RegExp(r'(\d+)/\d+x(\d+)/\d+([+-]\d+)([+-]\d+)')
+            .allMatches(monitors.stdout.toString())
+            .toList();
+        if (monitors.exitCode == 0 && screens.length > 1) {
+          final screen = screens.last;
+          final x = double.parse(screen.group(3)!);
+          final y = double.parse(screen.group(4)!);
+          await child.channel.invokeMethod('diagnosticMove', {
+            'x': x + 100,
+            'y': y + 100,
+            'width': 680.0,
+            'height': 600.0,
+          });
+          await tester.pump(const Duration(milliseconds: 300));
+          final placed = await inspect(child);
+          expect((placed['bounds'] as Map)['x'], closeTo(x + 100, 4));
+          expect((placed['bounds'] as Map)['y'], closeTo(y + 100, 4));
+          final evidence = Platform.environment['LIVERELAY_WORKBENCH_EVIDENCE'];
+          if (evidence != null) {
+            await File('$evidence/native-multimonitor-verification.json')
+                .writeAsString(
+                  jsonEncode({
+                    'fixtureOnly': true,
+                    'monitorCount': screens.length,
+                    'actualSecondMonitor': true,
+                    'nativeProcess': child.window.process.pid,
+                    'bounds': placed['bounds'],
+                    'manualMouseDragTested': false,
+                  }),
+                );
+          }
+          await child.channel.invokeMethod('diagnosticMove', {
+            'x': 30.0,
+            'y': 30.0,
+            'width': 680.0,
+            'height': 600.0,
+          });
+          await tester.pump(const Duration(milliseconds: 100));
+        }
+
         await child.channel.invokeMethod('diagnosticCommand', {
           'method': 'edit',
           'arguments': {'id': card.id, 'field': 'title', 'text': '子窗口输入同步'},
@@ -537,12 +580,16 @@ Future<void> _reviewWindowTest(WidgetTester tester) async {
     DetachedWorkbenchSession child,
     bool Function(Map) matches,
   ) async {
+    Map? last;
     for (var i = 0; i < 150; i++) {
       final value = await child.channel.invokeMethod<Map>('inspect');
+      last = value;
       if (value != null && matches(value)) return value;
       await Future<void>.delayed(const Duration(milliseconds: 100));
     }
-    throw StateError('独立确认来源未就绪');
+    throw StateError(
+      '独立确认来源未就绪：${{'view': last?['view'], 'review': last?['review'], 'error': last?['error']}}',
+    );
   }
 
   try {
@@ -612,16 +659,18 @@ Future<void> _reviewWindowTest(WidgetTester tester) async {
       'arguments': {'id': selected.id, 'offset': 0},
     });
     await ready(child, (v) => v['error'] != null);
-    await child.channel.invokeMethod('diagnosticCommand', {
-      'method': 'navigate',
-      'arguments': {'view': 'card/${selected.id}'},
-    });
-    await ready(child, (v) => v['view'] == 'card/${selected.id}');
-    await child.channel.invokeMethod('diagnosticCommand', {
-      'method': 'navigate',
-      'arguments': {'view': 'review/${card.id}'},
-    });
-    await ready(child, (v) => (v['review'] as Map)['id'] == message.reviewId);
+    for (var visit = 0; visit < 5; visit++) {
+      await child.channel.invokeMethod('diagnosticCommand', {
+        'method': 'navigate',
+        'arguments': {'view': 'card/${selected.id}'},
+      });
+      await ready(child, (v) => v['view'] == 'card/${selected.id}');
+      await child.channel.invokeMethod('diagnosticCommand', {
+        'method': 'navigate',
+        'arguments': {'view': 'review/${card.id}'},
+      });
+      await ready(child, (v) => (v['review'] as Map)['id'] == message.reviewId);
+    }
     await c.lock();
     expect(
       await child.window.process.exitCode.timeout(const Duration(seconds: 10)),
@@ -656,6 +705,7 @@ Future<void> _reviewWindowTest(WidgetTester tester) async {
           'immutableInputsAndAttachments': true,
           'scopedReadRejected': true,
           'navigateReload': true,
+          'consecutiveRoundTrips': 5,
           'lockRevokesProcess': true,
           'unlockRestoresView': true,
           'closeRedocks': true,
@@ -689,11 +739,17 @@ Future<void> _agentWindowTest(WidgetTester tester) async {
     save: (id, draft) => c.updateCard(id, draft),
     canSave: () => c.isUnlocked && !c.isBusy,
   );
+  final ownerTools = <String>[];
+  var ownerActivations = 0;
   final host = NativeWindowHost(
     controller: c,
     edits: edits,
     conversation: q,
-    onDock: (_) {},
+    onDock: ownerTools.add,
+    activateMain: () async {
+      await activateOwnerWindow();
+      ownerActivations++;
+    },
     diagnostics: true,
   );
   Future<Map> waitAgent(
@@ -734,6 +790,25 @@ Future<void> _agentWindowTest(WidgetTester tester) async {
           'arguments': args,
         });
     await waitAgent(child, (a) => a['draft'] != null);
+    for (final tool in ['settings', 'passwords', 'handoff', 'recycle']) {
+      await ask('openMain', {'view': tool});
+      for (
+        var tick = 0;
+        tick < 30 && !await windowManager.isFocused();
+        tick++
+      ) {
+        await tester.pump(const Duration(milliseconds: 100));
+      }
+      expect(await windowManager.isFocused(), true);
+      expect(child.view, 'agent');
+    }
+    expect(ownerTools, ['settings', 'passwords', 'handoff', 'recycle']);
+    expect(ownerActivations, 4);
+    await expectLater(
+      ask('openMain', {'view': 'vault/full'}),
+      throwsA(anything),
+    );
+    expect(ownerActivations, 4);
     await ask('draft', {'text': '第一轮虚构输入\nfixture private line'});
     await ask('mark', {'line': 1, 'kind': 'secret'});
     var consent = await ask('prepareSend') as Map;
@@ -861,6 +936,9 @@ Future<void> _agentWindowTest(WidgetTester tester) async {
       await File('$evidence/child-agent-verification.json').writeAsString(
         jsonEncode({
           'fixtureOnly': true,
+          'ownerTools': ownerTools,
+          'ownerWindowFocused': ownerActivations == 4,
+          'invalidOwnerToolRejected': true,
           'nativeIndependentProcess': true,
           'vaultOwnerInChild': false,
           'consentRedacted': true,
@@ -1076,6 +1154,19 @@ Future<void> _speechWindowTest(WidgetTester tester) async {
     'liverelay-child-speech-native-',
   );
   final file = await File('${root.path}/fixture.wav').writeAsBytes(wave());
+  final m4a = File('${root.path}/fixture.m4a');
+  expect(
+    (await Process.run('ffmpeg', [
+      '-v',
+      'error',
+      '-i',
+      file.path,
+      '-c:a',
+      'aac',
+      m4a.path,
+    ])).exitCode,
+    0,
+  );
   final provider = FixtureWindowSpeech();
   final speech = SpeechService(
     provider,
@@ -1158,7 +1249,7 @@ Future<void> _speechWindowTest(WidgetTester tester) async {
     await ask(child, 'navigate', {'view': 'speech'});
     await wait(child, (d) => d['transcript'] == '');
     await child.channel.invokeMethod('diagnosticSpeech', {
-      'path': file.path,
+      'path': m4a.path,
       'saveOriginal': true,
     });
     await wait(
@@ -1166,7 +1257,8 @@ Future<void> _speechWindowTest(WidgetTester tester) async {
       (d) => d['transcript'] == '虚构转写' && d['savesOriginal'] == true,
     );
     expect(c.blobs, hasLength(1));
-    expect(await c.readOriginal(c.blobs.single.id), wave());
+    expect(await c.readOriginal(c.blobs.single.id), await m4a.readAsBytes());
+    expect(c.blobs.single.mimeType, 'audio/mp4');
     final evidence = Platform.environment['LIVERELAY_WORKBENCH_EVIDENCE'];
     if (evidence != null) {
       final bytes = await child.channel.invokeMethod<Uint8List>('capture');
@@ -1195,6 +1287,8 @@ Future<void> _speechWindowTest(WidgetTester tester) async {
           'sharedNativeSpeechPage': true,
           'defaultNoOriginal': true,
           'originalExplicitlySaved': true,
+          'm4aConvertedForAsr': true,
+          'originalM4aBytesPreserved': true,
           'backfillPreservesDraft': true,
           'noAutomaticAiSend': true,
           'associatedDraftSaved': true,

@@ -9,6 +9,8 @@ import 'package:flutter/services.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:provider/provider.dart';
 
+import '../../infrastructure/desktop_owner_window.dart';
+
 import '../../application/app_controller.dart';
 import '../../application/app_preferences.dart';
 import '../../application/workbench/card_edit_sessions.dart';
@@ -69,7 +71,13 @@ class _DesktopWorkbenchState extends State<DesktopWorkbench> {
   void initState() {
     super.initState();
     _controller = context.read<AppController>();
-    _runtime = WorkbenchRuntime(_controller);
+    _runtime = WorkbenchRuntime(
+      _controller,
+      activateMainWindow: () async {
+        if (!mounted || !_controller.isUnlocked) return;
+        await activateOwnerWindow();
+      },
+    );
     _runtime.addListener(_runtimeChanged);
     _lifecycle = AppLifecycleListener(onExitRequested: _requestExit);
     _controller.desktopExitRequested = _requestExit;

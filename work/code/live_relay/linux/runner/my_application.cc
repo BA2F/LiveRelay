@@ -14,6 +14,28 @@ struct _MyApplication {
 
 G_DEFINE_TYPE(MyApplication, my_application, GTK_TYPE_APPLICATION)
 
+// Present only this engine's own window after an explicit workbench request.
+static void owner_window_method(FlMethodChannel* channel, FlMethodCall* call,
+                                gpointer user_data) {
+  if (g_strcmp0(fl_method_call_get_name(call), "activate") != 0) {
+    fl_method_call_respond_not_implemented(call, nullptr);
+    return;
+  }
+  GtkWindow* window = GTK_WINDOW(user_data);
+  guint32 timestamp = GDK_CURRENT_TIME;
+  gtk_widget_show(GTK_WIDGET(window));
+#ifdef GDK_WINDOWING_X11
+  GdkWindow* native = gtk_widget_get_window(GTK_WIDGET(window));
+  if (native != nullptr && GDK_IS_X11_WINDOW(native)) {
+    gdk_window_set_events(native, static_cast<GdkEventMask>(
+        gdk_window_get_events(native) | GDK_PROPERTY_CHANGE_MASK));
+    timestamp = gdk_x11_get_server_time(native);
+  }
+#endif
+  gtk_window_present_with_time(window, timestamp);
+  fl_method_call_respond_success(call, nullptr, nullptr);
+}
+
 // Called when first Flutter frame received.
 static void first_frame_cb(MyApplication* self, FlView* view) {
   gtk_widget_show(gtk_widget_get_toplevel(GTK_WIDGET(view)));
@@ -81,6 +103,13 @@ static void my_application_activate(GApplication* application) {
   gtk_widget_realize(GTK_WIDGET(view));
 
   fl_register_plugins(FL_PLUGIN_REGISTRY(view));
+
+  g_autoptr(FlStandardMethodCodec) codec = fl_standard_method_codec_new();
+  g_autoptr(FlMethodChannel) owner_channel = fl_method_channel_new(
+      fl_engine_get_binary_messenger(fl_view_get_engine(view)),
+      "liverelay/owner_window", FL_METHOD_CODEC(codec));
+  fl_method_channel_set_method_call_handler(owner_channel, owner_window_method,
+      g_object_ref(window), g_object_unref);
 
   gtk_widget_grab_focus(GTK_WIDGET(view));
 }

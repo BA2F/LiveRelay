@@ -77,6 +77,7 @@ class DockSurface extends StatelessWidget {
                     Column(
                       children: [
                         GestureDetector(
+                          key: ValueKey('dock-floating-move-${f.group.id}'),
                           onPanUpdate: (d) {
                             f.x += d.delta.dx;
                             f.y += d.delta.dy;
@@ -105,6 +106,7 @@ class DockSurface extends StatelessWidget {
                       child: MouseRegion(
                         cursor: SystemMouseCursors.resizeDownRight,
                         child: GestureDetector(
+                          key: ValueKey('dock-floating-resize-${f.group.id}'),
                           onPanUpdate: (d) {
                             f.width = (f.width + d.delta.dx).clamp(
                               260,
@@ -144,6 +146,7 @@ class DockSurface extends StatelessWidget {
               ? SystemMouseCursors.resizeUpDown
               : SystemMouseCursors.resizeLeftRight,
           child: GestureDetector(
+            key: ObjectKey(split),
             behavior: HitTestBehavior.opaque,
             onPanUpdate: (d) {
               if (available <= 0) return;
@@ -357,6 +360,7 @@ class DockSurface extends StatelessWidget {
   );
   Widget _target(BuildContext context, DockGroup group, DockPlacement p) =>
       DragTarget<String>(
+        key: ValueKey('dock-target-${group.id}-${p.name}'),
         onAcceptWithDetails: (d) => layout.move(d.data, group.id, p),
         builder: (context, candidates, rejected) => Container(
           width: p == DockPlacement.center ? 110 : 64,

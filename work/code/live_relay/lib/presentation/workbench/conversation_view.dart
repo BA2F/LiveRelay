@@ -96,8 +96,12 @@ class ConversationView extends StatelessWidget {
                   ],
                   if (turn.attachments.isNotEmpty) ...[
                     const Text(
-                      '图片/文件/音频发送完整内容；视频仅发送已检查的采样帧及时间，不发送音轨。敏感行标记仅适用于主输入：',
+                      '请核对每个附件的实际发送范围。敏感行标记仅适用于主输入，附件及核对转写不会自动替换敏感内容：',
                     ),
+                    for (final a in turn.attachments) ...[
+                      Text('${a.name} · ${a.sendDescription}'),
+                      if (a.transcript != null) SelectableText(a.transcript!),
+                    ],
                     Wrap(
                       children: [
                         for (final a in turn.attachments)

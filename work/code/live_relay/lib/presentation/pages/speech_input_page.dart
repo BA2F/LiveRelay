@@ -6,6 +6,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 
 import '../../infrastructure/private_cache.dart';
+import '../../infrastructure/local_media_processor.dart';
+import '../../infrastructure/speech/pcm_wave.dart';
 
 import 'package:provider/provider.dart';
 import 'package:record/record.dart';
@@ -22,9 +24,15 @@ class SpeechInputPage extends StatefulWidget {
     this.onTranscript,
     this.binding,
     this.onSettings,
+    this.readAudio,
+    this.audioName,
+    this.transcriptActionLabel = '填入助手输入',
   });
   final SpeechInputBinding? binding;
   final VoidCallback? onSettings;
+  final Future<Uint8List> Function()? readAudio;
+  final String transcriptActionLabel;
+  final String? audioName;
   final ValueChanged<String>? onTranscript;
   @override
   State<SpeechInputPage> createState() => SpeechInputPageState();
@@ -35,6 +43,10 @@ class SpeechInputPageState extends State<SpeechInputPage> {
   final _text = TextEditingController();
   late SpeechInputBinding _binding;
   final _pending = <Future<void>>{};
+  late final _processor = LocalMediaProcessor(
+    _binding.session,
+    active: () => mounted && _cleaning == null,
+  );
   Future<void>? _cleaning;
   BuildContext? _consentContext;
   Timer? _limit, _meterTimer;
@@ -75,6 +87,7 @@ class SpeechInputPageState extends State<SpeechInputPage> {
     if (dialog != null && dialog.mounted) Navigator.of(dialog).pop(false);
     _text.clear();
     _sourceBlobId = null;
+    await _processor.close();
     await _discardRecording();
     if (_working) await _binding.speech?.cancel();
     await Future.wait(List.of(_pending));
@@ -228,7 +241,11 @@ class SpeechInputPageState extends State<SpeechInputPage> {
   Future<void> _pick(bool model) async {
     final picked = await FilePicker.pickFile(
       type: FileType.custom,
-      allowedExtensions: [model ? 'bz2' : 'wav'],
+      allowedExtensions: model
+          ? ['bz2']
+          : Platform.isLinux
+          ? ['wav', 'mp3', 'm4a', 'mp4', 'webm']
+          : ['wav'],
     );
     if (picked == null || !mounted) return;
     await _action(() async {
@@ -274,66 +291,91 @@ class SpeechInputPageState extends State<SpeechInputPage> {
   });
 
   Future<void> _recognizeFile(File file) async {
-    final generation = _generation;
-    if (!mounted || !_binding.session.isUnlocked) return;
     if (await file.length() > 2 * 1024 * 1024) {
-      throw const FormatException('请选择 60 秒以内的 WAV');
+      throw const FormatException('请选择60秒以内、2 MB以内的音频或视频');
     }
-    final bytes = await file.readAsBytes();
-    SpeechPreparation? prepared;
+    await _recognizeBytes(
+      await file.readAsBytes(),
+      name: file.uri.pathSegments.last,
+    );
+  }
+
+  Future<void> _recognizeBytes(Uint8List input, {String? name}) async {
+    final generation = _generation;
+    Uint8List bytes = input;
     try {
-      prepared = await _binding.prepare(bytes);
-      if (prepared.remote) {
+      if (!mounted || !_binding.session.isUnlocked || _cleaning != null) return;
+      if (input.length > 2 * 1024 * 1024) {
+        throw const FormatException('音频或视频最多2 MB');
+      }
+      try {
+        PcmWave.validate(input);
+      } on FormatException {
+        bytes = await _processor.normalizeAudio(input);
+      }
+      SpeechPreparation? prepared;
+      try {
+        prepared = await _binding.prepare(
+          bytes,
+          original: input,
+          originalName: name,
+        );
+        if (prepared.remote) {
+          if (!mounted ||
+              !_binding.session.isUnlocked ||
+              generation != _generation) {
+            return;
+          }
+          final allowed = await showDialog<bool>(
+            context: context,
+            builder: (context) {
+              _consentContext = context;
+              return AlertDialog(
+                title: const Text('允许上传本次音频？'),
+                content: Text(
+                  '${prepared!.name} · ${prepared.model}\n${prepared.host}\n'
+                  '将上传完整转换WAV音轨（${bytes.length} 字节），音频不做敏感内容替换。文字回填不会自动发送给对话服务。',
+                ),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(context, false),
+                    child: const Text('取消'),
+                  ),
+                  FilledButton(
+                    onPressed: () => Navigator.pop(context, true),
+                    child: const Text('允许本次音频上传'),
+                  ),
+                ],
+              );
+            },
+          );
+          _consentContext = null;
+          if (allowed != true) return;
+        }
         if (!mounted ||
             !_binding.session.isUnlocked ||
             generation != _generation) {
           return;
         }
-        final allowed = await showDialog<bool>(
-          context: context,
-          builder: (context) {
-            _consentContext = context;
-            return AlertDialog(
-              title: const Text('允许上传本次音频？'),
-              content: Text(
-                '${prepared!.name} · ${prepared.model}\n${prepared.host}\n'
-                '将上传完整 WAV 音频（${bytes.length} 字节），音频不做敏感内容替换。文字回填不会自动发送给对话服务。',
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(context, false),
-                  child: const Text('取消'),
-                ),
-                FilledButton(
-                  onPressed: () => Navigator.pop(context, true),
-                  child: const Text('允许本次音频上传'),
-                ),
-              ],
-            );
-          },
+        final result = await _binding.recognize(
+          prepared,
+          saveOriginal: _saveOriginal,
         );
-        _consentContext = null;
-        if (allowed != true) return;
-      }
-      if (!mounted ||
-          !_binding.session.isUnlocked ||
-          generation != _generation) {
-        return;
-      }
-      final result = await _binding.recognize(
-        prepared,
-        saveOriginal: _saveOriginal,
-      );
-      if (mounted && _binding.session.isUnlocked && generation == _generation) {
-        _sourceBlobId = result.blobId;
-        _text.text = result.text;
+        if (mounted &&
+            _binding.session.isUnlocked &&
+            generation == _generation) {
+          _sourceBlobId = result.blobId;
+          _text.text = result.text;
+        }
+      } finally {
+        try {
+          if (prepared != null) await _binding.discard(prepared);
+        } finally {
+          bytes.fillRange(0, bytes.length, 0);
+        }
       }
     } finally {
-      try {
-        if (prepared != null) await _binding.discard(prepared);
-      } finally {
-        bytes.fillRange(0, bytes.length, 0);
-      }
+      input.fillRange(0, input.length, 0);
     }
   }
 
@@ -472,6 +514,19 @@ class SpeechInputPageState extends State<SpeechInputPage> {
                     ],
                   ],
                   if (service.ready) ...[
+                    if (widget.readAudio != null)
+                      FilledButton.icon(
+                        onPressed: busy || _recording
+                            ? null
+                            : () => _action(() async {
+                                await _recognizeBytes(
+                                  await widget.readAudio!(),
+                                  name: widget.audioName,
+                                );
+                              }),
+                        icon: const Icon(Icons.transcribe),
+                        label: const Text('转写当前附件音轨'),
+                      ),
                     Wrap(
                       spacing: 8,
                       runSpacing: 8,
@@ -489,7 +544,9 @@ class SpeechInputPageState extends State<SpeechInputPage> {
                           onPressed: busy || _recording
                               ? null
                               : () => _pick(false),
-                          child: const Text('识别 WAV 文件'),
+                          child: Text(
+                            Platform.isLinux ? '识别音频／视频音轨' : '识别 WAV 文件',
+                          ),
                         ),
                         if (!service.usingRemote)
                           TextButton(
@@ -573,7 +630,7 @@ class SpeechInputPageState extends State<SpeechInputPage> {
                         ? null
                         : backfillTranscript,
                     icon: const Icon(Icons.chat_bubble_outline),
-                    label: const Text('填入助手输入'),
+                    label: Text(widget.transcriptActionLabel),
                   ),
                 FilledButton(
                   onPressed: busy || _recording || _text.text.trim().isEmpty

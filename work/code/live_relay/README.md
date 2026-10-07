@@ -8,6 +8,7 @@
 - Android SDK、Java 17+；Android 最低 API 24。最近可运行工具链和验证结果见 [质量记录](../../../docs/60_quality/00_测试与验证策略.md)。
 - Agent 开发任务使用 [AGENTS.md](../../../AGENTS.md)指定的 Linux 工作区。
 - Linux 桌面需要 Flutter desktop 工具链、GTK 与 libsecret 开发依赖；Windows runner 已生成，Windows 编译及安全存储需在 Windows 验证。
+- Linux 的音频格式转换及视频采样帧需要本机 `ffmpeg` 和 `ffprobe`。语音页接受 WAV、MP3、M4A、MP4、WebM，每次最多 2 MB，完整音轨最多 60 秒；超限明确拒绝，不截断。Agent 的视频预览可检查四帧，完整音轨需单独准备或转写核对后使用。Android 保持原有 WAV 语音入口。
 
 ## 运行
 
@@ -41,6 +42,8 @@ flutter test integration_test/restore_recovery_desktop_test.dart -d linux --dart
 `test/` 包含领域、安全、加密仓储/备份、Provider 边界和 Widget 行为测试。`integration_test/ux_flow_test.dart` 在独立临时资料库中使用真实 SQLCipher、Blob 和 Android ML Kit；离线 AI Provider 记录实际外发文本，验证单次授权，不使用真实 API Key。该测试生成虚构资料，Driver 将运行截图写入 `work/paper/uiux-review-2026-10-01/implementation-screenshots/`。
 
 不要将原用户资料库或真实个人资料作为回归输入。真实服务和实体硬件的验收需单独记录，不用离线测试代替。
+
+桌面工作台及独立窗口的原生验证使用 `test_driver/native_driver.dart`，目标分别为 `integration_test/desktop_workbench_test.dart` 和 `integration_test/desktop_windows_test.dart`。同一 checkout 的 Linux 构建共用 bundle，两个原生验证必须顺序执行；完成后重新以 `--target lib/main.dart` 构建正常客户端，集成入口不能作为交付软件。
 
 `formal_foundation_desktop_test.dart` 使用临时目录和真实 SQLCipher，验证首次设置、偏好保存、统一卡片视图、平台能力提示、重新解锁和备份核对。可传入 `--dart-define=FOUNDATION_SCREENSHOTS=/绝对输出目录` 保存虚构资料截图。
 
@@ -100,6 +103,16 @@ flutter test integration_test/header_v2_desktop_test.dart -d linux --no-pub --da
 `test/fixtures/header_v2/` 全部为公开虚构密码／密钥样本；Python reference 与 Dart writer 支持双向互操作，使用带 Argon2id 的 Python cryptography（本轮 50.0.1）。独立验证代码位于 `test/support/header_v2_reference.py` 和 `header_v2_dart_writer.dart`，不会读取真实用户库。
 
 K2 新增 Android 原生 DeviceFactorChannel 和 DeviceFactorProtection，只保护随机设备分支秘密并要求每次强生物识别授权；新设备 suite 与旧 VMK namespace 分离，桌面返回不支持。本机设置与恢复已在 v3 实现；2026-10-04小米13Android13已验证真实启用／解锁／后台取消和换钥恢复，其他机型及录入新指纹失效仍待验证。测试软件设备替身位于 test/support，不作为生产回退。独立 writer 可添加 --device 生成公开虚构设备 suite 样本；Python reader 可认证其密码／恢复路径和整 Header，不能代替 Keystore 测试。
+
+## 桌面工作台使用
+
+Linux正常客户端解锁后选择“资料工作台”或“助手工作台”；选择会保存，右上菜单可以重新选择或恢复默认。左侧图标打开资料、助手、关系、变更、原件等；拖动图标或标签到四侧分屏、中央合并，拖到左侧浮动入口在工作台内浮动。浮动标题可移动、右下角可缩放；“移到独立桌面窗口”打开真实OS窗口，可移到另一显示器。独立窗口关闭/合并回主工作台，锁定后全部撤销。
+
+卡片编辑自动保存，仍保持原草稿/确认状态；✓明确确认，×核对后进入回收站。引用、来源和收纳分别管理，确认来源及旧修订不会随新会话改变。关系视图显示实际引用及共享来源，分类标签不会生成两两关系。
+
+助手保留多轮对话，每次发送核对当前文字、历史重放和附件范围；附件只在会话中，另存原件需单独选择。Linux音频/视频预览可准备完整WAV音轨或转写并核对后采用文字；视频先检查采样帧。AI建议和模型计划可编辑/逐项采用，最终确认才存入资料库；默认私密，真实交接仍另行选择接收者与范围。
+
+主窗口Ctrl+Shift+P打开命令面板；独立窗口有命令面板及资料库工具菜单。资料库工具回主窗口处理密码、安全设置、身份交接和回收。扩展页可安装本地JSON声明式扩展、启停、调整已注册设置、移除；停用撤销贡献的视图和命令，不删除本人资料。桌面听写默认不存录音，核对回填不自动发送；手机保留既有默认。软件Logo/Icon使用work/design/brand/2026-10-04-icon-draft的静态产品标识，动效后置。
 
 ## 软件基础使用
 

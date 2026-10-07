@@ -193,6 +193,8 @@ class _DetachedWorkbenchState extends State<DetachedWorkbench>
               },
               'review': {
                 'id': _reviewKey.currentState?.reviewId,
+                'loading': _reviewKey.currentState?.isLoading,
+                'error': _reviewKey.currentState?.loadError,
                 'inputs': _reviewKey.currentState?.inputCount,
                 'attachments': _reviewKey.currentState?.attachmentCount,
               },
@@ -647,6 +649,8 @@ class _DetachedWorkbenchState extends State<DetachedWorkbench>
       }
       return widget.channel.invokeMethod(method, args);
     },
+    speechBinding: _speech,
+    openSpeechSettings: () => _act('openMain', {'view': 'speech'}),
     openSettings: () => _act('openMain', {'view': 'settings'}),
     openSpeech: () => _navigate('speech'),
     openManual: () => _act('newCard'),
@@ -837,6 +841,16 @@ class _DetachedWorkbenchState extends State<DetachedWorkbench>
             leading: const Center(child: LiveRelayLogo(size: 28)),
             title: const Text('LiveRelay · 独立工作台'),
             actions: [
+              if (!_revoked)
+                PopupMenuButton<String>(
+                  tooltip: '资料库工具',
+                  icon: const Icon(Icons.settings_outlined),
+                  onSelected: (view) => _act('openMain', {'view': view}),
+                  itemBuilder: (_) => [
+                    for (final tool in ownerWorkbenchTools.entries)
+                      PopupMenuItem(value: tool.key, child: Text(tool.value)),
+                  ],
+                ),
               if (!_revoked)
                 IconButton(
                   tooltip: '命令面板',
