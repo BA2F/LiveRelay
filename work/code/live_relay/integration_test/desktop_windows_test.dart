@@ -13,6 +13,7 @@ import 'package:live_relay/core/domain/entities.dart';
 import 'package:live_relay/core/ai/review_actions.dart';
 import 'package:live_relay/core/ai/ai_privacy.dart';
 import 'package:live_relay/core/ai/conversation_attachment.dart';
+import 'package:live_relay/application/workbench/window_conversation_bridge.dart';
 import 'package:live_relay/infrastructure/app_composition.dart';
 
 import '../test/support/verification_fakes.dart';
@@ -25,6 +26,10 @@ Future<void> main(List<String> arguments) async {
     return;
   }
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
+  testWidgets(
+    'native detached agent owns consent and shares attachments, editable plans and encrypted reopen',
+    _agentWindowTest,
+  );
   testWidgets(
     'native detached review reads immutable evidence, navigates and revokes',
     _reviewWindowTest,
@@ -53,7 +58,6 @@ Future<void> main(List<String> arguments) async {
         edits: edits,
         conversation: q,
         onDock: docked.add,
-        onSend: () async {},
         diagnostics: true,
       );
       c.addListener(() {
@@ -250,7 +254,6 @@ Future<void> main(List<String> arguments) async {
         edits: edits,
         conversation: q,
         onDock: (_) {},
-        onSend: () async {},
         diagnostics: true,
       );
       final caches = <File>[];
@@ -413,7 +416,6 @@ Future<void> main(List<String> arguments) async {
         edits: edits,
         conversation: q,
         onDock: (_) {},
-        onSend: () async {},
         diagnostics: true,
       );
       Future<Map> ready(DetachedWorkbenchSession child, int page) async {
@@ -513,7 +515,6 @@ Future<void> _reviewWindowTest(WidgetTester tester) async {
     edits: edits,
     conversation: q,
     onDock: docked.add,
-    onSend: () async {},
     diagnostics: true,
   );
   Future<Map> ready(
@@ -642,6 +643,220 @@ Future<void> _reviewWindowTest(WidgetTester tester) async {
           'lockRevokesProcess': true,
           'unlockRestoresView': true,
           'closeRedocks': true,
+        }),
+      );
+    }
+  } finally {
+    await host.shutdown(preserve: true);
+    host.dispose();
+    await tester.pumpWidget(const SizedBox());
+    q.dispose();
+    edits.dispose();
+    if (c.isUnlocked) await c.lock();
+    c.dispose();
+    await root.delete(recursive: true);
+  }
+}
+
+Future<void> _agentWindowTest(WidgetTester tester) async {
+  final root = await Directory.systemTemp.createTemp('liverelay-child-agent-');
+  final ai = RecordingConversationAi();
+  final c = createAppController(
+    root,
+    NoBiometrics(),
+    TestOcr(),
+    ai,
+    TestAiSettings()..configured = true,
+  );
+  final q = AgentConversation(c);
+  final edits = CardEditSessions(
+    save: (id, draft) => c.updateCard(id, draft),
+    canSave: () => c.isUnlocked && !c.isBusy,
+  );
+  final host = NativeWindowHost(
+    controller: c,
+    edits: edits,
+    conversation: q,
+    onDock: (_) {},
+    diagnostics: true,
+  );
+  Future<Map> waitAgent(
+    DetachedWorkbenchSession child,
+    bool Function(Map) ready,
+  ) async {
+    for (var i = 0; i < 200; i++) {
+      try {
+        final data = await child.channel.invokeMethod<Map>('inspect');
+        final agent = data?['agent'];
+        if (agent is Map && ready(agent)) return agent;
+      } on Object {
+        /* starting or invalidation */
+      }
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+    throw StateError('独立助手未达到预期状态');
+  }
+
+  try {
+    await c.initialize();
+    await c.setupVault(
+      password: 'fixture-agent-window-password',
+      usesChinesePassphrase: false,
+    );
+    await c.createCard(const CardDraft(title: '引用目标', content: '虚构目标'));
+    final target = c.cards.single;
+    await tester.pumpWidget(
+      const MaterialApp(home: Scaffold(body: Text('fixture agent window'))),
+    );
+    final child = await host.open(
+      'agent',
+      bounds: {'x': 30, 'y': 30, 'width': 920, 'height': 840},
+    );
+    Future<dynamic> ask(String method, [Map args = const {}]) =>
+        child.channel.invokeMethod('diagnosticRequest', {
+          'method': method,
+          'arguments': args,
+        });
+    await waitAgent(child, (a) => a['draft'] != null);
+    await ask('draft', {'text': '第一轮虚构输入\nfixture private line'});
+    await ask('mark', {'line': 1, 'kind': 'secret'});
+    var consent = await ask('prepareSend') as Map;
+    expect(consent['text'], contains('[[TURN1_SECRET_01]]'));
+    expect(consent['text'], isNot(contains('fixture private line')));
+    q.updateDraft('changed elsewhere');
+    await expectLater(
+      ask('send', {'ticket': consent['ticket']}),
+      throwsA(anything),
+    );
+    expect(ai.requests, isEmpty);
+    await ask('draft', {'text': '第一轮虚构输入'});
+    consent = await ask('prepareSend') as Map;
+    await ask('send', {'ticket': consent['ticket']});
+    await waitAgent(
+      child,
+      (a) => a['working'] == false && (a['messages'] as List).length == 2,
+    );
+    expect(ai.requests, hasLength(1));
+    final file = File('${root.path}/fixture.txt');
+    await file.writeAsString('独立附件虚构内容');
+    await ask('addFiles', {
+      'paths': [file.path],
+    });
+    await ask('attachCard', {'id': target.id});
+    final attached = await waitAgent(
+      child,
+      (a) => (a['attachments'] as List).length == 2,
+    );
+    expect(c.blobs, isEmpty);
+    final attachmentId = (attached['attachments'] as List).first['id'];
+    final bytes = await ask('readAttachment', {'id': attachmentId}) as Map;
+    expect(utf8.decode(bytes['bytes'] as Uint8List), '独立附件虚构内容');
+    (bytes['bytes'] as Uint8List).fillRange(
+      0,
+      (bytes['bytes'] as Uint8List).length,
+      0,
+    );
+    await expectLater(
+      ask('readAttachment', {'id': 'unselected'}),
+      throwsA(anything),
+    );
+    await ask('saveAttachment', {'id': attachmentId});
+    expect(c.blobs, hasLength(1));
+    await ask('draft', {'text': '请继续整理'});
+    consent = await ask('prepareSend') as Map;
+    expect(consent['targets'], hasLength(1));
+    await ask('send', {'ticket': consent['ticket']});
+    await waitAgent(
+      child,
+      (a) => a['working'] == false && (a['messages'] as List).length == 4,
+    );
+    final message = q.messages.last;
+    await ask('editSuggestion', {
+      'reviewId': message.reviewId,
+      'index': 0,
+      'suggestion': {
+        'title': '独立窗口本人修改',
+        'tags': ['本人核对'],
+        'kind': 'location',
+        'inference': true,
+      },
+    });
+    await ask('editActions', {
+      'reviewId': message.reviewId,
+      'index': 0,
+      'plan': ReviewActions(
+        referenceIds: [target.id],
+        deceased: VisibilityLevel.summary,
+      ).toJson(),
+    });
+    final rendered = await waitAgent(
+      child,
+      (a) =>
+          ((a['messages'] as List).last['actions'] as List)
+              .single['deceased'] ==
+          'summary',
+    );
+    final shown = (rendered['messages'] as List).last['stamp'];
+    expect(shown, windowReviewStamp(message));
+    final evidence = Platform.environment['LIVERELAY_WORKBENCH_EVIDENCE'];
+    if (evidence != null) {
+      final png = await child.channel.invokeMethod<Uint8List>('capture');
+      await File('$evidence/native-child-agent.png').writeAsBytes(png!);
+    }
+    q.editSuggestion(message, 0, content: '主工作台再次更新');
+    await expectLater(
+      ask('accept', {'reviewId': message.reviewId, 'stamp': shown}),
+      throwsA(anything),
+    );
+    expect(message.accepted, false);
+    await ask('accept', {
+      'reviewId': message.reviewId,
+      'stamp': windowReviewStamp(message),
+    });
+    expect(message.accepted, true);
+    final saved = c.cards.singleWhere((item) => item.title == '独立窗口本人修改');
+    expect(saved.title, '独立窗口本人修改');
+    expect(saved.kind, CardKind.location);
+    expect(c.cardReferences.single.to, target.id);
+    final source = await c.cardReviewSource(saved.id);
+    expect(source!.inputs.last.attachments, hasLength(2));
+    expect(source.actions.single.deceased, VisibilityLevel.summary);
+    source.wipe();
+    await ask('flush');
+    await c.lock();
+    expect(
+      await child.window.process.exitCode.timeout(const Duration(seconds: 5)),
+      0,
+    );
+    await c.unlockWithPassword('fixture-agent-window-password');
+    await q.load();
+    expect(q.messages.last.accepted, true);
+    await host.restore();
+    final restored = host.sessions.single;
+    await waitAgent(
+      restored,
+      (a) => (a['messages'] as List).last['accepted'] == true,
+    );
+    expect(
+      (await restored.channel.invokeMethod<Map>('inspect'))!['vaultOwner'],
+      false,
+    );
+    if (evidence != null) {
+      await File('$evidence/child-agent-verification.json').writeAsString(
+        jsonEncode({
+          'fixtureOnly': true,
+          'nativeIndependentProcess': true,
+          'vaultOwnerInChild': false,
+          'consentRedacted': true,
+          'staleConsentRejected': true,
+          'attachmentsScoped': true,
+          'separateStoreOriginal': true,
+          'ownerSuggestionFields': true,
+          'fullOwnerPlan': true,
+          'stalePlanRejected': true,
+          'sourceAttachmentsPreserved': true,
+          'lockRevokesProcess': true,
+          'encryptedReopen': true,
         }),
       );
     }

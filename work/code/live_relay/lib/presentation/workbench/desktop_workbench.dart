@@ -6,7 +6,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:provider/provider.dart';
-import 'package:window_manager/window_manager.dart';
 
 import '../../application/app_controller.dart';
 import '../../application/app_preferences.dart';
@@ -68,20 +67,7 @@ class _DesktopWorkbenchState extends State<DesktopWorkbench> {
   void initState() {
     super.initState();
     _controller = context.read<AppController>();
-    _runtime = WorkbenchRuntime(
-      _controller,
-      onSend: () async {
-        if (!mounted || !_controller.isUnlocked) return;
-        _layout.open('agent');
-        await windowManager.focus();
-        if (!mounted) return;
-        await ConversationView(
-          conversation: _conversation,
-          openManual: () => _layout.open('cards'),
-          openSpeech: () => _layout.open('speech'),
-        ).sendWithConsent(context);
-      },
-    );
+    _runtime = WorkbenchRuntime(_controller);
     _runtime.addListener(_runtimeChanged);
     _lifecycle = AppLifecycleListener(onExitRequested: _requestExit);
     _controller.desktopExitRequested = _requestExit;

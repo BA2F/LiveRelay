@@ -69,7 +69,7 @@ void main() {
       ai,
       TestAiSettings()..configured = true,
     );
-    final runtime = WorkbenchRuntime(c, onSend: () async {});
+    final runtime = WorkbenchRuntime(c);
     Future<bool>? pending;
     try {
       await c.initialize();

@@ -182,6 +182,7 @@ class LocalWindowChannel {
       }
     } finally {
       _wipeReply(result);
+      _wipeReply(message['args']);
     }
   }
 

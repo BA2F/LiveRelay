@@ -5,7 +5,7 @@ import '../../core/domain/entities.dart';
 import '../dialogs/ai_settings_dialog.dart';
 import 'attachment_strip.dart';
 import 'review_actions_editor.dart';
-import '../model_labels.dart';
+import 'suggestion_review_editor.dart';
 
 class ConversationView extends StatelessWidget {
   const ConversationView({
@@ -255,92 +255,23 @@ class ConversationView extends StatelessWidget {
                               ],
                             ),
                           for (var i = 0; i < m.suggestions.length; i++)
-                            Padding(
-                              padding: const EdgeInsets.only(top: 12),
-                              child: Column(
-                                children: [
-                                  DropdownButtonFormField<CardKind>(
-                                    key: ValueKey(
-                                      '${m.reviewId}/$i/${m.suggestions[i].kind.name}',
-                                    ),
-                                    initialValue: m.suggestions[i].kind,
-                                    decoration: const InputDecoration(
-                                      labelText: '建议类型',
-                                    ),
-                                    items: [
-                                      for (final kind in CardKind.values.where(
-                                        (k) => k != CardKind.bundle,
-                                      ))
-                                        DropdownMenuItem(
-                                          value: kind,
-                                          child: Text(kind.label),
-                                        ),
-                                    ],
-                                    onChanged: m.accepted || c.working
-                                        ? null
-                                        : (kind) => c.editSuggestion(
-                                            m,
-                                            i,
-                                            kind: kind,
-                                          ),
-                                  ),
-                                  CheckboxListTile(
-                                    contentPadding: EdgeInsets.zero,
-                                    title: const Text('内容包含推断'),
-                                    value: m.suggestions[i].isInference,
-                                    onChanged: m.accepted || c.working
-                                        ? null
-                                        : (value) => c.editSuggestion(
-                                            m,
-                                            i,
-                                            isInference: value,
-                                          ),
-                                  ),
-                                  if (m.suggestions[i].isInference)
-                                    const Text('包含推断，请核对'),
-                                  _SharedField(
-                                    key: ValueKey('${m.reviewId}/$i/title'),
-                                    label: '建议标题',
-                                    value: m.suggestions[i].title,
-                                    enabled: !m.accepted && !c.working,
-                                    onChanged: (text) =>
-                                        c.editSuggestion(m, i, title: text),
-                                  ),
-                                  const SizedBox(height: 8),
-                                  _SharedField(
-                                    key: ValueKey('${m.reviewId}/$i/content'),
-                                    label: '建议总结',
-                                    value: m.suggestions[i].content,
-                                    maxLines: 6,
-                                    enabled: !m.accepted && !c.working,
-                                    onChanged: (text) =>
-                                        c.editSuggestion(m, i, content: text),
-                                  ),
-                                  const SizedBox(height: 8),
-                                  _SharedField(
-                                    key: ValueKey('${m.reviewId}/$i/tags'),
-                                    label: '建议标签',
-                                    value: m.suggestions[i].tags.join('，'),
-                                    enabled: !m.accepted && !c.working,
-                                    onChanged: (text) => c.editSuggestion(
-                                      m,
-                                      i,
-                                      tags: text
-                                          .split(RegExp('[，,]'))
-                                          .map((t) => t.trim())
-                                          .where((t) => t.isNotEmpty)
-                                          .toSet()
-                                          .toList(),
-                                    ),
-                                  ),
-                                  ReviewActionsEditor(
-                                    key: ValueKey('${m.reviewId}/$i/actions'),
-                                    conversation: c,
-                                    message: m,
-                                    index: i,
-                                  ),
-                                ],
+                            SuggestionReviewEditor(
+                              key: ValueKey('${m.reviewId}/$i/editor'),
+                              message: m,
+                              index: i,
+                              cards: c.controller.cards,
+                              working: c.working,
+                              onSuggestion: (value) => c.editSuggestion(
+                                m,
+                                i,
+                                title: value.title,
+                                content: value.content,
+                                kind: value.kind,
+                                isInference: value.isInference,
+                                tags: value.tags,
                               ),
+                              onActions: (value) => c.editActions(m, i, value),
+                              onAdopt: () => c.adoptProposal(m, i),
                             ),
                           if (m.suggestions.isNotEmpty) ...[
                             const SizedBox(height: 12),
@@ -478,7 +409,6 @@ class ConversationView extends StatelessWidget {
 
 class _SharedField extends StatefulWidget {
   const _SharedField({
-    super.key,
     required this.label,
     required this.value,
     required this.onChanged,

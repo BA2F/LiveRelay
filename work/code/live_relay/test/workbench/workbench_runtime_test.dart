@@ -33,7 +33,7 @@ void main() {
           status: CardStatus.draft,
         ),
       );
-      runtime = WorkbenchRuntime(c, onSend: () async {});
+      runtime = WorkbenchRuntime(c);
       expect(await runtime.requestExit(), AppExitResponse.cancel);
       expect(await c.readWorkbenchState(), isNull);
       await runtime.load(preset: 'assistant');
@@ -56,7 +56,7 @@ void main() {
       await c.unlockWithPassword('fixture-runtime-password');
       expect(c.cards.single.title, 'pending title');
       expect(c.cards.single.status, CardStatus.draft);
-      runtime = WorkbenchRuntime(c, onSend: () async {});
+      runtime = WorkbenchRuntime(c);
       await runtime.load();
       expect(runtime.conversation.draft, 'pending conversation');
       expect(runtime.layout.containing('changes'), isNotNull);

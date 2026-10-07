@@ -15,6 +15,7 @@ import '../../application/workbench/window_review_reader.dart';
 import '../../application/preview_session.dart';
 import '../../core/ai/review_source.dart';
 import 'review_source_view.dart';
+import 'detached_conversation_view.dart';
 import '../widgets/local_media_preview.dart';
 import '../widgets/local_pdf_preview.dart';
 
@@ -126,6 +127,19 @@ class _DetachedWorkbenchState extends State<DetachedWorkbench>
               'bounds': await _bounds(),
               'vaultOwner': false,
               'error': _error,
+              if (_data['view'] == 'agent')
+                'agent': {
+                  for (final key in [
+                    'draft',
+                    'marks',
+                    'attachments',
+                    'messages',
+                    'working',
+                    'model',
+                    'conversationStamp',
+                  ])
+                    key: _data[key],
+                },
               'media': {
                 'ready': _mediaKey.currentState?.isReady ?? false,
                 'playing':
@@ -182,6 +196,16 @@ class _DetachedWorkbenchState extends State<DetachedWorkbench>
               throw const FormatException('媒体诊断操作无效');
             }
             return true;
+          case 'diagnosticRequest':
+            if (!widget.diagnostics || _revoked) throw StateError('诊断未启用');
+            await _commands;
+            final args = call.arguments as Map;
+            final result = await widget.channel.invokeMethod(
+              args['method'] as String,
+              args['arguments'],
+            );
+            await _pull();
+            return result;
           case 'diagnosticCommand':
             if (!widget.diagnostics) throw StateError('诊断未启用');
             final args = call.arguments as Map;
@@ -527,58 +551,20 @@ class _DetachedWorkbenchState extends State<DetachedWorkbench>
       ),
     ),
   );
-  Widget _agent() => ListView(
-    padding: const EdgeInsets.all(16),
-    children: [
-      Text('${_data['model']} · 与主工作台共享会话'),
-      for (final m in _data['messages'] as List? ?? []) ...[
-        Text(
-          m['role'] == 'user' ? '我' : '助手',
-          style: const TextStyle(fontWeight: FontWeight.bold),
-        ),
-        SelectableText(m['text'] as String),
-        for (var i = 0; i < (m['suggestions'] as List).length; i++) ...[
-          for (final f in ['title', 'content'])
-            _field(
-              '${m['reviewId']}/$i/$f',
-              m['suggestions'][i][f] as String,
-              f == 'title' ? '建议标题' : '建议总结',
-              (v) => _act('editSuggestion', {
-                'reviewId': m['reviewId'],
-                'index': i,
-                'field': f,
-                'text': v,
-              }),
-              multiline: f == 'content',
-            ),
-        ],
-        if ((m['suggestions'] as List).isNotEmpty)
-          FilledButton(
-            onPressed:
-                m['accepted'] == true ||
-                    m['hasActions'] == true ||
-                    _data['working'] == true
-                ? null
-                : () => _act('accept', {'reviewId': m['reviewId']}),
-            child: Text(m['accepted'] == true ? '已确认保存' : '确认建议并保存'),
-          ),
-        if (m['hasActions'] == true && m['accepted'] != true)
-          const Text('包含收纳、引用或可见层级计划，请合并到主工作台核对并确认。'),
-        const Divider(),
-      ],
-      _field(
-        'agent/draft',
-        _data['draft'] as String? ?? '',
-        '给助手的消息',
-        (v) => _act('draft', {'text': v}),
-        multiline: true,
-      ),
-      FilledButton(
-        onPressed: _data['working'] == true ? null : () => _act('send'),
-        child: const Text('发送（主窗口核对范围）'),
-      ),
-      if (_data['error'] != null) Text(_data['error'] as String),
-    ],
+  Widget _agent() => DetachedConversationView(
+    data: _data,
+    session: _previewSession,
+    act: _act,
+    request: (method, args) async {
+      await _commands;
+      if (_revoked || !mounted || _data['view'] != 'agent') {
+        throw const FormatException('助手视图已关闭');
+      }
+      return widget.channel.invokeMethod(method, args);
+    },
+    openSettings: () => _act('openMain', {'view': 'settings'}),
+    openSpeech: () => _act('openMain', {'view': 'speech'}),
+    openManual: () => _act('newCard'),
   );
   Widget _body() {
     final view = _data['view'] as String? ?? '';

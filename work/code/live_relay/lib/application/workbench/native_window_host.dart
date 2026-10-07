@@ -12,6 +12,7 @@ import 'card_edit_sessions.dart';
 import 'window_projection.dart';
 import 'window_source_reader.dart';
 import 'window_review_reader.dart';
+import 'window_conversation_bridge.dart';
 import '../../core/domain/entities.dart';
 
 class DetachedWorkbenchSession {
@@ -22,6 +23,7 @@ class DetachedWorkbenchSession {
   Map<String, double>? bounds;
   bool closed = false;
   WindowReviewReader? reviewReader;
+  WindowConversationBridge? conversationBridge;
 }
 
 /// The only vault owner remains the main process. Child windows exchange bounded
@@ -32,7 +34,6 @@ class NativeWindowHost {
     required this.edits,
     required this.conversation,
     required this.onDock,
-    required this.onSend,
     this.diagnostics = false,
   }) {
     controller.addListener(_changed);
@@ -43,7 +44,6 @@ class NativeWindowHost {
   final CardEditSessions edits;
   final AgentConversation conversation;
   final void Function(String) onDock;
-  final Future<void> Function() onSend;
   final bool diagnostics;
   final sessions = <DetachedWorkbenchSession>[];
   bool _disposed = false, _unlocked = true;
@@ -111,6 +111,7 @@ class NativeWindowHost {
       sessions.add(session);
       final active = session;
       window.process.exitCode.then((_) async {
+        active.conversationBridge?.clear();
         await active.reviewReader?.clear();
         if (!active.closed && !_disposed && controller.isUnlocked) {
           active.closed = true;
@@ -130,6 +131,7 @@ class NativeWindowHost {
       final s = session;
       if (s != null) {
         s.closed = true;
+        s.conversationBridge?.clear();
         await s.reviewReader?.clear();
         sessions.remove(s);
         try {
@@ -178,6 +180,15 @@ class NativeWindowHost {
     LifeCard card() =>
         controller.cards.where((c) => c.id == id).firstOrNull ??
         (throw const FormatException('卡片已不存在'));
+    if (WindowConversationBridge.methods.contains(call.method)) {
+      if (s.view != 'agent') throw const FormatException('请在助手视图操作');
+      final bridge = s.conversationBridge ??= WindowConversationBridge(
+        conversation,
+        active: () =>
+            !_disposed && epoch == _epoch && !s.closed && s.view == 'agent',
+      );
+      return bridge.invoke(call);
+    }
     switch (call.method) {
       case 'health':
         return {'epoch': epoch};
@@ -208,7 +219,9 @@ class NativeWindowHost {
       case 'navigate':
         final view = a['view'] as String;
         if (!detachableView(view)) throw const FormatException('不支持的视图');
+        s.conversationBridge?.clear();
         s.view = view;
+        s.conversationBridge?.clear();
         await s.reviewReader?.clear();
         _version++;
         await _persist();
@@ -251,43 +264,25 @@ class NativeWindowHost {
           id!,
           (a['targets'] as List).cast<String>(),
         );
-      case 'draft':
-        if (a['text'] is! String || (a['text'] as String).length > 32000) {
-          throw const FormatException('输入过长');
+      case 'openMain':
+        if (!{'settings', 'speech'}.contains(a['view'])) {
+          throw const FormatException('入口无效');
         }
-        conversation.updateDraft(a['text'] as String);
-      case 'send':
-        await onSend();
-      case 'editSuggestion':
-        final m = conversation.messages
-            .where((m) => m.reviewId == a['reviewId'])
-            .firstOrNull;
-        if (m == null ||
-            a['text'] is! String ||
-            (a['text'] as String).length > 32000) {
-          throw const FormatException('建议已失效');
-        }
-        final index = a['index'] as int;
-        if (index < 0 ||
-            index >= m.suggestions.length ||
-            !{'title', 'content'}.contains(a['field'])) {
-          throw const FormatException('建议字段无效');
-        }
-        conversation.editSuggestion(
-          m,
-          index,
-          title: a['field'] == 'title' ? a['text'] as String : null,
-          content: a['field'] == 'content' ? a['text'] as String : null,
+        onDock(a['view'] as String);
+      case 'newCard':
+        if (s.view != 'agent') throw const FormatException('请在助手视图新建');
+        final existing = controller.cards.map((c) => c.id).toSet();
+        await controller.createCard(
+          const CardDraft(title: '新卡片', content: '', status: CardStatus.draft),
         );
-      case 'accept':
-        final m = conversation.messages
-            .where((m) => m.reviewId == a['reviewId'])
+        final created = controller.cards
+            .where((c) => !existing.contains(c.id))
             .firstOrNull;
-        if (m == null) throw const FormatException('建议已失效');
-        if (m.actions.any((a) => a.hasChanges)) {
-          throw const FormatException('此建议包含操作计划，请合并到主工作台核对并确认');
+        if (created != null) {
+          s.view = 'card/${created.id}';
+          _version++;
+          await _persist();
         }
-        await conversation.accept(m);
       case 'geometry':
         final bounds = windowBounds(a);
         if (bounds == null) throw const FormatException('窗口位置无效');
@@ -298,6 +293,7 @@ class NativeWindowHost {
         await conversation.flush();
         if (edits.hasUnsaved) throw const FormatException('修改尚未保存');
         s.closed = true;
+        s.conversationBridge?.clear();
         await s.reviewReader?.clear();
         sessions.remove(s);
         onDock(s.view);
@@ -407,24 +403,12 @@ class NativeWindowHost {
       ];
     }
     if (s.view == 'agent') {
-      data['draft'] = conversation.draft;
-      data['working'] = conversation.working;
-      data['model'] = controller.aiSettings.model;
-      data['error'] = conversation.error;
-      data['messages'] = [
-        for (final m in conversation.messages)
-          {
-            'role': m.role,
-            'text': m.text,
-            'reviewId': m.reviewId,
-            'accepted': m.accepted,
-            'hasActions': m.actions.any((a) => a.hasChanges),
-            'suggestions': [
-              for (final c in m.suggestions)
-                {'title': c.title, 'content': c.content},
-            ],
-          },
-      ];
+      final bridge = s.conversationBridge ??= WindowConversationBridge(
+        conversation,
+        active: () =>
+            !_disposed && epoch == _epoch && !s.closed && s.view == 'agent',
+      );
+      data.addAll(bridge.snapshot());
     }
     if (_disposed || epoch != _epoch || !controller.isUnlocked || s.closed) {
       final bytes = data['sourceBytes'];
@@ -464,6 +448,7 @@ class NativeWindowHost {
     if (!preserve && controller.isUnlocked) await _persist();
     for (final s in List.of(sessions)) {
       s.closed = true;
+      s.conversationBridge?.clear();
       await s.reviewReader?.clear();
       try {
         await s.channel

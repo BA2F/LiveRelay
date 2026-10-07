@@ -48,6 +48,7 @@ dependencies:
   sqlite3: ^3.6.0
   path: ^1.9.1
   path_provider: ^2.1.6
+  crypto: ^3.0.7
   cryptography: ^2.9.0
   cryptography_flutter: ^2.3.4
   flutter_secure_storage: ^11.2.0

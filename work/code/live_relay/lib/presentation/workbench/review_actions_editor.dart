@@ -31,11 +31,17 @@ String reviewPlanSummary(
 class ReviewActionsEditor extends StatefulWidget {
   const ReviewActionsEditor({
     super.key,
-    required this.conversation,
+    required this.cards,
+    required this.working,
+    required this.onChanged,
+    required this.onAdopt,
     required this.message,
     required this.index,
   });
-  final AgentConversation conversation;
+  final List<LifeCard> cards;
+  final bool working;
+  final ValueChanged<ReviewActions> onChanged;
+  final VoidCallback onAdopt;
   final ConversationMessage message;
   final int index;
   @override
@@ -45,7 +51,7 @@ class ReviewActionsEditor extends StatefulWidget {
 class _ReviewActionsEditorState extends State<ReviewActionsEditor> {
   String _query = '';
   ReviewActions get _plan => widget.message.actions[widget.index];
-  bool get _enabled => !widget.message.accepted && !widget.conversation.working;
+  bool get _enabled => !widget.message.accepted && !widget.working;
   void _change({
     String? bundleId,
     bool changeBundle = false,
@@ -53,9 +59,7 @@ class _ReviewActionsEditorState extends State<ReviewActionsEditor> {
     VisibilityLevel? incapacitated,
     VisibilityLevel? deceased,
   }) {
-    widget.conversation.editActions(
-      widget.message,
-      widget.index,
+    widget.onChanged(
       ReviewActions(
         bundleId: changeBundle ? bundleId : _plan.bundleId,
         referenceIds: references ?? _plan.referenceIds,
@@ -94,7 +98,7 @@ class _ReviewActionsEditorState extends State<ReviewActionsEditor> {
 
   @override
   Widget build(BuildContext context) {
-    final cards = widget.conversation.controller.cards;
+    final cards = widget.cards;
     final bundles = cards.where((c) => c.kind == CardKind.bundle).toList();
     final selected = bundles.where((c) => c.id == _plan.bundleId).firstOrNull;
     final matches = cards
@@ -128,12 +132,7 @@ class _ReviewActionsEditorState extends State<ReviewActionsEditor> {
                       key: ValueKey(
                         'adopt-proposal-${widget.message.reviewId}-${widget.index}',
                       ),
-                      onPressed: !_enabled
-                          ? null
-                          : () => widget.conversation.adoptProposal(
-                              widget.message,
-                              widget.index,
-                            ),
+                      onPressed: !_enabled ? null : widget.onAdopt,
                       child: const Text('采用此草案，继续核对保存计划'),
                     ),
                 ],
