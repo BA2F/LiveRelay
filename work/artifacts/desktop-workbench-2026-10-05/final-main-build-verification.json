@@ -26,13 +26,16 @@
   "sourceWasUncommittedAtBuild": true,
   "linuxDartKernel": {
     "size": 100635680,
-    "sha256": "1a5269e7021f770312bbd18c7735ce494ce2a9248fcddeded249a96862aea575"
+    "sha256": "defca300e4611157118e0a989e0ca3e8ba66ae25d7a4f24d27daf940be479da2"
   },
   "linuxCompleteBundle": {
-    "files": 34,
-    "bytes": 195377185,
-    "sha256OfFileHashManifest": "6c074375eaa608e55f2d1397bd9e8039995fd9cb5812b51dece9d2d3c5b55363",
+    "files": 33,
+    "bytes": 195376810,
+    "sha256OfFileHashManifest": "0d9df6731a61d0055526d8f43fda4063efc5d3ee164f0d39aeb381eac1f6bb9d",
     "hashRule": "sorted relative POSIX path + NUL + file SHA256 hex + LF"
   },
-  "verifiedSourceCommit": "cb9a1169d3ef052963bb33b81098186a75173da1"
+  "verifiedSourceCommit": "cb9a1169d3ef052963bb33b81098186a75173da1",
+  "linuxRebuildAfterNativeCloseTests": true,
+  "linuxRebuildGitBase": "bbe0fe5a1a72986491885497bce54fc07d818315",
+  "productionSourcesChangedSinceVerifiedCommit": false
 }
