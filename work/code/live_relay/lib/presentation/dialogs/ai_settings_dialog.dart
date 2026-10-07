@@ -39,6 +39,12 @@ class AiSettingsDialogState extends State<AiSettingsDialog> {
   bool _busy = false;
   bool _showKey = false;
   String? _error;
+  bool get _deepSeekFlash =>
+      Uri.tryParse(_endpoint.text.trim())?.host == 'api.deepseek.com' &&
+      {
+        'deepseek-flash',
+        'deepseek-v4-flash-vision-exp',
+      }.contains(_model.text.trim());
 
   String get _effectiveAddress {
     final uri = Uri.tryParse(_endpoint.text.trim());
@@ -205,6 +211,7 @@ class AiSettingsDialogState extends State<AiSettingsDialog> {
           TextField(
             controller: _model,
             enabled: !_busy,
+            onChanged: (_) => setState(() {}),
             decoration: const InputDecoration(labelText: '模型名称'),
           ),
           const SizedBox(height: 12),
@@ -221,6 +228,9 @@ class AiSettingsDialogState extends State<AiSettingsDialog> {
           CheckboxListTile(
             contentPadding: EdgeInsets.zero,
             title: const Text('此模型支持图片输入'),
+            subtitle: _deepSeekFlash
+                ? const Text('DeepSeek Flash 支持图片和已核对的视频采样帧；请启用此项。')
+                : null,
             value: _images,
             onChanged: _busy
                 ? null

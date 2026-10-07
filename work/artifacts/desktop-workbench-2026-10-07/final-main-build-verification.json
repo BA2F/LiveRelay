@@ -1,0 +1,50 @@
+{
+  "date": "2026-10-07",
+  "normalClient": true,
+  "entrypoint": "lib/main.dart",
+  "sourceGitBase": "3852529591b1210017030aa40e699f9982ca1531",
+  "sourceWasUncommittedAtBuild": true,
+  "currentLinuxHostDebugOnly": true,
+  "published": false,
+  "installed": false,
+  "linuxRequiresCompleteBundle": true,
+  "linuxCompleteBundle": {
+    "files": 33,
+    "bytes": 195386722,
+    "sha256OfFileHashManifest": "e6e7a36da2797cafb649b99e916dddaf2c5514ba6217a7dff34ea736547d7931",
+    "hashRule": "sorted relative POSIX path + NUL + file SHA256 hex + LF"
+  },
+  "linuxDartKernel": {
+    "size": 100629512,
+    "sha256": "eec6122ff6d7ca3ae0ed14da84bdb39dc45dc1512cbb75ce1e18b440503affee"
+  },
+  "artifacts": [
+    {
+      "name": "Android正常main Debug APK",
+      "relativeToRepository": "work/exports/release-artifacts/desktop-workbench-2026-10-07/liverelay-android-debug-main.apk",
+      "bytes": 330354477,
+      "sha256": "ace099b407eaf12b9799eccee77d472c9cf38275c5027186a69ab590094bdb91"
+    },
+    {
+      "name": "Linux正常main Debug完整归档",
+      "relativeToRepository": "work/exports/release-artifacts/desktop-workbench-2026-10-07/liverelay-linux-debug-main.tar.gz",
+      "bytes": 62745395,
+      "sha256": "de52837a1e4757a26c01d3b0d0b80259f4d290c15abb4b4efe4c8df2dae313d8"
+    }
+  ],
+  "automaticChecks": {
+    "unitTests": 212,
+    "mobileUiRecheck": 8,
+    "waylandMainProductCases": 15,
+    "x11DetachedProductCases": 7,
+    "waylandDetachedProductCases": 7,
+    "publicLocalSpeechProductCases": 1,
+    "realDeepSeekRequests": 6,
+    "analysisPassed": true
+  },
+  "overallGoalComplete": false,
+  "microphoneHardwareTested": false,
+  "remoteAsrTested": false,
+  "realPointerWaylandActivationTested": false,
+  "archiveFileContentsVerified": true
+}

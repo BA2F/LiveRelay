@@ -1,8 +1,12 @@
 #include "my_application.h"
+#include <cstring>
 
 #include <flutter_linux/flutter_linux.h>
 #ifdef GDK_WINDOWING_X11
 #include <gdk/gdkx.h>
+#endif
+#ifdef GDK_WINDOWING_WAYLAND
+#include <gdk/gdkwayland.h>
 #endif
 
 #include "flutter/generated_plugin_registrant.h"
@@ -17,11 +21,67 @@ G_DEFINE_TYPE(MyApplication, my_application, GTK_TYPE_APPLICATION)
 // Present only this engine's own window after an explicit workbench request.
 static void owner_window_method(FlMethodChannel* channel, FlMethodCall* call,
                                 gpointer user_data) {
-  if (g_strcmp0(fl_method_call_get_name(call), "activate") != 0) {
+  GtkWindow* window = GTK_WINDOW(user_data);
+  GdkDisplay* display = gtk_widget_get_display(GTK_WIDGET(window));
+  const char* method = fl_method_call_get_name(call);
+  if (g_strcmp0(method, "backend") == 0) {
+    const char* backend = "other";
+#ifdef GDK_WINDOWING_X11
+    if (GDK_IS_X11_DISPLAY(display)) backend = "x11";
+#endif
+#ifdef GDK_WINDOWING_WAYLAND
+    if (GDK_IS_WAYLAND_DISPLAY(display)) backend = "wayland";
+#endif
+    g_autoptr(FlValue) result = fl_value_new_string(backend);
+    fl_method_call_respond_success(call, result, nullptr);
+    return;
+  }
+  if (g_strcmp0(method, "requestActivationToken") == 0) {
+    g_autofree char* token = nullptr;
+#ifdef GDK_WINDOWING_WAYLAND
+    // The initiating window's seat/event serial is retained by GDK. A
+    // background presentation client cannot mint a valid user interaction.
+    if (GDK_IS_WAYLAND_DISPLAY(display) && gtk_window_is_active(window) &&
+        gdk_wayland_display_query_registry(display, "xdg_activation_v1")) {
+      g_autoptr(GdkAppLaunchContext) context =
+          gdk_display_get_app_launch_context(display);
+      g_autoptr(GAppInfo) info = g_app_info_create_from_commandline(
+          "live_relay", "LiveRelay", G_APP_INFO_CREATE_SUPPORTS_STARTUP_NOTIFICATION,
+          nullptr);
+      if (info != nullptr) {
+        token = g_app_launch_context_get_startup_notify_id(
+            G_APP_LAUNCH_CONTEXT(context), info, nullptr);
+      }
+    }
+#endif
+    g_autoptr(FlValue) result = token == nullptr
+        ? fl_value_new_null() : fl_value_new_string(token);
+    fl_method_call_respond_success(call, result, nullptr);
+    return;
+  }
+  if (g_strcmp0(method, "activate") != 0) {
     fl_method_call_respond_not_implemented(call, nullptr);
     return;
   }
-  GtkWindow* window = GTK_WINDOW(user_data);
+  FlValue* args = fl_method_call_get_args(call);
+  const char* token = nullptr;
+  if (fl_value_get_type(args) != FL_VALUE_TYPE_NULL) {
+    if (fl_value_get_type(args) != FL_VALUE_TYPE_STRING ||
+        strlen(fl_value_get_string(args)) == 0 ||
+        strlen(fl_value_get_string(args)) > 4096) {
+      fl_method_call_respond_error(call, "INVALID_TOKEN", "Invalid activation token",
+                                   nullptr, nullptr);
+      return;
+    }
+    token = fl_value_get_string(args);
+  }
+#ifdef GDK_WINDOWING_WAYLAND
+  if (token != nullptr && GDK_IS_WAYLAND_DISPLAY(display)) {
+    // GDK consumes the token on the next focus request; never persist it or
+    // place it in the environment inherited by another presentation client.
+    gdk_wayland_display_set_startup_notification_id(display, token);
+  }
+#endif
   guint32 timestamp = GDK_CURRENT_TIME;
   gtk_widget_show(GTK_WIDGET(window));
 #ifdef GDK_WINDOWING_X11

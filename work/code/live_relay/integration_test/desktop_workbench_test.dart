@@ -1963,10 +1963,11 @@ void main() {
         final confirm = find.text('确认并保存 1 张卡片');
         await tester.ensureVisible(confirm);
         await tester.pumpAndSettle();
-        final evidence = Directory(
-          '${Directory.current.path}/../../artifacts/desktop-workbench-2026-10-05',
-        );
-        if (await evidence.exists()) {
+        final evidencePath =
+            Platform.environment['LIVERELAY_WORKBENCH_EVIDENCE'];
+        if (evidencePath != null) {
+          final evidence = await Directory(evidencePath)
+              .create(recursive: true);
           final render =
               boundary.currentContext!.findRenderObject()
                   as RenderRepaintBoundary;

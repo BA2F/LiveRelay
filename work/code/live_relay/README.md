@@ -149,3 +149,7 @@ flutter test integration_test/local_completion_desktop_test.dart -d linux
 演示每次使用新的系统临时目录，内置虚构 Owner／接收者；“我的”版本号连续七次点击可展开浮层。默认 main 不导入演示实现。说明见 [独立演示构建](../../../docs/30_design/platform/03_独立调试演示构建.md)。云端摇篮／同步、其他语言和外观优化由人类明确后置；软件实现不代替真实硬件与正式发行验收。
 
 原生主窗口关闭/强制退出验证目标为 `integration_test/desktop_close_test.dart`，同样使用 `test_driver/native_driver.dart`。子进程只创建公开密码的临时合成库，复用生产 NativeCloseGuard/WorkbenchRuntime；测试拒绝关闭、保存退出以及 SIGKILL 后已提交数据恢复，不保证强杀时尚未保存的编辑。证据目录应预先创建，最后必须重建正常 main。
+
+真实多模态补验使用 `test/support/deepseek_vision_smoke.dart`，固定只读取仓库公开色块图片、生成公开视频并发送采样帧。普通测试不执行这个工具；仅在本人授权真实请求后，关闭终端回显并从 stdin 提供密钥，结束恢复回显，密钥不进入参数、环境或文件。DeepSeek Flash 的图片能力需在服务设置中显式勾选，PDF／音频能力不随之启用。
+
+真实本地模型补验目标 `integration_test/desktop_public_speech_test.dart` 使用同一 native driver；必须指定公开模型根目录 `LIVERELAY_PUBLIC_SPEECH_MODEL_ROOT` 和公开样本 `LIVERELAY_PUBLIC_SPEECH_WAV`，否则跳过。测试导入公开 WAV，验证识别、默认不存原件、回填和明确存库重开，不自动录麦克风。正常交付仍最后重建 `lib/main.dart`。

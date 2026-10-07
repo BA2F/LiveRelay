@@ -12,6 +12,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:window_manager/window_manager.dart';
 
+import '../../infrastructure/desktop_owner_window.dart';
+
 import '../../application/workbench/window_projection.dart';
 import '../../application/workbench/window_review_reader.dart';
 import '../../application/preview_session.dart';
@@ -45,9 +47,13 @@ Future<bool> runDetachedWorkbench(List<String> arguments) async {
   await windowManager.setMinimumSize(const Size(400, 280));
   final b = windowBounds(args['bounds']);
   if (b != null) {
-    await windowManager.setBounds(
-      Rect.fromLTWH(b['x']!, b['y']!, b['width']!, b['height']!),
-    );
+    if (await nativeDesktopBackend() == 'wayland') {
+      await windowManager.setSize(Size(b['width']!, b['height']!));
+    } else {
+      await windowManager.setBounds(
+        Rect.fromLTWH(b['x']!, b['y']!, b['width']!, b['height']!),
+      );
+    }
   } else {
     await windowManager.setSize(const Size(800, 650));
   }
@@ -77,6 +83,7 @@ class _DetachedWorkbenchState extends State<DetachedWorkbench>
     with WindowListener {
   Map _data = {};
   String? _error;
+  String? _ownerWindowHint;
   bool _revoked = false, _closing = false;
   int _request = 0, _applied = -1, _pending = 0;
   Timer? _geometryTimer, _heartbeat;
@@ -150,6 +157,7 @@ class _DetachedWorkbenchState extends State<DetachedWorkbench>
               'bounds': await _bounds(),
               'vaultOwner': false,
               'error': _error,
+              'ownerWindowHint': _ownerWindowHint,
               'speech': _data['speech'],
               'transcript': _speechKey.currentState?.transcript,
               'savesOriginal': _speechKey.currentState?.savesOriginal,
@@ -215,6 +223,9 @@ class _DetachedWorkbenchState extends State<DetachedWorkbench>
             if (a['backfill'] == true) speech.backfillTranscript();
             if (a['saveDraft'] == true) await speech.saveTranscriptDraft();
             return true;
+          case 'diagnosticOpenMain':
+            if (!widget.diagnostics || _revoked) throw StateError('诊断未启用');
+            return _openMain(call.arguments as String);
           case 'diagnosticPdfPage':
             if (!widget.diagnostics || _revoked) throw StateError('诊断未启用');
             final pdf = _pdfKey.currentState;
@@ -322,6 +333,7 @@ class _DetachedWorkbenchState extends State<DetachedWorkbench>
     PaintingBinding.instance.imageCache.clear();
     PaintingBinding.instance.imageCache.clearLiveImages();
     _data = {};
+    _ownerWindowHint = null;
     _revoked = true;
     _extensions.clear();
     _request++;
@@ -361,13 +373,18 @@ class _DetachedWorkbenchState extends State<DetachedWorkbench>
     }
   }
 
-  Future<void> _act(String method, [Map<String, Object?> args = const {}]) {
+  Future<void> _act(
+    String method, [
+    Map<String, Object?> args = const {},
+    void Function(dynamic)? onResult,
+  ]) {
     if (_revoked) return Future.value();
     _pending++;
     final next = _commands.then((_) async {
       if (_revoked || !mounted) return;
       try {
-        await widget.channel.invokeMethod(method, args);
+        final result = await widget.channel.invokeMethod(method, args);
+        if (mounted && !_revoked) onResult?.call(result);
         if (mounted && !_revoked) setState(() => _error = null);
       } on Object {
         if (mounted && !_revoked) setState(() => _error = '操作未完成，请重试；修改不会自动确认');
@@ -432,6 +449,24 @@ class _DetachedWorkbenchState extends State<DetachedWorkbench>
   }
 
   void _navigate(String view) => unawaited(_act('navigate', {'view': view}));
+  Future<Map?> _openMain(String view) async {
+    final token = await ownerWindowActivationToken();
+    Map? result;
+    final arguments = <String, Object?>{'view': view};
+    if (token != null) arguments['activationToken'] = token;
+    await _act('openMain', arguments, (value) {
+      if (value is! Map || value['opened'] != true) return;
+      result = value;
+      final title = ownerWorkbenchTools[view] ?? '语音设置';
+      setState(
+        () => _ownerWindowHint = value['focused'] == true
+            ? null
+            : '已在主工作台打开$title；请从任务栏选择 LiveRelay 主窗口。',
+      );
+    });
+    return result;
+  }
+
   Future<Uint8List> _readSource(String id) async {
     final value = await widget.channel.invokeMethod<Uint8List>('readSource', {
       'id': id,
@@ -650,8 +685,12 @@ class _DetachedWorkbenchState extends State<DetachedWorkbench>
       return widget.channel.invokeMethod(method, args);
     },
     speechBinding: _speech,
-    openSpeechSettings: () => _act('openMain', {'view': 'speech'}),
-    openSettings: () => _act('openMain', {'view': 'settings'}),
+    openSpeechSettings: () async {
+      await _openMain('speech');
+    },
+    openSettings: () async {
+      await _openMain('settings');
+    },
     openSpeech: () => _navigate('speech'),
     openManual: () => _act('newCard'),
   );
@@ -661,7 +700,9 @@ class _DetachedWorkbenchState extends State<DetachedWorkbench>
       return SpeechInputPage(
         key: _speechKey,
         binding: _speech,
-        onSettings: () => _act('openMain', {'view': 'speech'}),
+        onSettings: () async {
+          await _openMain('speech');
+        },
         onTranscript: (text) async {
           try {
             await _speech.request('speechBackfill', {'text': text});
@@ -845,7 +886,7 @@ class _DetachedWorkbenchState extends State<DetachedWorkbench>
                 PopupMenuButton<String>(
                   tooltip: '资料库工具',
                   icon: const Icon(Icons.settings_outlined),
-                  onSelected: (view) => _act('openMain', {'view': view}),
+                  onSelected: _openMain,
                   itemBuilder: (_) => [
                     for (final tool in ownerWorkbenchTools.entries)
                       PopupMenuItem(value: tool.key, child: Text(tool.value)),
@@ -871,6 +912,18 @@ class _DetachedWorkbenchState extends State<DetachedWorkbench>
                   ? const Center(child: CircularProgressIndicator())
                   : Column(
                       children: [
+                        if (_ownerWindowHint != null)
+                          MaterialBanner(
+                            key: const ValueKey('owner-window-hint'),
+                            content: Text(_ownerWindowHint!),
+                            actions: [
+                              TextButton(
+                                onPressed: () =>
+                                    setState(() => _ownerWindowHint = null),
+                                child: const Text('知道了'),
+                              ),
+                            ],
+                          ),
                         if (_error != null)
                           Text(
                             _error!,

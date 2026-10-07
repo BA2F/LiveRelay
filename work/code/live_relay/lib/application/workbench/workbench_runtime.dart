@@ -16,7 +16,7 @@ import 'workbench_layout.dart';
 class WorkbenchRuntime extends ChangeNotifier {
   WorkbenchRuntime(
     this.controller, {
-    Future<void> Function()? activateMainWindow,
+    Future<bool> Function(String? activationToken)? activateMainWindow,
   }) {
     conversation = AgentConversation(controller);
     extensions = ExtensionRegistry(

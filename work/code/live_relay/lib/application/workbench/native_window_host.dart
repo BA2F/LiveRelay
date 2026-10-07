@@ -57,7 +57,7 @@ class NativeWindowHost {
       (!view.startsWith('extension/') ||
           (extensions?.views.containsKey(view) ?? false));
   final void Function(String) onDock;
-  final Future<void> Function()? activateMain;
+  final Future<bool> Function(String? activationToken)? activateMain;
   final bool diagnostics;
   final sessions = <DetachedWorkbenchSession>[];
   bool _disposed = false, _unlocked = true;
@@ -342,8 +342,17 @@ class NativeWindowHost {
         if (!{...ownerWorkbenchTools.keys, 'speech'}.contains(a['view'])) {
           throw const FormatException('入口无效');
         }
+        final token = a['activationToken'];
+        if (token != null &&
+            (token is! String ||
+                token.isEmpty ||
+                token.length > 1024 ||
+                token.contains('\u0000'))) {
+          throw const FormatException('窗口激活凭据无效');
+        }
         onDock(a['view'] as String);
-        await activateMain?.call();
+        final focused = await activateMain?.call(token as String?) ?? false;
+        return {'opened': true, 'focused': focused};
       case 'newCard':
         if (s.view != 'agent') throw const FormatException('请在助手视图新建');
         final existing = controller.cards.map((c) => c.id).toSet();

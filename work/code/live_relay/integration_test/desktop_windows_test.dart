@@ -16,6 +16,7 @@ import 'package:live_relay/core/ai/review_actions.dart';
 import 'package:live_relay/core/ai/ai_privacy.dart';
 import 'package:live_relay/core/ai/conversation_attachment.dart';
 import 'package:live_relay/application/workbench/window_conversation_bridge.dart';
+import 'package:live_relay/application/workbench/window_projection.dart';
 import 'package:live_relay/application/workbench/extension_registry.dart';
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:live_relay/infrastructure/app_composition.dart';
@@ -142,7 +143,9 @@ Future<void> main(List<String> arguments) async {
         final screens = RegExp(r'(\d+)/\d+x(\d+)/\d+([+-]\d+)([+-]\d+)')
             .allMatches(monitors.stdout.toString())
             .toList();
-        if (monitors.exitCode == 0 && screens.length > 1) {
+        if (await nativeDesktopBackend() == 'x11' &&
+            monitors.exitCode == 0 &&
+            screens.length > 1) {
           final screen = screens.last;
           final x = double.parse(screen.group(3)!);
           final y = double.parse(screen.group(4)!);
@@ -740,15 +743,17 @@ Future<void> _agentWindowTest(WidgetTester tester) async {
     canSave: () => c.isUnlocked && !c.isBusy,
   );
   final ownerTools = <String>[];
+  final ownerResults = <Map>[];
+  final backend = await nativeDesktopBackend();
   var ownerActivations = 0;
   final host = NativeWindowHost(
     controller: c,
     edits: edits,
     conversation: q,
     onDock: ownerTools.add,
-    activateMain: () async {
-      await activateOwnerWindow();
+    activateMain: (token) async {
       ownerActivations++;
+      return await activateOwnerWindow(activationToken: token);
     },
     diagnostics: true,
   );
@@ -791,7 +796,12 @@ Future<void> _agentWindowTest(WidgetTester tester) async {
         });
     await waitAgent(child, (a) => a['draft'] != null);
     for (final tool in ['settings', 'passwords', 'handoff', 'recycle']) {
-      await ask('openMain', {'view': tool});
+      final result = await child.channel.invokeMethod<Map>(
+        'diagnosticOpenMain',
+        tool,
+      );
+      expect(result?['opened'], true);
+      ownerResults.add(result!);
       for (
         var tick = 0;
         tick < 30 && !await windowManager.isFocused();
@@ -799,8 +809,26 @@ Future<void> _agentWindowTest(WidgetTester tester) async {
       ) {
         await tester.pump(const Duration(milliseconds: 100));
       }
-      expect(await windowManager.isFocused(), true);
+      if (backend == 'x11') {
+        expect(await windowManager.isFocused(), true);
+        expect(result['focused'], true);
+      } else if (result['focused'] == false) {
+        final inspected = await child.channel.invokeMethod<Map>('inspect');
+        expect(
+          inspected?['ownerWindowHint'],
+          contains(ownerWorkbenchTools[tool]!),
+        );
+        expect(inspected?['ownerWindowHint'], contains('主窗口'));
+      }
       expect(child.view, 'agent');
+    }
+    expect(ownerTools, ['settings', 'passwords', 'handoff', 'recycle']);
+    expect(ownerActivations, 4);
+    for (final token in [true, '', 'x' * 1025, 'bad\u0000token']) {
+      await expectLater(
+        ask('openMain', {'view': 'settings', 'activationToken': token}),
+        throwsA(anything),
+      );
     }
     expect(ownerTools, ['settings', 'passwords', 'handoff', 'recycle']);
     expect(ownerActivations, 4);
@@ -937,7 +965,11 @@ Future<void> _agentWindowTest(WidgetTester tester) async {
         jsonEncode({
           'fixtureOnly': true,
           'ownerTools': ownerTools,
-          'ownerWindowFocused': ownerActivations == 4,
+          'backend': backend,
+          'ownerWindowFocused': ownerResults.every((r) => r['focused'] == true),
+          'ownerToolResults': ownerResults,
+          'fallbackShownWhenFocusDenied': true,
+          'invalidActivationTokensRejected': true,
           'invalidOwnerToolRejected': true,
           'nativeIndependentProcess': true,
           'vaultOwnerInChild': false,

@@ -1,0 +1,48 @@
+{
+  "date": "2026-10-07",
+  "realUpstream": true,
+  "model": "deepseek-flash",
+  "publicSyntheticFixtureOnly": true,
+  "productionHttpAdapter": true,
+  "productionAttachmentWire": true,
+  "nativeUiSession": false,
+  "privateVaultAccess": false,
+  "cardConfirmation": false,
+  "credentialPersisted": false,
+  "rawAudioUploaded": false,
+  "pdfUploaded": false,
+  "results": [
+    {
+      "protocol": "chatCompletions",
+      "attachment": "image",
+      "colorsVerified": true,
+      "imageHistoryReplayed": true,
+      "imageCount": 1,
+      "videoOriginalUploaded": false
+    },
+    {
+      "protocol": "chatCompletions",
+      "attachment": "video",
+      "colorsVerified": true,
+      "imageHistoryReplayed": false,
+      "imageCount": 4,
+      "videoOriginalUploaded": false
+    },
+    {
+      "protocol": "responses",
+      "attachment": "image",
+      "colorsVerified": true,
+      "imageHistoryReplayed": true,
+      "imageCount": 1,
+      "videoOriginalUploaded": false
+    },
+    {
+      "protocol": "responses",
+      "attachment": "video",
+      "colorsVerified": true,
+      "imageHistoryReplayed": false,
+      "imageCount": 4,
+      "videoOriginalUploaded": false
+    }
+  ]
+}

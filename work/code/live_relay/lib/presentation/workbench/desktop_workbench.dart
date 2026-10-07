@@ -73,9 +73,9 @@ class _DesktopWorkbenchState extends State<DesktopWorkbench> {
     _controller = context.read<AppController>();
     _runtime = WorkbenchRuntime(
       _controller,
-      activateMainWindow: () async {
-        if (!mounted || !_controller.isUnlocked) return;
-        await activateOwnerWindow();
+      activateMainWindow: (token) async {
+        if (!mounted || !_controller.isUnlocked) return false;
+        return await activateOwnerWindow(activationToken: token);
       },
     );
     _runtime.addListener(_runtimeChanged);
