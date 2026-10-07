@@ -11,6 +11,7 @@ import '../agent/agent_conversation.dart';
 import 'card_edit_sessions.dart';
 import 'window_projection.dart';
 import 'window_source_reader.dart';
+import 'window_review_reader.dart';
 import '../../core/domain/entities.dart';
 
 class DetachedWorkbenchSession {
@@ -20,6 +21,7 @@ class DetachedWorkbenchSession {
   final PresentationWindow window;
   Map<String, double>? bounds;
   bool closed = false;
+  WindowReviewReader? reviewReader;
 }
 
 /// The only vault owner remains the main process. Child windows exchange bounded
@@ -108,7 +110,8 @@ class NativeWindowHost {
       session = DetachedWorkbenchSession(view, window.channel, window, bounds);
       sessions.add(session);
       final active = session;
-      window.process.exitCode.then((_) {
+      window.process.exitCode.then((_) async {
+        await active.reviewReader?.clear();
         if (!active.closed && !_disposed && controller.isUnlocked) {
           active.closed = true;
           sessions.remove(active);
@@ -127,6 +130,7 @@ class NativeWindowHost {
       final s = session;
       if (s != null) {
         s.closed = true;
+        await s.reviewReader?.clear();
         sessions.remove(s);
         try {
           await s.window.hide();
@@ -186,10 +190,26 @@ class NativeWindowHost {
           view: () => s.view,
           active: () => !_disposed && epoch == _epoch && !s.closed,
         );
+      case 'readReview':
+        if (id == null || a['offset'] is! int) {
+          throw const FormatException('确认来源读取范围无效');
+        }
+        final reader = s.reviewReader ??= WindowReviewReader(
+          load: controller.cardReviewSource,
+          allowed: (cardId) =>
+              !_disposed &&
+              epoch == _epoch &&
+              !s.closed &&
+              controller.isUnlocked &&
+              s.view == 'review/$cardId' &&
+              controller.cards.any((c) => c.id == cardId && !c.isDeleted),
+        );
+        return reader.readChunk(id, a['offset'] as int);
       case 'navigate':
         final view = a['view'] as String;
         if (!detachableView(view)) throw const FormatException('不支持的视图');
         s.view = view;
+        await s.reviewReader?.clear();
         _version++;
         await _persist();
       case 'edit':
@@ -278,6 +298,7 @@ class NativeWindowHost {
         await conversation.flush();
         if (edits.hasUnsaved) throw const FormatException('修改尚未保存');
         s.closed = true;
+        await s.reviewReader?.clear();
         sessions.remove(s);
         onDock(s.view);
         await _persist();
@@ -443,6 +464,7 @@ class NativeWindowHost {
     if (!preserve && controller.isUnlocked) await _persist();
     for (final s in List.of(sessions)) {
       s.closed = true;
+      await s.reviewReader?.clear();
       try {
         await s.channel
             .invokeMethod('revoke')

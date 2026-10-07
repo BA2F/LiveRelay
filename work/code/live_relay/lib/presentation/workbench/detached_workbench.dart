@@ -11,7 +11,10 @@ import 'package:flutter/rendering.dart';
 import 'package:window_manager/window_manager.dart';
 
 import '../../application/workbench/window_projection.dart';
+import '../../application/workbench/window_review_reader.dart';
 import '../../application/preview_session.dart';
+import '../../core/ai/review_source.dart';
+import 'review_source_view.dart';
 import '../widgets/local_media_preview.dart';
 import '../widgets/local_pdf_preview.dart';
 
@@ -74,6 +77,7 @@ class _DetachedWorkbenchState extends State<DetachedWorkbench>
   final _previewSession = DetachedPreviewSession();
   var _mediaKey = GlobalKey<LocalMediaPreviewState>();
   var _pdfKey = GlobalKey<LocalPdfPreviewState>();
+  var _reviewKey = GlobalKey<ReviewSourceViewState>();
   BuildContext? _dialogContext;
   List<Map> get _cards => (_data['cards'] as List? ?? []).cast<Map>();
   @override
@@ -144,6 +148,11 @@ class _DetachedWorkbenchState extends State<DetachedWorkbench>
                 'ready': _pdfKey.currentState?.isReady ?? false,
                 'pages': _pdfKey.currentState?.pageCount,
                 'page': _pdfKey.currentState?.currentPage,
+              },
+              'review': {
+                'id': _reviewKey.currentState?.reviewId,
+                'inputs': _reviewKey.currentState?.inputCount,
+                'attachments': _reviewKey.currentState?.attachmentCount,
               },
             };
           case 'diagnosticPdfPage':
@@ -267,6 +276,7 @@ class _DetachedWorkbenchState extends State<DetachedWorkbench>
       if (_data['view'] != data['view']) {
         _mediaKey = GlobalKey<LocalMediaPreviewState>();
         _pdfKey = GlobalKey<LocalPdfPreviewState>();
+        _reviewKey = GlobalKey<ReviewSourceViewState>();
       }
       setState(() => _data = data);
     } on Object {
@@ -353,6 +363,58 @@ class _DetachedWorkbenchState extends State<DetachedWorkbench>
     return value;
   }
 
+  Future<ReviewSource?> _readReview(String id) async {
+    Uint8List? buffer;
+    var offset = 0;
+    int? generation;
+    try {
+      while (true) {
+        final value = await widget.channel.invokeMethod<Map>('readReview', {
+          'id': id,
+          'offset': offset,
+        });
+        final chunk = value?['bytes'];
+        try {
+          if (!_previewSession.isUnlocked ||
+              !mounted ||
+              _data['view'] != 'review/$id') {
+            throw const FormatException('确认来源视图已关闭');
+          }
+          if (value == null ||
+              chunk is! Uint8List ||
+              value['offset'] != offset ||
+              value['length'] is! int) {
+            throw const FormatException('确认来源分块无效');
+          }
+          final length = value['length'] as int;
+          if (length == 0 && offset == 0 && chunk.isEmpty) return null;
+          if (length <= 0 ||
+              length > WindowReviewReader.maxBytes ||
+              chunk.isEmpty ||
+              chunk.length > WindowReviewReader.chunkBytes ||
+              offset + chunk.length > length ||
+              value['generation'] is! int) {
+            throw const FormatException('确认来源分块过大或无效');
+          }
+          if (buffer == null) {
+            buffer = Uint8List(length);
+            generation = value['generation'] as int;
+          } else if (length != buffer.length ||
+              generation != value['generation']) {
+            throw const FormatException('确认来源在读取时发生变化');
+          }
+          buffer.setRange(offset, offset + chunk.length, chunk);
+          offset += chunk.length;
+          if (offset == length) return ReviewSource.decode(utf8.decode(buffer));
+        } finally {
+          if (chunk is Uint8List) chunk.fillRange(0, chunk.length, 0);
+        }
+      }
+    } finally {
+      buffer?.fillRange(0, buffer.length, 0);
+    }
+  }
+
   Future<void> _delete(Map card) async {
     final allowed = await showDialog<bool>(
       context: _dialogContext!,
@@ -419,6 +481,11 @@ class _DetachedWorkbenchState extends State<DetachedWorkbench>
                 tooltip: '修订历史',
                 icon: const Icon(Icons.history),
                 onPressed: () => _navigate('history/${c['id']}'),
+              ),
+              IconButton(
+                tooltip: '确认来源',
+                icon: const Icon(Icons.fact_check_outlined),
+                onPressed: () => _navigate('review/${c['id']}'),
               ),
               TextButton(
                 onPressed: () => _act('flush'),
@@ -516,6 +583,18 @@ class _DetachedWorkbenchState extends State<DetachedWorkbench>
   Widget _body() {
     final view = _data['view'] as String? ?? '';
     if (view == 'agent') return _agent();
+    if (view.startsWith('review/')) {
+      return ReviewSourceView(
+        key: _reviewKey,
+        session: _previewSession,
+        loadSource: _readReview,
+        cardTitle: (id) =>
+            (_data['titles'] as Map? ?? {})[id] as String? ?? '目标已失效',
+        cardId: view.substring('review/'.length),
+        onCard: (id) => _navigate('card/$id'),
+        onOriginal: (id) => _navigate('source/$id'),
+      );
+    }
     if (view == 'originals') {
       return ListView(
         children: [

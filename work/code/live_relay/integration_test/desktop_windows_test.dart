@@ -12,6 +12,7 @@ import 'package:live_relay/application/agent/agent_conversation.dart';
 import 'package:live_relay/core/domain/entities.dart';
 import 'package:live_relay/core/ai/review_actions.dart';
 import 'package:live_relay/core/ai/ai_privacy.dart';
+import 'package:live_relay/core/ai/conversation_attachment.dart';
 import 'package:live_relay/infrastructure/app_composition.dart';
 
 import '../test/support/verification_fakes.dart';
@@ -24,6 +25,10 @@ Future<void> main(List<String> arguments) async {
     return;
   }
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
+  testWidgets(
+    'native detached review reads immutable evidence, navigates and revokes',
+    _reviewWindowTest,
+  );
   testWidgets(
     'native detached engine shares edits, saves geometry, redocks and revokes on lock',
     (tester) async {
@@ -486,4 +491,168 @@ Future<void> main(List<String> arguments) async {
       }
     },
   );
+}
+
+Future<void> _reviewWindowTest(WidgetTester tester) async {
+  final root = await Directory.systemTemp.createTemp('liverelay-child-review-');
+  final c = createAppController(
+    root,
+    NoBiometrics(),
+    TestOcr(),
+    RecordingConversationAi(),
+    TestAiSettings(),
+  );
+  final q = AgentConversation(c);
+  final edits = CardEditSessions(
+    save: (id, draft) => c.updateCard(id, draft),
+    canSave: () => c.isUnlocked && !c.isBusy,
+  );
+  final docked = <String>[];
+  final host = NativeWindowHost(
+    controller: c,
+    edits: edits,
+    conversation: q,
+    onDock: docked.add,
+    onSend: () async {},
+    diagnostics: true,
+  );
+  Future<Map> ready(
+    DetachedWorkbenchSession child,
+    bool Function(Map) matches,
+  ) async {
+    for (var i = 0; i < 150; i++) {
+      final value = await child.channel.invokeMethod<Map>('inspect');
+      if (value != null && matches(value)) return value;
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+    }
+    throw StateError('独立确认来源未就绪');
+  }
+
+  try {
+    await c.initialize();
+    await c.setupVault(
+      password: 'fixture-child-review',
+      usesChinesePassphrase: false,
+    );
+    await c.createCard(const CardDraft(title: '所选资料', content: '确认时旧正文'));
+    final selected = c.cards.single;
+    q.attachCard(selected);
+    final selection = q.attachments.removeLast();
+    final pdf = ConversationAttachment.read(
+      'review-fixture.pdf',
+      Uint8List.fromList([...syntheticPdf(), ...List.filled(300000, 32)]),
+    );
+    q.messages.add(
+      ConversationMessage('user', '虚构完整确认输入', attachments: [selection, pdf]),
+    );
+    final message = ConversationMessage(
+      'assistant',
+      '保留的完整答复',
+      providerLabel: 'fixture review service',
+      suggestions: [
+        const AiCardSuggestion(
+          title: '确认结果',
+          content: '已核对的总结',
+          kind: CardKind.note,
+          isInference: false,
+        ),
+      ],
+      actions: [
+        ReviewActions(
+          referenceIds: [selected.id],
+          deceased: VisibilityLevel.summary,
+        ),
+      ],
+    );
+    q.messages.add(message);
+    await q.accept(message);
+    expect(q.error, isNull);
+    final card = c.cards.singleWhere((c) => c.title == '确认结果');
+    await q.newConversation();
+    await c.updateCard(
+      selected.id,
+      const CardDraft(title: '所选资料', content: '后来修改正文'),
+    );
+    await tester.pumpWidget(
+      const MaterialApp(home: Scaffold(body: Text('主工作台'))),
+    );
+    final child = await host.open('review/${card.id}');
+    final loaded = await ready(
+      child,
+      (v) => (v['review'] as Map)['id'] == message.reviewId,
+    );
+    expect(child.window.process.pid, isNot(pid));
+    expect(loaded['vaultOwner'], false);
+    expect((loaded['review'] as Map)['inputs'], 1);
+    expect((loaded['review'] as Map)['attachments'], 2);
+    final evidence = Platform.environment['LIVERELAY_WORKBENCH_EVIDENCE'];
+    if (evidence != null) {
+      final png = await child.channel.invokeMethod<Uint8List>('capture');
+      await File('$evidence/native-child-review.png').writeAsBytes(png!);
+    }
+    await child.channel.invokeMethod('diagnosticCommand', {
+      'method': 'readReview',
+      'arguments': {'id': selected.id, 'offset': 0},
+    });
+    await ready(child, (v) => v['error'] != null);
+    await child.channel.invokeMethod('diagnosticCommand', {
+      'method': 'navigate',
+      'arguments': {'view': 'card/${selected.id}'},
+    });
+    await ready(child, (v) => v['view'] == 'card/${selected.id}');
+    await child.channel.invokeMethod('diagnosticCommand', {
+      'method': 'navigate',
+      'arguments': {'view': 'review/${card.id}'},
+    });
+    await ready(child, (v) => (v['review'] as Map)['id'] == message.reviewId);
+    await c.lock();
+    expect(
+      await child.window.process.exitCode.timeout(const Duration(seconds: 10)),
+      0,
+    );
+    await c.unlockWithPassword('fixture-child-review');
+    final stored = (await c.cardReviewSource(card.id))!;
+    expect(stored.inputs.single.attachments.first.text, '所选资料\n确认时旧正文');
+    expect(
+      stored.inputs.single.attachments.last.bytes.length,
+      greaterThan(300000),
+    );
+    expect(stored.actions.single.referenceIds, [selected.id]);
+    stored.wipe();
+    await host.restore();
+    final restored = host.sessions.single;
+    await ready(
+      restored,
+      (v) => (v['review'] as Map)['id'] == message.reviewId,
+    );
+    await restored.channel.invokeMethod('diagnosticClose');
+    for (var i = 0; i < 100 && host.sessions.isNotEmpty; i++) {
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+    }
+    expect(docked, ['review/${card.id}']);
+    if (evidence != null) {
+      await File('$evidence/child-review-verification.json').writeAsString(
+        jsonEncode({
+          'fixtureOnly': true,
+          'independentProcess': true,
+          'vaultOwnerInChild': false,
+          'immutableInputsAndAttachments': true,
+          'scopedReadRejected': true,
+          'navigateReload': true,
+          'lockRevokesProcess': true,
+          'unlockRestoresView': true,
+          'closeRedocks': true,
+        }),
+      );
+    }
+  } finally {
+    await host.shutdown(preserve: true);
+    host.dispose();
+    await tester.pumpWidget(const SizedBox());
+    q.dispose();
+    edits.dispose();
+    if (c.isUnlocked) await c.lock();
+    c.dispose();
+    await root.delete(recursive: true);
+  }
 }

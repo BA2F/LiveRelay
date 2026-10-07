@@ -4,7 +4,7 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 
-import '../../application/app_controller.dart';
+import '../../application/preview_session.dart';
 import '../../core/ai/conversation_attachment.dart';
 import '../../core/ai/review_source.dart';
 import '../widgets/local_media_preview.dart';
@@ -14,32 +14,46 @@ import 'review_actions_editor.dart';
 class ReviewSourceView extends StatefulWidget {
   const ReviewSourceView({
     super.key,
-    required this.controller,
+    required this.session,
+    required this.loadSource,
+    required this.cardTitle,
     required this.cardId,
     required this.onCard,
     required this.onOriginal,
   });
-  final AppController controller;
+  final PreviewSession session;
+  final Future<ReviewSource?> Function(String) loadSource;
+  final String Function(String) cardTitle;
   final String cardId;
   final ValueChanged<String> onCard, onOriginal;
   @override
-  State<ReviewSourceView> createState() => _ReviewSourceViewState();
+  State<ReviewSourceView> createState() => ReviewSourceViewState();
 }
 
-class _ReviewSourceViewState extends State<ReviewSourceView> {
+class ReviewSourceViewState extends State<ReviewSourceView> {
   ReviewSource? _source;
   String? _error;
   bool _loading = true;
   int _generation = 0;
+  final _pendingReads = <Future<void>>{};
+  String? get reviewId => _source?.reviewId;
+  int get inputCount => _source?.inputs.length ?? 0;
+  int get attachmentCount =>
+      _source?.inputs.fold<int>(
+        0,
+        (n, input) => n + input.attachments.length,
+      ) ??
+      0;
   @override
   void initState() {
     super.initState();
-    widget.controller.addListener(_sessionChanged);
-    unawaited(_load());
+    widget.session.addListener(_sessionChanged);
+    widget.session.registerPreviewCleanup(_cleanup);
+    _reload();
   }
 
   void _sessionChanged() {
-    if (widget.controller.isUnlocked) return;
+    if (widget.session.isUnlocked) return;
     _generation++;
     _clear();
     if (mounted) setState(() => _loading = false);
@@ -62,13 +76,23 @@ class _ReviewSourceViewState extends State<ReviewSourceView> {
     source.wipe();
   }
 
+  void _reload() {
+    final task = _load();
+    _pendingReads.add(task);
+    unawaited(task.whenComplete(() => _pendingReads.remove(task)));
+  }
+
+  Future<void> _cleanup() async {
+    _generation++;
+    _clear();
+    await Future.wait(List.of(_pendingReads));
+  }
+
   Future<void> _load() async {
     final generation = ++_generation;
     try {
-      final source = await widget.controller.cardReviewSource(widget.cardId);
-      if (!mounted ||
-          generation != _generation ||
-          !widget.controller.isUnlocked) {
+      final source = await widget.loadSource(widget.cardId);
+      if (!mounted || generation != _generation || !widget.session.isUnlocked) {
         source?.wipe();
         return;
       }
@@ -94,15 +118,20 @@ class _ReviewSourceViewState extends State<ReviewSourceView> {
     if (oldWidget.cardId != widget.cardId) {
       _clear();
       _loading = true;
-      unawaited(_load());
+      _reload();
     }
   }
 
   @override
   void dispose() {
     _generation++;
-    widget.controller.removeListener(_sessionChanged);
+    widget.session.removeListener(_sessionChanged);
     _clear();
+    unawaited(
+      _cleanup().whenComplete(
+        () => widget.session.unregisterPreviewCleanup(_cleanup),
+      ),
+    );
     super.dispose();
   }
 
@@ -130,7 +159,7 @@ class _ReviewSourceViewState extends State<ReviewSourceView> {
           )
         else if (Platform.isLinux && a.kind == ConversationAttachmentKind.pdf)
           LocalPdfPreview(
-            session: widget.controller,
+            session: widget.session,
             name: a.name,
             compact: true,
             readBytes: () async => Uint8List.fromList(a.bytes),
@@ -141,7 +170,7 @@ class _ReviewSourceViewState extends State<ReviewSourceView> {
               ConversationAttachmentKind.video,
             }.contains(a.kind))
           LocalMediaPreview(
-            controller: widget.controller,
+            controller: widget.session,
             name: a.name,
             video: a.kind == ConversationAttachmentKind.video,
             compact: true,
@@ -183,13 +212,13 @@ class _ReviewSourceViewState extends State<ReviewSourceView> {
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(_error!),
-            TextButton(onPressed: _load, child: const Text('重试')),
+            TextButton(onPressed: _reload, child: const Text('重试')),
           ],
         ),
       );
     }
     final source = _source;
-    if (source == null || !widget.controller.isUnlocked) {
+    if (source == null || !widget.session.isUnlocked) {
       return const Center(child: Text('此卡片没有独立确认来源记录。早期卡片的来源仍可在卡片和修订历史中查看。'));
     }
     return ListView(
@@ -215,7 +244,7 @@ class _ReviewSourceViewState extends State<ReviewSourceView> {
           for (var i = 0; i < source.proposals.length; i++)
             if (source.proposals[i] case final proposal?) ...[
               Text(
-                '卡片 ${i + 1}：${reviewPlanSummary(proposal.plan, widget.controller.cards)}',
+                '卡片 ${i + 1}：${reviewPlanSummary(proposal.plan, const [], titleForId: widget.cardTitle)}',
               ),
               if (proposal.reason.isNotEmpty) SelectableText(proposal.reason),
             ],

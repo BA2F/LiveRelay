@@ -577,7 +577,11 @@ class _DesktopWorkbenchState extends State<DesktopWorkbench> {
     if (view.startsWith('review/')) {
       return ReviewSourceView(
         key: ValueKey(view),
-        controller: _controller,
+        session: _controller,
+        loadSource: _controller.cardReviewSource,
+        cardTitle: (id) =>
+            _controller.cards.where((c) => c.id == id).firstOrNull?.title ??
+            '目标已失效',
         cardId: _cardId(view),
         onCard: (id) => _openCard(id, group: group),
         onOriginal: (id) => _layout.open('source/$id', groupId: group),

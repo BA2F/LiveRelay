@@ -11,9 +11,15 @@ String reviewLevelLabel(VisibilityLevel level) => switch (level) {
   _ => level.label,
 };
 
-String reviewPlanSummary(ReviewActions plan, List<LifeCard> cards) {
+String reviewPlanSummary(
+  ReviewActions plan,
+  List<LifeCard> cards, {
+  String Function(String)? titleForId,
+}) {
   String title(String id) =>
-      cards.where((c) => c.id == id).firstOrNull?.title ?? '目标已失效';
+      titleForId?.call(id) ??
+      cards.where((c) => c.id == id).firstOrNull?.title ??
+      '目标已失效';
   return [
     plan.bundleId == null ? '独立保存' : '收纳：${title(plan.bundleId!)}',
     '引用：${plan.referenceIds.isEmpty ? "无" : plan.referenceIds.map(title).join("、")}',
