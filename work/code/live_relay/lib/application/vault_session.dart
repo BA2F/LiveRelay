@@ -548,6 +548,8 @@ class VaultSession implements VaultOriginals {
   void _wipe(Uint8List bytes) => bytes.fillRange(0, bytes.length, 0);
 
   void dispose() {
+    if (_state != VaultSessionState.failure) _state = VaultSessionState.locked;
+    _sessionGeneration++;
     _deviceOperationEpoch++;
     unawaited(_deviceFactorProtection?.cancel().catchError((Object _) {}));
     final repository = _repository;
