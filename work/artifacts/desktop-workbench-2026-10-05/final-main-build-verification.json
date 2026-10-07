@@ -33,5 +33,6 @@
     "bytes": 195377185,
     "sha256OfFileHashManifest": "6c074375eaa608e55f2d1397bd9e8039995fd9cb5812b51dece9d2d3c5b55363",
     "hashRule": "sorted relative POSIX path + NUL + file SHA256 hex + LF"
-  }
+  },
+  "verifiedSourceCommit": "cb9a1169d3ef052963bb33b81098186a75173da1"
 }
