@@ -14,6 +14,8 @@ import 'package:live_relay/core/ai/review_actions.dart';
 import 'package:live_relay/core/ai/ai_privacy.dart';
 import 'package:live_relay/core/ai/conversation_attachment.dart';
 import 'package:live_relay/application/workbench/window_conversation_bridge.dart';
+import 'package:live_relay/application/workbench/extension_registry.dart';
+import 'package:flutter/services.dart' show rootBundle;
 import 'package:live_relay/infrastructure/app_composition.dart';
 
 import '../test/support/verification_fakes.dart';
@@ -26,6 +28,10 @@ Future<void> main(List<String> arguments) async {
     return;
   }
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
+  testWidgets(
+    'native detached extension catalog contributes, revokes and persists shared views',
+    _extensionWindowTest,
+  );
   testWidgets(
     'native detached agent owns consent and shares attachments, editable plans and encrypted reopen',
     _agentWindowTest,
@@ -866,6 +872,188 @@ Future<void> _agentWindowTest(WidgetTester tester) async {
     await tester.pumpWidget(const SizedBox());
     q.dispose();
     edits.dispose();
+    if (c.isUnlocked) await c.lock();
+    c.dispose();
+    await root.delete(recursive: true);
+  }
+}
+
+Future<void> _extensionWindowTest(WidgetTester tester) async {
+  final root = await Directory.systemTemp.createTemp(
+    'liverelay-child-extensions-',
+  );
+  final c = createAppController(
+    root,
+    NoBiometrics(),
+    TestOcr(),
+    RecordingAi(),
+    TestAiSettings(),
+  );
+  final q = AgentConversation(c);
+  final registry = ExtensionRegistry(
+    read: c.readWorkbenchExtensions,
+    write: c.writeWorkbenchExtensions,
+  );
+  final edits = CardEditSessions(
+    save: (id, draft) => c.updateCard(id, draft),
+    canSave: () => c.isUnlocked && !c.isBusy,
+  );
+  final host = NativeWindowHost(
+    controller: c,
+    edits: edits,
+    conversation: q,
+    extensions: registry,
+    onDock: (_) {},
+    diagnostics: true,
+  );
+  Future<Map> wait(
+    DetachedWorkbenchSession child,
+    bool Function(Map) ready,
+  ) async {
+    for (var i = 0; i < 150; i++) {
+      try {
+        final data = await child.channel.invokeMethod<Map>('inspect');
+        if (data != null && ready(data)) return data;
+      } on Object {
+        /* startup or invalidation */
+      }
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+    throw StateError('扩展子窗口未达到预期状态');
+  }
+
+  try {
+    await c.initialize();
+    await c.setupVault(
+      password: 'fixture-extensions-password',
+      usesChinesePassphrase: false,
+    );
+    await c.createCard(
+      const CardDraft(
+        title: '独立扩展待确认',
+        content: '虚构摘要',
+        status: CardStatus.draft,
+      ),
+    );
+    final draft = c.cards.single;
+    await c.createCard(const CardDraft(title: '已确认应排除', content: '虚构摘要'));
+    await tester.pumpWidget(
+      const MaterialApp(home: Scaffold(body: Text('fixture extensions'))),
+    );
+    final catalog = await host.open('extensions');
+    Future<dynamic> ask(
+      DetachedWorkbenchSession child,
+      String method, [
+      Map args = const {},
+    ]) => child.channel.invokeMethod('diagnosticRequest', {
+      'method': method,
+      'arguments': args,
+    });
+    await wait(catalog, (data) => data['extensions'] is List);
+    final raw = jsonDecode(
+      await rootBundle.loadString('assets/extensions/draft-review.lrext.json'),
+    ) as Map;
+    await ask(catalog, 'installExtension', {'manifest': raw});
+    await wait(catalog, (data) => (data['extensions'] as List).length == 1);
+    final view = registry.commands.single.view;
+    final contribution = await host.open(view);
+    final projected = await wait(
+      contribution,
+      (data) => (data['contributed'] as List? ?? []).length == 1,
+    );
+    expect((projected['contributed'] as List).single['id'], draft.id);
+    expect(projected['vaultOwner'], false);
+    await expectLater(
+      ask(contribution, 'removeExtension', {'id': 'liverelay.draft-review'}),
+      throwsA(anything),
+    );
+    await ask(catalog, 'extensionSetting', {
+      'id': 'liverelay.draft-review',
+      'key': 'only-sourced',
+      'value': true,
+    });
+    await wait(
+      contribution,
+      (data) => (data['contributed'] as List? ?? []).isEmpty,
+    );
+    await c.importOriginal(
+      bytes: Uint8List.fromList(utf8.encode('虚构来源')),
+      originalName: 'fixture.txt',
+      mimeType: 'text/plain',
+      mediaKind: BlobMediaKind.document,
+    );
+    await c.setCardOriginals(draft.id, [c.blobs.single.id]);
+    await wait(
+      contribution,
+      (data) => (data['contributed'] as List? ?? []).any(
+        (item) => item['id'] == draft.id,
+      ),
+    );
+    final evidence = Platform.environment['LIVERELAY_WORKBENCH_EVIDENCE'];
+    if (evidence != null) {
+      final png = await catalog.channel.invokeMethod<Uint8List>('capture');
+      await File('$evidence/native-child-extensions.png').writeAsBytes(png!);
+    }
+    await ask(catalog, 'enableExtension', {
+      'id': 'liverelay.draft-review',
+      'enabled': false,
+    });
+    expect(registry.commands, isEmpty);
+    await wait(contribution, (data) => data['view'] == 'extensions');
+    await expectLater(
+      ask(catalog, 'navigate', {'view': view}),
+      throwsA(anything),
+    );
+    await ask(catalog, 'enableExtension', {
+      'id': 'liverelay.draft-review',
+      'enabled': true,
+    });
+    await c.lock();
+    expect(
+      await catalog.window.process.exitCode.timeout(const Duration(seconds: 5)),
+      0,
+    );
+    expect(
+      await contribution.window.process.exitCode.timeout(
+        const Duration(seconds: 5),
+      ),
+      0,
+    );
+    await c.unlockWithPassword('fixture-extensions-password');
+    await registry.load();
+    expect(registry.installed.values.single.setting('only-sourced'), true);
+    await host.restore();
+    final restored = host.sessions.first;
+    await wait(
+      restored,
+      (data) => (data['extensions'] as List? ?? []).length == 1,
+    );
+    await ask(restored, 'removeExtension', {'id': 'liverelay.draft-review'});
+    expect(registry.installed, isEmpty);
+    expect(registry.commands, isEmpty);
+    expect(c.cards.any((item) => item.id == draft.id), true);
+    if (evidence != null) {
+      await File('$evidence/child-extensions-verification.json').writeAsString(
+        jsonEncode({
+          'fixtureOnly': true,
+          'sharedNativeCatalog': true,
+          'contributedView': true,
+          'sourceSettingAppliedAcrossWindows': true,
+          'managementScopeEnforced': true,
+          'disabledCommandsRevoked': true,
+          'disabledViewRedirected': true,
+          'encryptedReopen': true,
+          'removeKeepsCards': true,
+        }),
+      );
+    }
+  } finally {
+    await host.shutdown(preserve: true);
+    host.dispose();
+    await tester.pumpWidget(const SizedBox());
+    q.dispose();
+    edits.dispose();
+    registry.dispose();
     if (c.isUnlocked) await c.lock();
     c.dispose();
     await root.delete(recursive: true);

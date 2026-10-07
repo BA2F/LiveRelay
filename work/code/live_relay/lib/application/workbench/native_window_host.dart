@@ -13,6 +13,8 @@ import 'window_projection.dart';
 import 'window_source_reader.dart';
 import 'window_review_reader.dart';
 import 'window_conversation_bridge.dart';
+import 'window_extension_bridge.dart';
+import 'extension_registry.dart';
 import '../../core/domain/entities.dart';
 
 class DetachedWorkbenchSession {
@@ -34,15 +36,22 @@ class NativeWindowHost {
     required this.edits,
     required this.conversation,
     required this.onDock,
+    this.extensions,
     this.diagnostics = false,
   }) {
     controller.addListener(_changed);
     edits.addListener(_changed);
     conversation.addListener(_changed);
+    extensions?.addListener(_changed);
   }
   final AppController controller;
   final CardEditSessions edits;
   final AgentConversation conversation;
+  final ExtensionRegistry? extensions;
+  bool _supported(String view) =>
+      detachableView(view) &&
+      (!view.startsWith('extension/') ||
+          (extensions?.views.containsKey(view) ?? false));
   final void Function(String) onDock;
   final bool diagnostics;
   final sessions = <DetachedWorkbenchSession>[];
@@ -66,7 +75,7 @@ class NativeWindowHost {
     for (final entry in data['windows'] as List) {
       if (!controller.isUnlocked || _disposed) return;
       final view = entry['view'] as String;
-      if (!detachableView(view)) continue;
+      if (!_supported(view)) continue;
       await open(view, bounds: windowBounds(entry['bounds']));
     }
   }
@@ -78,7 +87,7 @@ class NativeWindowHost {
     if (_disposed ||
         !controller.isUnlocked ||
         !Platform.isLinux ||
-        !detachableView(view)) {
+        !_supported(view)) {
       throw const FormatException('此视图暂不能移到独立窗口');
     }
     if (sessions.length + _opening >= 8) {
@@ -151,6 +160,17 @@ class NativeWindowHost {
   void _changed() {
     if (_disposed) return;
     _version++;
+    var redirected = false;
+    for (final s in sessions) {
+      if (s.view.startsWith('extension/') &&
+          !(extensions?.views.containsKey(s.view) ?? false)) {
+        s.view = 'extensions';
+        redirected = true;
+      }
+    }
+    if (redirected && controller.isUnlocked) {
+      unawaited(_persist().catchError((_) {}));
+    }
     if (!controller.isUnlocked && _unlocked) {
       _unlocked = false;
       _epoch++;
@@ -180,6 +200,20 @@ class NativeWindowHost {
     LifeCard card() =>
         controller.cards.where((c) => c.id == id).firstOrNull ??
         (throw const FormatException('卡片已不存在'));
+    if (WindowExtensionBridge.methods.contains(call.method)) {
+      final registry = extensions;
+      if (registry == null) throw const FormatException('扩展管理未就绪');
+      await WindowExtensionBridge(
+        registry,
+        active: () =>
+            !_disposed &&
+            epoch == _epoch &&
+            controller.isUnlocked &&
+            !s.closed &&
+            s.view == 'extensions',
+      ).invoke(call);
+      return true;
+    }
     if (WindowConversationBridge.methods.contains(call.method)) {
       if (s.view != 'agent') throw const FormatException('请在助手视图操作');
       final bridge = s.conversationBridge ??= WindowConversationBridge(
@@ -218,7 +252,7 @@ class NativeWindowHost {
         return reader.readChunk(id, a['offset'] as int);
       case 'navigate':
         final view = a['view'] as String;
-        if (!detachableView(view)) throw const FormatException('不支持的视图');
+        if (!_supported(view)) throw const FormatException('不支持的视图');
         s.conversationBridge?.clear();
         s.view = view;
         s.conversationBridge?.clear();
@@ -349,6 +383,33 @@ class NativeWindowHost {
       ],
       'titles': {for (final c in controller.cards) c.id: c.title},
     };
+    final registry = extensions;
+    if (registry != null) {
+      data['commands'] = [
+        for (final command in registry.commands)
+          {'id': command.id, 'title': command.title, 'view': command.view},
+      ];
+      if (s.view == 'extensions') {
+        data['extensions'] = windowExtensions(registry);
+      }
+      if (s.view.startsWith('extension/')) {
+        final sourced = <String>{};
+        for (final c in controller.cards) {
+          if ((await controller.currentCardSources(c.id))
+              .any((source) => source.blobId != null)) {
+            sourced.add(c.id);
+          }
+        }
+        data['contributed'] = [
+          for (final c in registry.filter(
+            s.view,
+            controller.findInformationCards(''),
+            sourced,
+          ))
+            {'id': c.recordId, 'title': c.title, 'preview': c.preview},
+        ];
+      }
+    }
     if (s.view == 'originals') {
       data['originals'] = [
         for (final b in controller.blobs.where(
@@ -483,6 +544,7 @@ class NativeWindowHost {
     controller.removeListener(_changed);
     edits.removeListener(_changed);
     conversation.removeListener(_changed);
+    extensions?.removeListener(_changed);
     _disposed = true;
     _epoch++;
     unawaited(shutdown(preserve: true));

@@ -16,9 +16,17 @@ Map<String, Object?> projectWindowCard(LifeCard card, CardEditSession edit) => {
 };
 
 bool detachableView(String view) =>
-    {'cards', 'agent', 'relations', 'changes', 'originals'}.contains(view) ||
+    {
+      'cards',
+      'agent',
+      'relations',
+      'changes',
+      'originals',
+      'extensions',
+    }.contains(view) ||
     RegExp(r'^(card|history|source|review)/[a-zA-Z0-9-]+(?:/[0-9]+)?$')
-        .hasMatch(view);
+        .hasMatch(view) ||
+    RegExp(r'^extension/[a-z][a-z0-9.-]*/[a-z][a-z0-9.-]*$').hasMatch(view);
 
 Map<String, double>? windowBounds(dynamic value) {
   if (value is! Map) return null;

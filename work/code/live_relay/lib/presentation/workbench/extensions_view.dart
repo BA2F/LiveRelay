@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../application/app_controller.dart';
+import '../../application/card_summary.dart';
 import '../../application/workbench/extension_registry.dart';
 import '../dialogs/local_file_dialogs.dart';
 
@@ -13,7 +14,7 @@ class ExtensionsView extends StatefulWidget {
     required this.registry,
     required this.onOpen,
   });
-  final ExtensionRegistry registry;
+  final ExtensionAccess registry;
   final ValueChanged<String> onOpen;
   @override
   State<ExtensionsView> createState() => _ExtensionsViewState();
@@ -231,26 +232,40 @@ class _ContributedCardsViewState extends State<ContributedCardsView> {
         widget.controller.findInformationCards(''),
         snapshot.data!,
       );
-      return ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          Text('${cards.length} 张卡片'),
-          for (final card in cards)
-            Card(
-              child: ListTile(
-                title: Text(card.title),
-                subtitle: Text(card.preview),
-                trailing: const Icon(Icons.chevron_right),
-                onTap: () => widget.onOpen(card.recordId),
-              ),
-            ),
-          if (cards.isEmpty)
-            const Padding(
-              padding: EdgeInsets.all(24),
-              child: Text('没有符合此扩展筛选条件的卡片'),
-            ),
-        ],
-      );
+      return ContributedCardList(cards: cards, onOpen: widget.onOpen);
     },
   );
+}
+
+class ContributedCardList extends StatelessWidget {
+  const ContributedCardList({
+    super.key,
+    required this.cards,
+    required this.onOpen,
+  });
+  final List<CardSummary> cards;
+  final ValueChanged<String> onOpen;
+  @override
+  Widget build(BuildContext context) {
+    return ListView(
+      padding: const EdgeInsets.all(16),
+      children: [
+        Text('${cards.length} 张卡片'),
+        for (final card in cards)
+          Card(
+            child: ListTile(
+              title: Text(card.title),
+              subtitle: Text(card.preview),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => onOpen(card.recordId),
+            ),
+          ),
+        if (cards.isEmpty)
+          const Padding(
+            padding: EdgeInsets.all(24),
+            child: Text('没有符合此扩展筛选条件的卡片'),
+          ),
+      ],
+    );
+  }
 }

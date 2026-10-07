@@ -29,6 +29,7 @@ class WorkbenchRuntime extends ChangeNotifier {
       controller: controller,
       edits: edits,
       conversation: conversation,
+      extensions: extensions,
       onDock: (view) {
         if (!_disposed && controller.isUnlocked) layout.open(view);
       },

@@ -18,6 +18,9 @@ import '../../application/preview_session.dart';
 import '../../core/ai/review_source.dart';
 import 'review_source_view.dart';
 import 'detached_conversation_view.dart';
+import 'extensions_view.dart';
+import '../../application/card_summary.dart';
+import '../../application/workbench/window_extension_bridge.dart';
 import '../widgets/local_media_preview.dart';
 import '../widgets/local_pdf_preview.dart';
 
@@ -81,6 +84,12 @@ class _DetachedWorkbenchState extends State<DetachedWorkbench>
   var _mediaKey = GlobalKey<LocalMediaPreviewState>();
   var _pdfKey = GlobalKey<LocalPdfPreviewState>();
   var _reviewKey = GlobalKey<ReviewSourceViewState>();
+  late final _extensions = RemoteExtensionAccess((method, args) async {
+    await _commands;
+    if (_revoked || !mounted) throw const FormatException('窗口已关闭');
+    await widget.channel.invokeMethod(method, args);
+    await _pull();
+  });
   BuildContext? _dialogContext;
   List<Map> get _cards => (_data['cards'] as List? ?? []).cast<Map>();
   @override
@@ -129,6 +138,8 @@ class _DetachedWorkbenchState extends State<DetachedWorkbench>
               'bounds': await _bounds(),
               'vaultOwner': false,
               'error': _error,
+              'extensions': _data['extensions'],
+              'contributed': _data['contributed'],
               if (_data['view'] == 'agent')
                 'agent': {
                   for (final key in [
@@ -271,6 +282,7 @@ class _DetachedWorkbenchState extends State<DetachedWorkbench>
   }
 
   Future<void> _clear() {
+    if (_revoked) return _previewSession.revoke();
     _heartbeat?.cancel();
     _geometryTimer?.cancel();
     _wipeBytes();
@@ -278,6 +290,7 @@ class _DetachedWorkbenchState extends State<DetachedWorkbench>
     PaintingBinding.instance.imageCache.clearLiveImages();
     _data = {};
     _revoked = true;
+    _extensions.clear();
     _request++;
     if (mounted) setState(() {});
     return _previewSession.revoke();
@@ -303,6 +316,9 @@ class _DetachedWorkbenchState extends State<DetachedWorkbench>
         _mediaKey = GlobalKey<LocalMediaPreviewState>();
         _pdfKey = GlobalKey<LocalPdfPreviewState>();
         _reviewKey = GlobalKey<ReviewSourceViewState>();
+      }
+      if (data['extensions'] is List) {
+        _extensions.update(data['extensions'] as List);
       }
       setState(() => _data = data);
     } on Object {
@@ -367,10 +383,13 @@ class _DetachedWorkbenchState extends State<DetachedWorkbench>
 
   @override
   void dispose() {
+    _revoked = true;
+    _request++;
     windowManager.removeListener(this);
     _heartbeat?.cancel();
     _geometryTimer?.cancel();
     _wipeBytes();
+    _extensions.dispose();
     unawaited(_previewSession.revoke().whenComplete(_previewSession.dispose));
     unawaited(widget.channel.setMethodCallHandler(null));
     super.dispose();
@@ -553,6 +572,35 @@ class _DetachedWorkbenchState extends State<DetachedWorkbench>
       ),
     ),
   );
+  Future<void> _commandPalette() async {
+    final choices = [
+      for (final entry in {
+        'cards': '资料',
+        'agent': '助手',
+        'relations': '关系',
+        'changes': '变更',
+        'originals': '原件',
+        'extensions': '扩展管理',
+      }.entries)
+        {'title': entry.value, 'view': entry.key},
+      ...(_data['commands'] as List? ?? []).cast<Map>(),
+    ];
+    final view = await showDialog<String>(
+      context: _dialogContext!,
+      builder: (context) => SimpleDialog(
+        title: const Text('命令面板'),
+        children: [
+          for (final choice in choices)
+            SimpleDialogOption(
+              onPressed: () => Navigator.pop(context, choice['view']),
+              child: Text(choice['title'] as String),
+            ),
+        ],
+      ),
+    );
+    if (view != null && !_revoked && mounted) _navigate(view);
+  }
+
   Widget _agent() => DetachedConversationView(
     data: _data,
     session: _previewSession,
@@ -570,6 +618,25 @@ class _DetachedWorkbenchState extends State<DetachedWorkbench>
   );
   Widget _body() {
     final view = _data['view'] as String? ?? '';
+    if (view == 'extensions') {
+      return ExtensionsView(registry: _extensions, onOpen: _navigate);
+    }
+    if (view.startsWith('extension/')) {
+      return ContributedCardList(
+        cards: [
+          for (final c in _data['contributed'] as List? ?? [])
+            CardSummary(
+              recordType: 'card',
+              recordId: c['id'] as String,
+              title: c['title'] as String,
+              preview: c['preview'] as String,
+              tags: const [],
+              updatedAt: DateTime(1970),
+            ),
+        ],
+        onOpen: (id) => _navigate('card/$id'),
+      );
+    }
     if (view == 'agent') return _agent();
     if (view.startsWith('review/')) {
       return ReviewSourceView(
@@ -720,6 +787,12 @@ class _DetachedWorkbenchState extends State<DetachedWorkbench>
             leading: const Center(child: LiveRelayLogo(size: 28)),
             title: const Text('LiveRelay · 独立工作台'),
             actions: [
+              if (!_revoked)
+                IconButton(
+                  tooltip: '命令面板',
+                  icon: const Icon(Icons.terminal),
+                  onPressed: _commandPalette,
+                ),
               if (!_revoked)
                 TextButton(onPressed: _close, child: const Text('合并回主工作台')),
             ],

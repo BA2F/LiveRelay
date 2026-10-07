@@ -210,10 +210,19 @@ class InstalledExtension {
 
 /// Descriptors are data interpreted by trusted core widgets. No eval, process,
 /// network, filesystem or vault handle is passed to an extension contribution.
-class ExtensionRegistry extends ChangeNotifier {
+abstract interface class ExtensionAccess implements Listenable {
+  Map<String, InstalledExtension> get installed;
+  Future<void> install(ExtensionManifest manifest);
+  Future<void> setEnabled(String id, bool enabled);
+  Future<void> remove(String id);
+  Future<void> setSetting(String id, String key, bool value);
+}
+
+class ExtensionRegistry extends ChangeNotifier implements ExtensionAccess {
   ExtensionRegistry({required this.read, required this.write});
   final Future<String?> Function() read;
   final Future<void> Function(String) write;
+  @override
   final installed = <String, InstalledExtension>{};
   Future<void> _pending = Future.value();
   Future<void> load() async {
@@ -282,6 +291,7 @@ class ExtensionRegistry extends ChangeNotifier {
     }
   }
 
+  @override
   Future<void> install(ExtensionManifest manifest) => _change(() {
     if (installed.containsKey(manifest.id)) {
       throw const FormatException('此扩展已安装，请移除后安装新版本');
@@ -289,9 +299,12 @@ class ExtensionRegistry extends ChangeNotifier {
     if (installed.length >= 50) throw const FormatException('最多安装 50 个扩展');
     installed[manifest.id] = InstalledExtension(manifest);
   });
+  @override
   Future<void> setEnabled(String id, bool enabled) =>
       _change(() => installed[id]!.enabled = enabled);
+  @override
   Future<void> remove(String id) => _change(() => installed.remove(id));
+  @override
   Future<void> setSetting(String id, String key, bool value) => _change(() {
     if (!installed[id]!.manifest.settings.any((s) => s.id == key)) {
       throw const FormatException('设置不存在');
