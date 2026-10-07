@@ -1,0 +1,92 @@
+{
+  "verifiedAt": "2026-10-07T15:24:09.906568+00:00",
+  "sourceCommit": "7a645f53b1e03691b41f3bf7e22e0fa5e583899e",
+  "normalClient": true,
+  "entrypoint": "lib/main.dart",
+  "originalDesktopGoalAcceptedComplete": true,
+  "completionBasis": "2026-10-07 explicit human acceptance; unverified external/hardware checks remain deferred",
+  "architectureStageComplete": true,
+  "wholeRepositoryFrontendIndependent": false,
+  "checks": {
+    "flutterTests": 228,
+    "headlessDartChecks": 15,
+    "headlessChecksIncludedInFlutterTotal": true,
+    "waylandMainNativeCases": 15,
+    "x11DetachedNativeCases": 7,
+    "productionMainNativeCases": 1,
+    "analysis": "no issues",
+    "realSessionDisposalRaceCases": 1
+  },
+  "logs": {
+    "final-analysis": {
+      "path": "work/artifacts/architecture-refactor-2026-10-07/content-usecases/logs/liverelay-content-final-analysis.log",
+      "sha256": "06baceb70df0b0cd867b3e07b0fedc714e14a5638aeaf2a5248d2856282ad27b",
+      "retention": "local log ignored by Git; digest tracked"
+    },
+    "final-test": {
+      "path": "work/artifacts/architecture-refactor-2026-10-07/content-usecases/logs/liverelay-content-final-test.log",
+      "sha256": "f7eb9d18a8c44da665cb486bf90c4654be4ff1414e09c926a2360598deea1514",
+      "retention": "local log ignored by Git; digest tracked"
+    },
+    "final-headless": {
+      "path": "work/artifacts/architecture-refactor-2026-10-07/content-usecases/logs/liverelay-content-final-headless.log",
+      "sha256": "dc271b5b238883f94698c18c8bb2def839b893aad4ca9b284ba0f5708c200bed",
+      "retention": "local log ignored by Git; digest tracked"
+    },
+    "native-main": {
+      "path": "work/artifacts/architecture-refactor-2026-10-07/content-usecases/logs/liverelay-content-native-main.log",
+      "sha256": "2c5a7d13e45c6871efa608747edbc7aa98a9ad01f808832ac73835c995674024",
+      "retention": "local log ignored by Git; digest tracked"
+    },
+    "native-windows": {
+      "path": "work/artifacts/architecture-refactor-2026-10-07/content-usecases/logs/liverelay-content-native-windows.log",
+      "sha256": "ed3cd3b96a638005fde11f8425830b7e2bd493155d35d58c73fb1faa21a8dc44",
+      "retention": "local log ignored by Git; digest tracked"
+    },
+    "production-startup": {
+      "path": "work/artifacts/architecture-refactor-2026-10-07/content-usecases/logs/liverelay-content-production-startup.log",
+      "sha256": "bb1a2a93b9eb1cfdecd6d7652710ea04d34e7aa4e54edcbbc9e6ee34c7b7565e",
+      "retention": "local log ignored by Git; digest tracked"
+    },
+    "linux-main": {
+      "path": "work/artifacts/architecture-refactor-2026-10-07/content-usecases/logs/liverelay-content-linux-main.log",
+      "sha256": "f5d12ffbf438c511b676dc6d5a6d10ec24eabde2599b74c90e895b25f50d24ba",
+      "retention": "local log ignored by Git; digest tracked"
+    },
+    "android-main": {
+      "path": "work/artifacts/architecture-refactor-2026-10-07/content-usecases/logs/liverelay-content-android-main.log",
+      "sha256": "d713365bd2d3e84aca0430f4a5f5dcb3161a84aaf9a8856ef558e6f6ca758524",
+      "retention": "local log ignored by Git; digest tracked"
+    }
+  },
+  "linux": {
+    "path": "work/exports/release-artifacts/architecture-refactor-2026-10-07/content-usecases/liverelay-linux-debug-main.tar.gz",
+    "size": 62303230,
+    "sha256": "89c43e06a62e57c6f6c7d64b4000e9baa00a5a1ea19a36b138a5bead320d094a",
+    "bundleFiles": 34,
+    "bundleBytes": 195422601,
+    "archiveMatchesEveryBundleFile": true,
+    "kind": "current-host debug, not portable release",
+    "debugMetadataNote": "lib/native_assets.json is SDK-generated headless native-asset metadata with host paths; Flutter uses its separate NativeAssetsManifest. Current-host debug archive, not a portable release."
+  },
+  "android": {
+    "path": "work/exports/release-artifacts/architecture-refactor-2026-10-07/content-usecases/liverelay-android-debug-main.apk",
+    "size": 330370130,
+    "sha256": "d736aa4655a87a64afca040a3a73b24daf34a4a5dd4ee0075986b63d2b3a21c2",
+    "copyMatchesNormalMainBuild": true,
+    "installed": false
+  },
+  "deferred": {
+    "newMicrophoneCapture": false,
+    "realRemoteAsr": false,
+    "manualWaylandCrossMonitor": false,
+    "wholeAppOwnerDailyUse": false,
+    "rustOrGpuiBridgeImplemented": false
+  },
+  "notes": [
+    "No user vault/API key read; public/fictional fixtures only.",
+    "Linux targets ran sequentially; final normal main rebuilt.",
+    "No main merge, tag movement or release publication."
+  ],
+  "architectureScope": "Agent configuration/request/review, typed queries, original/OCR/CSV/speech card use cases, presentation adapter and domain review rules"
+}
