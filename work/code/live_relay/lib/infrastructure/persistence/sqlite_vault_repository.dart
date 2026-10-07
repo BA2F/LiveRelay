@@ -6,6 +6,7 @@ import 'package:uuid/uuid.dart';
 import '../../core/domain/entities.dart';
 import '../../core/ai/review_source.dart';
 import '../../core/ai/review_actions.dart';
+import '../../core/ai/reviewed_agent_plan.dart';
 import '../../core/domain/card_references.dart';
 import '../../core/domain/lifecycle.dart';
 import '../../core/ports/vault_repository.dart';
@@ -1072,22 +1073,17 @@ class SqliteVaultRepository implements VaultRepository {
     ReviewSource? reviewSource,
     List<ReviewActions> actions = const [],
   }) {
-    if (!RegExp(r'^[a-zA-Z0-9-]{1,64}$').hasMatch(reviewId) ||
-        (sourceText.length > 32000 && reviewSource == null) ||
-        drafts.isEmpty ||
-        drafts.length > 20 ||
-        (actions.isNotEmpty && actions.length != drafts.length) ||
-        (reviewSource != null &&
-            (reviewSource.reviewId != reviewId ||
-                reviewSource.providerLabel != providerLabel))) {
-      throw const FormatException('确认建议数量或来源大小错误');
-    }
-    final evidence = reviewSource?.withActions(actions).encode();
-    final legacySource = sourceText.length <= 32000
-        ? sourceText
-        : '完整输入和附件已保存在独立确认来源记录 $reviewId；输入共${sourceText.length}字。';
+    final reviewed = ReviewedAgentPlan(
+      reviewId: reviewId,
+      sourceText: sourceText,
+      drafts: drafts,
+      providerLabel: providerLabel,
+      reviewSource: reviewSource,
+      actions: actions,
+    );
+    final retainedOriginalIds = List<String>.unmodifiable(originalIds);
     return database.transaction(() async {
-      final receiptKey = 'agent.review.$reviewId';
+      final receiptKey = reviewed.receiptKey;
       final receipt = await readLocalValue(receiptKey);
       if (receipt != null) {
         final cards = <LifeCard>[];
@@ -1097,25 +1093,13 @@ class SqliteVaultRepository implements VaultRepository {
         }
         return cards;
       }
-      for (final plan in actions) {
-        plan.validate();
-        if (plan.bundleId != null) {
-          final bundle = await getCard(plan.bundleId!);
-          if (bundle == null ||
-              bundle.isDeleted ||
-              bundle.kind != CardKind.bundle) {
-            throw const FormatException('所选收纳组合已失效，请重新选择');
-          }
-        }
-        for (final id in plan.referenceIds) {
-          final target = await getCard(id);
-          if (target == null || target.isDeleted) {
-            throw const FormatException('所选引用卡片已失效，请重新选择');
-          }
-        }
+      final targets = <String, LifeCard?>{};
+      for (final id in reviewed.targetIds) {
+        targets[id] = await getCard(id);
       }
+      reviewed.validateTargets(targets);
       final cards = <LifeCard>[];
-      for (final draft in drafts) {
+      for (final draft in reviewed.drafts) {
         cards.add(
           await _insertCard(
             CardDraft(
@@ -1127,18 +1111,18 @@ class SqliteVaultRepository implements VaultRepository {
             ),
             sourceKind: SourceKind.aiGenerated,
             sourceLabel: providerLabel,
-            sourceText: legacySource,
+            sourceText: reviewed.legacySource,
           ),
         );
       }
-      if (originalIds.isNotEmpty) {
+      if (retainedOriginalIds.isNotEmpty) {
         for (var i = 0; i < cards.length; i++) {
-          await setCardOriginals(cards[i].id, originalIds);
+          await setCardOriginals(cards[i].id, retainedOriginalIds);
           cards[i] = (await getCard(cards[i].id))!;
         }
       }
-      for (var i = 0; i < actions.length; i++) {
-        final plan = actions[i], card = cards[i];
+      for (var i = 0; i < reviewed.actions.length; i++) {
+        final plan = reviewed.actions[i], card = cards[i];
         if (plan.referenceIds.isNotEmpty) {
           await CardReferenceStore(this).replace(card.id, plan.referenceIds);
         }
@@ -1167,7 +1151,10 @@ class SqliteVaultRepository implements VaultRepository {
         }
       }
       if (reviewSource != null) {
-        await writeChunkedLocalValue(reviewSource.storageKey, evidence!);
+        await writeChunkedLocalValue(
+          reviewSource.storageKey,
+          reviewed.evidence!,
+        );
         for (final card in cards) {
           await writeLocalValue(
             ReviewSource.cardKey(card.id),
@@ -1176,10 +1163,10 @@ class SqliteVaultRepository implements VaultRepository {
         }
       }
       await writeLocalValue(
-        'agent.plan.$reviewId',
+        reviewed.planKey,
         jsonEncode({
           'version': 1,
-          'actions': [for (final plan in actions) plan.toJson()],
+          'actions': [for (final plan in reviewed.actions) plan.toJson()],
         }),
       );
       await writeLocalValue(

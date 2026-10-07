@@ -9,6 +9,7 @@ import '../core/ports/biometric_key_store.dart';
 import '../core/ports/device_factor_protection.dart';
 import '../core/ports/vault_blob_store.dart';
 import '../core/ports/vault_repository.dart';
+import '../core/ports/unlocked_vault.dart';
 import '../core/security/chinese_passphrase.dart';
 import '../core/security/vault_key_manager.dart';
 import '../core/security/vault_header_v3.dart';
@@ -31,7 +32,7 @@ typedef OpenVaultRepository = Future<VaultRepository> Function(
 );
 
 /// Owns the unlocked key and database. Presentation and AI never receive keys.
-class VaultSession {
+class VaultSession implements UnlockedVault {
   VaultSession({
     required this._resolveDirectory,
     required this._loadPassphraseCodec,
@@ -48,6 +49,9 @@ class VaultSession {
   final VaultBlobStore _blobStore;
   final DeviceFactorProtection? _deviceFactorProtection;
   int _deviceOperationEpoch = 0;
+  int _sessionGeneration = 0;
+  @override
+  int get sessionGeneration => _sessionGeneration;
   late Directory _directory;
   late VaultKeyManager _keyManager;
   late ChinesePassphraseCodec _passphraseCodec;
@@ -60,6 +64,7 @@ class VaultSession {
   VaultSessionState get state => _state;
   VaultHeaderMetadata? get header => _header;
   bool get biometricAvailable => _biometricAvailable;
+  @override
   bool get isUnlocked => _state == VaultSessionState.unlocked;
   Directory get directory => _directory;
 
@@ -445,12 +450,14 @@ class VaultSession {
 
   /// Export needs closed SQLite files while retaining its current UI state.
   Future<void> suspendDatabase() async {
+    _sessionGeneration++;
     final repository = _repository;
     _repository = null;
     if (repository != null) await repository.close();
   }
 
   Future<void> close() async {
+    _sessionGeneration++;
     _deviceOperationEpoch++;
     try {
       await _deviceFactorProtection?.cancel();
@@ -474,6 +481,7 @@ class VaultSession {
     }
   }
 
+  @override
   VaultRepository get repository {
     final repository = _repository;
     if (repository == null) throw StateError('加密资料库尚未解锁');

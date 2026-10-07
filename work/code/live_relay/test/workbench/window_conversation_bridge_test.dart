@@ -58,7 +58,10 @@ void main() {
         throwsFormatException,
       );
       consent = await invoke('prepareSend') as Map;
-      c.aiConfigurationGeneration++;
+      await c.saveAiSettings(
+        endpoint: c.aiSettings.endpoint,
+        model: c.aiSettings.model,
+      );
       await expectLater(
         invoke('send', {'ticket': consent['ticket']}),
         throwsFormatException,

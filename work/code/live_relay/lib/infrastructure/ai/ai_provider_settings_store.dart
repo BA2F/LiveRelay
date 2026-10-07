@@ -4,34 +4,15 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../core/ports/ai_provider.dart';
-import '../../core/ai/ai_service_endpoint.dart';
+import '../../core/ports/ai_settings_repository.dart';
+import '../../core/ai/ai_provider_settings.dart';
 
-class AiProviderSettings {
-  const AiProviderSettings({
-    required this.endpoint,
-    required this.model,
-    required this.hasApiKey,
-    this.id = 'legacy',
-    this.name = 'AI 服务',
-    this.models = const [],
-    this.protocol = AiProtocol.chatCompletions,
-    this.supportsImages = false,
-    this.supportsFiles = false,
-    this.supportsAudio = false,
-  });
-  final String id, name;
-  final List<String> models;
-  final bool supportsImages, supportsFiles, supportsAudio;
-  final AiProtocol protocol;
-  final String endpoint, model;
-  final bool hasApiKey;
-  bool get isConfigured =>
-      endpoint.trim().isNotEmpty && model.trim().isNotEmpty && hasApiKey;
-}
+export '../../core/ai/ai_provider_settings.dart';
+import '../../core/ai/ai_service_endpoint.dart';
 
 /// Device credentials remain in secure storage, independently of vault content.
 /// One versioned write changes profile settings and key together.
-class AiProviderSettingsStore {
+class AiProviderSettingsStore implements AiSettingsRepository {
   AiProviderSettingsStore({FlutterSecureStorage? storage})
     : _storage =
           storage ??
@@ -117,14 +98,17 @@ class AiProviderSettingsStore {
     return null;
   }
 
+  @override
   Future<AiProviderSettings> read() async {
     final item = _active(await _load());
     return item == null ? empty : _settings(item);
   }
 
+  @override
   Future<List<AiProviderSettings>> readProfiles() async => [
     for (final p in (await _load())['profiles'] as List) _settings(p as Map),
   ];
+  @override
   Future<String?> readApiKey() async =>
       _active(await _load())?['key'] as String?;
   Future<void> _write(Map<String, dynamic> data) async {
@@ -134,6 +118,7 @@ class AiProviderSettingsStore {
     }
   }
 
+  @override
   Future<void> saveProfile({
     String? id,
     bool create = false,
@@ -204,6 +189,7 @@ class AiProviderSettingsStore {
     await _write({'version': 2, 'active': selectedId, 'profiles': profiles});
   }
 
+  @override
   Future<void> select(String id, String model) async {
     final data = await _load();
     final profiles = data['profiles'] as List;
@@ -219,6 +205,7 @@ class AiProviderSettingsStore {
     await _write(data);
   }
 
+  @override
   Future<void> remove(String id) async {
     final data = await _load();
     final profiles = data['profiles'] as List;
@@ -230,6 +217,7 @@ class AiProviderSettingsStore {
   }
 
   // Keep the existing mobile callers on the selected device profile.
+  @override
   Future<void> save({
     required String endpoint,
     required String model,
@@ -249,6 +237,7 @@ class AiProviderSettingsStore {
     );
   }
 
+  @override
   Future<void> saveProtocol(AiProtocol protocol) async {
     final data = await _load();
     final item = _active(data);
@@ -259,6 +248,7 @@ class AiProviderSettingsStore {
     await _write(data);
   }
 
+  @override
   Future<void> saveCapabilities({
     required bool images,
     required bool files,
@@ -275,6 +265,7 @@ class AiProviderSettingsStore {
     await _write(data);
   }
 
+  @override
   Future<void> clear() async {
     await _storage.delete(key: _catalogKey);
     for (final key in _legacyKeys) {

@@ -152,7 +152,10 @@ void main() {
       q.updateDraft('fixture input retained');
       pending = q.send(q.prepare(q.draft, []));
       await ai.entered.future;
-      c.aiConfigurationGeneration++;
+      await c.saveAiSettings(
+        endpoint: c.aiSettings.endpoint,
+        model: c.aiSettings.model,
+      );
       ai.complete();
       expect(await pending, false);
       expect(q.error, contains('配置已变化'));
@@ -197,7 +200,10 @@ void main() {
         q.updateDraft('fixture scope');
         pending = q.send(q.prepare(q.draft, []));
         await settings.entered.future;
-        c.aiConfigurationGeneration++;
+        await c.saveAiSettings(
+          endpoint: c.aiSettings.endpoint,
+          model: c.aiSettings.model,
+        );
         settings.key.complete('fixture-key');
         expect(await pending, false);
         expect(ai.requests, isEmpty);

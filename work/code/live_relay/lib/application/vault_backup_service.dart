@@ -16,6 +16,7 @@ import '../core/security/vault_key_manager.dart';
 import '../infrastructure/backup/life_vault_archive.dart';
 import '../infrastructure/backup/vault_restore_transaction.dart';
 import 'vault_session.dart';
+import 'vault_snapshot_query.dart';
 
 /// Coordinates authenticated archives and K0 installation. UI callbacks only
 /// clear or reload projections; they never receive keys, files or repositories.
@@ -134,7 +135,12 @@ class VaultBackupService {
           verifyInstalled: () async {
             await _session.openWithKey(importedKey!);
             await _session.reloadHeader();
-            if (metadata.formatVersion == 1) await refreshUnlockedData();
+            if (metadata.formatVersion == 1) {
+              await VaultSnapshotQuery.inspectRepository(
+                _session.repository,
+                sessionGeneration: _session.sessionGeneration,
+              );
+            }
           },
           closeInstalled: () async {
             await _session.close();
@@ -147,6 +153,7 @@ class VaultBackupService {
           _session.markUnlocked();
         }
         await _session.clearDeviceKeyAfterRestore();
+        if (metadata.formatVersion == 1) await refreshUnlockedData();
       } on Object {
         await _session.close();
         clearUnlockedData();

@@ -6,7 +6,6 @@ import 'package:live_relay/application/agent/agent_conversation.dart';
 import 'package:live_relay/core/domain/entities.dart';
 import 'package:live_relay/core/ports/ai_conversation_provider.dart';
 import 'package:live_relay/core/ports/ai_provider.dart';
-import 'package:live_relay/infrastructure/ai/ai_provider_settings_store.dart';
 import 'package:live_relay/infrastructure/app_composition.dart';
 
 import '../support/verification_fakes.dart';
@@ -74,13 +73,15 @@ void main() {
       final oldScope = q.prepare(q.draft, [
         const SensitiveMark(lineOrder: 0, kind: SensitiveFieldKind.secret),
       ]);
-      c.aiConfigurationGeneration++;
+      await c.saveAiSettings(
+        endpoint: c.aiSettings.endpoint,
+        model: c.aiSettings.model,
+      );
       expect(await q.send(oldScope), false);
       expect(q.error, contains('配置已变化'));
-      c.aiSettings = const AiProviderSettings(
+      await c.saveAiSettings(
         endpoint: 'https://different.invalid/chat',
         model: 'different',
-        hasApiKey: true,
       );
       expect(await q.send(oldScope), false);
       expect(ai.requests, isEmpty);

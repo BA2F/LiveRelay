@@ -5,8 +5,13 @@ import 'package:flutter/services.dart';
 import 'package:path_provider/path_provider.dart';
 
 import '../application/app_controller.dart';
+import '../application/agent/agent_settings_service.dart';
+import '../application/agent/agent_service.dart';
+import '../application/agent/agent_review_service.dart';
+import '../core/ports/ai_settings_repository.dart';
 import '../application/vault_backup_service.dart';
 import '../application/vault_session.dart';
+import '../application/vault_snapshot_query.dart';
 import '../application/vault_security_service.dart';
 import '../application/local_handoff_service.dart';
 import '../application/recipient_service.dart';
@@ -39,7 +44,7 @@ AppController createAppController([
   BiometricKeyStore? biometricKeyStore,
   OcrProvider? ocrProvider,
   AiProvider? aiProvider,
-  AiProviderSettingsStore? aiSettingsStore,
+  AiSettingsRepository? aiSettingsStore,
   Future<void> Function(String stage)? restoreCheckpoint,
   DeviceFactorProtection? deviceFactorProtection,
   DateTime Function()? clock,
@@ -93,6 +98,15 @@ AppController createAppController([
       return Directory('${support.path}/live_relay/agent_runtime');
     },
   );
+  final agentSettings = AgentSettingsService(
+    aiSettingsStore ?? AiProviderSettingsStore(),
+  );
+  final agent = AgentService(
+    vault: session,
+    configuration: agentSettings,
+    provider: selectedAi,
+    drafts: DraftAgentService(selectedAi, commands: commands),
+  );
   return AppController(
     session: session,
     handoff: LocalHandoffService(session),
@@ -107,10 +121,11 @@ AppController createAppController([
     ),
     backup: backup,
     ocrProvider: ocrProvider ?? GoogleMlKitOcrProvider(),
-    aiProvider: selectedAi,
-    draftAgentService: DraftAgentService(selectedAi, commands: commands),
+    agentSettings: agentSettings,
+    agent: agent,
+    agentReview: AgentReviewService(session),
+    snapshotQuery: VaultSnapshotQuery(session),
     speechService: speech,
-    aiSettingsStore: aiSettingsStore ?? AiProviderSettingsStore(),
     edgeImporter: const EdgePasswordCsvImporter(),
     prepareEnvironment: () async {
       await _prepareEnvironment();

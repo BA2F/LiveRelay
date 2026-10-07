@@ -3,7 +3,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
 import 'package:live_relay/application/app_controller.dart';
+import 'package:live_relay/application/agent/agent_service.dart';
+import 'package:live_relay/application/agent/agent_settings_service.dart';
+import 'package:live_relay/application/agent/agent_review_service.dart';
 import 'package:live_relay/application/vault_session.dart';
+import 'package:live_relay/application/vault_snapshot_query.dart';
 import 'package:live_relay/application/vault_backup_service.dart';
 import 'package:live_relay/infrastructure/backup/life_vault_archive.dart';
 import 'package:live_relay/infrastructure/import/edge_password_csv_importer.dart';
@@ -24,7 +28,11 @@ import 'package:live_relay/presentation/widgets/release_preview_panel.dart';
 class SnapshotController extends AppController {
   SnapshotController() : this._(fixtureSession());
   SnapshotController._(VaultSession session)
-    : super(
+    : this._withSettings(session, AgentSettingsService(TestAiSettings()));
+  SnapshotController._withSettings(
+    VaultSession session,
+    AgentSettingsService settings,
+  ) : super(
         session: session,
         backup: VaultBackupService(
           session: session,
@@ -32,8 +40,14 @@ class SnapshotController extends AppController {
           restoreTransaction: () => throw UnsupportedError('UI snapshot only'),
         ),
         ocrProvider: TestOcr(),
-        aiProvider: RecordingAi(),
-        aiSettingsStore: TestAiSettings(),
+        agent: AgentService(
+          vault: session,
+          configuration: settings,
+          provider: RecordingAi(),
+        ),
+        agentSettings: settings,
+        agentReview: AgentReviewService(session),
+        snapshotQuery: VaultSnapshotQuery(session),
         edgeImporter: const EdgePasswordCsvImporter(),
         prepareEnvironment: () async {},
       ) {

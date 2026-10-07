@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import '../../application/app_controller.dart';
 import '../../core/ports/ai_provider.dart';
 import '../../core/ai/ai_service_endpoint.dart';
-import '../../infrastructure/ai/ai_provider_settings_store.dart';
+import '../../core/ai/ai_provider_settings.dart';
 
 class AiSettingsDialog extends StatefulWidget {
   const AiSettingsDialog({super.key, required this.controller});
