@@ -43,7 +43,7 @@ flutter test integration_test/restore_recovery_desktop_test.dart -d linux --dart
 
 不要将原用户资料库或真实个人资料作为回归输入。真实服务和实体硬件的验收需单独记录，不用离线测试代替。
 
-桌面工作台及独立窗口的原生验证使用 `test_driver/native_driver.dart`，目标分别为 `integration_test/desktop_workbench_test.dart` 和 `integration_test/desktop_windows_test.dart`。同一 checkout 的 Linux 构建共用 bundle，两个原生验证必须顺序执行；完成后重新以 `--target lib/main.dart` 构建正常客户端，集成入口不能作为交付软件。
+桌面工作台及独立窗口的原生验证使用 `test_driver/native_driver.dart`，目标分别为 `integration_test/desktop_workbench_test.dart` 和 `integration_test/desktop_windows_test.dart`。同一 checkout 的 Linux 构建共用 bundle，所有原生验证必须顺序执行；完成后重新以 `--target lib/main.dart` 构建正常客户端，集成入口不能作为交付软件。
 
 `formal_foundation_desktop_test.dart` 使用临时目录和真实 SQLCipher，验证首次设置、偏好保存、统一卡片视图、平台能力提示、重新解锁和备份核对。可传入 `--dart-define=FOUNDATION_SCREENSHOTS=/绝对输出目录` 保存虚构资料截图。
 
@@ -147,3 +147,5 @@ flutter test integration_test/local_completion_desktop_test.dart -d linux
 ```
 
 演示每次使用新的系统临时目录，内置虚构 Owner／接收者；“我的”版本号连续七次点击可展开浮层。默认 main 不导入演示实现。说明见 [独立演示构建](../../../docs/30_design/platform/03_独立调试演示构建.md)。云端摇篮／同步、其他语言和外观优化由人类明确后置；软件实现不代替真实硬件与正式发行验收。
+
+原生主窗口关闭/强制退出验证目标为 `integration_test/desktop_close_test.dart`，同样使用 `test_driver/native_driver.dart`。子进程只创建公开密码的临时合成库，复用生产 NativeCloseGuard/WorkbenchRuntime；测试拒绝关闭、保存退出以及 SIGKILL 后已提交数据恢复，不保证强杀时尚未保存的编辑。证据目录应预先创建，最后必须重建正常 main。

@@ -1,0 +1,21 @@
+{
+  "date": "2026-10-07",
+  "backend": "wayland",
+  "completeSuitePassed": false,
+  "ownerToolFocus": {
+    "expected": true,
+    "observed": false,
+    "waitSeconds": 3
+  },
+  "programmaticSecondScreenPosition": {
+    "expectedX": 3300,
+    "observedX": 24,
+    "manualDragTested": false
+  },
+  "evidenceDirectorySetupFailures": 5,
+  "setupFailuresAreProductFailures": false,
+  "previousWaylandMainWorkbenchCasesPassed": 15,
+  "previousX11DetachedProductCasesPassed": 7,
+  "fixtureOnly": true,
+  "logAtRun": "/tmp/liverelay-remaining-wayland-windows.log"
+}
