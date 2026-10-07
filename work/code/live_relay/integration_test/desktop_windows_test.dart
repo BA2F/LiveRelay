@@ -146,9 +146,35 @@ Future<void> main(List<String> arguments) async {
         if (await nativeDesktopBackend() == 'x11' &&
             monitors.exitCode == 0 &&
             screens.length > 1) {
-          final screen = screens.last;
-          final x = double.parse(screen.group(3)!);
-          final y = double.parse(screen.group(4)!);
+          final before = Map<String, dynamic>.from(data['bounds'] as Map);
+          final beforeCenter = Offset(
+            (before['x'] as num).toDouble() +
+                (before['width'] as num).toDouble() / 2,
+            (before['y'] as num).toDouble() +
+                (before['height'] as num).toDouble() / 2,
+          );
+          final monitorBounds = [
+            for (final screen in screens)
+              Rect.fromLTWH(
+                double.parse(screen.group(3)!),
+                double.parse(screen.group(4)!),
+                double.parse(screen.group(1)!),
+                double.parse(screen.group(2)!),
+              ),
+          ];
+          final initialMonitor = monitorBounds.indexWhere(
+            (screen) => screen.contains(beforeCenter),
+          );
+          expect(initialMonitor, isNonNegative);
+          final targetMonitor = monitorBounds.indexWhere(
+            (screen) => !screen.contains(beforeCenter),
+          );
+          // A mirrored layout cannot prove movement to a different screen.
+          expect(targetMonitor, isNonNegative);
+          expect(targetMonitor, isNot(initialMonitor));
+          final target = monitorBounds[targetMonitor];
+          final x = target.left;
+          final y = target.top;
           await child.channel.invokeMethod('diagnosticMove', {
             'x': x + 100,
             'y': y + 100,
@@ -159,6 +185,15 @@ Future<void> main(List<String> arguments) async {
           final placed = await inspect(child);
           expect((placed['bounds'] as Map)['x'], closeTo(x + 100, 4));
           expect((placed['bounds'] as Map)['y'], closeTo(y + 100, 4));
+          final after = Map<String, dynamic>.from(placed['bounds'] as Map);
+          final afterCenter = Offset(
+            (after['x'] as num).toDouble() +
+                (after['width'] as num).toDouble() / 2,
+            (after['y'] as num).toDouble() +
+                (after['height'] as num).toDouble() / 2,
+          );
+          expect(target.contains(afterCenter), isTrue);
+          expect(monitorBounds[initialMonitor].contains(afterCenter), isFalse);
           final evidence = Platform.environment['LIVERELAY_WORKBENCH_EVIDENCE'];
           if (evidence != null) {
             await File('$evidence/native-multimonitor-verification.json')
@@ -166,7 +201,17 @@ Future<void> main(List<String> arguments) async {
                   jsonEncode({
                     'fixtureOnly': true,
                     'monitorCount': screens.length,
-                    'actualSecondMonitor': true,
+                    'backend': 'x11',
+                    'initialMonitorIndex': initialMonitor,
+                    'targetMonitorIndex': targetMonitor,
+                    'movedBetweenDistinctMonitors': true,
+                    'initialBounds': before,
+                    'targetMonitorBounds': {
+                      'x': target.left,
+                      'y': target.top,
+                      'width': target.width,
+                      'height': target.height,
+                    },
                     'nativeProcess': child.window.process.pid,
                     'bounds': placed['bounds'],
                     'manualMouseDragTested': false,

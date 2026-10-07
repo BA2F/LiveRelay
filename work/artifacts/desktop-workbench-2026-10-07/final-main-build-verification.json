@@ -40,7 +40,9 @@
     "waylandDetachedProductCases": 7,
     "publicLocalSpeechProductCases": 1,
     "realDeepSeekRequests": 6,
-    "analysisPassed": true
+    "analysisPassed": true,
+    "productionStartupProductCases": 1,
+    "x11DistinctMonitorRecheckProductCases": 7
   },
   "overallGoalComplete": false,
   "microphoneHardwareTested": false,
@@ -48,5 +50,14 @@
   "realPointerWaylandActivationTested": false,
   "archiveFileContentsVerified": true,
   "verifiedSourceCommit": "9d934e011407d53a0a59be36eb0789f69cd95b17",
-  "sourceChangesAfterBuildAreTestsAndDocumentationOnly": true
+  "sourceChangesAfterBuildAreTestsAndDocumentationOnly": true,
+  "continuationVerificationBase": "32a3eb2836c28d348a21fc8c11a6a930cbffced2",
+  "productionCodeUnchangedInContinuation": true,
+  "continuationLogs": {
+    "productionStartupNative": "/tmp/liverelay-production-entry-final-native.log",
+    "x11DistinctMonitorNative": "/tmp/liverelay-distinct-monitor-native.log",
+    "normalLinuxMain": "/tmp/liverelay-production-entry-final-linux-main.log",
+    "analysis": "/tmp/liverelay-production-entry-final-analysis.log"
+  },
+  "normalMainRebuiltAfterStartupCase": true
 }

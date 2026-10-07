@@ -45,6 +45,20 @@ flutter test integration_test/restore_recovery_desktop_test.dart -d linux --dart
 
 桌面工作台及独立窗口的原生验证使用 `test_driver/native_driver.dart`，目标分别为 `integration_test/desktop_workbench_test.dart` 和 `integration_test/desktop_windows_test.dart`。同一 checkout 的 Linux 构建共用 bundle，所有原生验证必须顺序执行；完成后重新以 `--target lib/main.dart` 构建正常客户端，集成入口不能作为交付软件。
 
+普通生产入口的首次引导与重开验证使用 `integration_test/desktop_startup_test.dart`，直接调用 `lib/main.dart`，不注入业务服务。必须明确隔离 XDG 数据及临时目录；系统凭据存储使用空内存夹具，不读取本人密钥环。该用例通过真实页面创建 Header v3、回输恢复凭证、选择工作台、在防抖保存前保存锁定，然后卸载页面/控制器并重新调用生产入口解锁，验证加密草稿与起始布局保留。还覆盖双卡选择/数量对象核对/取消/确认回收/界面恢复、工作台切换/重新选择/默认恢复及输入框聚焦时的Ctrl+Shift+P命令。重建组装发生在同一个原生进程内，不冒充进程异常退出；后者见独立关闭用例。
+
+```bash
+task_startup_root=$(mktemp -d /tmp/liverelay-production-startup-XXXXXX)
+mkdir -p "$task_startup_root/data" "$task_startup_root/cache"
+env LIVERELAY_STARTUP_ROOT="$task_startup_root" \
+  XDG_DATA_HOME="$task_startup_root/data" TMPDIR="$task_startup_root/cache" \
+  flutter drive --driver=test_driver/native_driver.dart \
+  --target=integration_test/desktop_startup_test.dart -d linux --no-pub
+flutter build linux --debug --target lib/main.dart --no-pub
+```
+
+双屏自动验收使用 X11 窗口实际中心点确定当前显示器，再移至不包含该中心点的另一显示器，并断言目标窗口中心已离开原屏。镜像显示器不能证明跨屏；Wayland不使用X11的全局坐标断言。自动程序移动和本人手动标题栏跨屏分别记录。
+
 `formal_foundation_desktop_test.dart` 使用临时目录和真实 SQLCipher，验证首次设置、偏好保存、统一卡片视图、平台能力提示、重新解锁和备份核对。可传入 `--dart-define=FOUNDATION_SCREENSHOTS=/绝对输出目录` 保存虚构资料截图。
 
 ## 构建
