@@ -27,7 +27,7 @@ import '../../core/ai/review_action_proposal.dart';
 import '../../core/ports/ai_provider.dart';
 import '../../core/ports/ai_conversation_provider.dart';
 import '../../core/ports/device_factor_protection.dart';
-import '../../core/ports/ocr_provider.dart';
+import '../../application/vault_content_service.dart';
 import '../../core/ports/vault_repository.dart';
 import '../../core/security/chinese_passphrase.dart';
 import '../../infrastructure/backup/life_vault_archive.dart'
@@ -39,7 +39,7 @@ import '../../core/ai/ai_provider_settings.dart';
 import '../../application/agent/agent_settings_service.dart';
 import '../../application/agent/agent_service.dart';
 import '../../application/agent/agent_review_service.dart';
-import '../../infrastructure/import/edge_password_csv_importer.dart';
+import '../../application/import/edge_password_csv_importer.dart';
 
 export '../../application/vault_session.dart' show VaultSessionState;
 
@@ -47,12 +47,11 @@ class AppController extends ChangeNotifier implements PreviewSession {
   AppController({
     required this._session,
     required this._backup,
-    required this._ocrProvider,
+    required this._content,
     required this._agentSettings,
     required this._agent,
     required this._agentReview,
     required this._snapshotQuery,
-    required this._edgeImporter,
     required this._prepareEnvironment,
     this._speechService,
     this._securityService,
@@ -167,13 +166,12 @@ class AppController extends ChangeNotifier implements PreviewSession {
   SpeechService? get speech => _speechService;
   final VaultSession _session;
   final VaultBackupService _backup;
-  final OcrProvider _ocrProvider;
+  final VaultContentService _content;
   final AgentSettingsService _agentSettings;
   final AgentService _agent;
   final AgentReviewService _agentReview;
   final VaultSnapshotQuery _snapshotQuery;
   late final List<StreamSubscription<Object?>> _agentSubscriptions;
-  final EdgePasswordCsvImporter _edgeImporter;
   final Future<void> Function() _prepareEnvironment;
 
   VaultSessionState get sessionState => _session.state;
@@ -500,52 +498,24 @@ class AppController extends ChangeNotifier implements PreviewSession {
   }) async {
     late LifeCard card;
     await _run(() async {
-      try {
-        final blob = await _session.writeOriginal(
-          bytes: bytes,
-          originalName: originalName,
-          mimeType: mimeType,
-          mediaKind: mediaKind,
-        );
-        try {
-          card = await _requireRepository().registerBlob(blob);
-        } on Object {
-          await _session.deleteOriginal(blob);
-          rethrow;
-        }
-        await _refreshUnlockedData();
-      } finally {
-        bytes.fillRange(0, bytes.length, 0);
-      }
+      card = await _content.importOriginal(
+        bytes: bytes,
+        originalName: originalName,
+        mimeType: mimeType,
+        mediaKind: mediaKind,
+      );
+      await _refreshUnlockedData();
     });
     return card;
   }
 
-  Future<Uint8List> readOriginal(String blobId) async {
-    final blob = blobs.where((item) => item.id == blobId).firstOrNull;
-    if (blob == null) throw StateError('原始资料不存在');
-    return _session.readOriginal(blob);
-  }
+  Future<Uint8List> readOriginal(String blobId) =>
+      _content.readOriginal(blobId);
 
   Future<LifeCard> runOcr(String blobId) async {
     late LifeCard card;
     await _run(() async {
-      final blob = blobs.firstWhereOrNull((item) => item.id == blobId);
-      if (blob == null) throw StateError('原始资料不存在');
-      if (blob.mediaKind != BlobMediaKind.image) {
-        throw const FormatException('只有图片原件可以执行 OCR');
-      }
-      final bytes = await _session.readOriginal(blob);
-      late OcrResult result;
-      try {
-        result = await _ocrProvider.recognize(
-          imageBytes: bytes,
-          originalName: blob.originalName,
-        );
-      } finally {
-        bytes.fillRange(0, bytes.length, 0);
-      }
-      card = await _requireRepository().saveOcrResult(blob.id, result);
+      card = await _content.runOcr(blobId);
       await _refreshUnlockedData();
     });
     return card;
@@ -677,34 +647,10 @@ class AppController extends ChangeNotifier implements PreviewSession {
     await _refreshUnlockedData();
   });
 
-  Future<void> saveSpeechDraft(String text, {String? blobId}) {
-    final content = text.trim();
-    if (content.isEmpty || content.length > 32000) {
-      throw const FormatException('语音文字为空或过长');
-    }
-    final draft = CardDraft(
-      title: String.fromCharCodes(content.split('\n').first.runes.take(28)),
-      content: content,
-      kind: CardKind.note,
-      status: CardStatus.draft,
-      tags: ['语音', '待确认'],
-    );
-    if (blobId != null) {
-      return _mutate(
-        (r) => r.createCardFromOriginal(
-          blobId,
-          draft,
-          sourceKind: SourceKind.audio,
-          sourceLabel: '本地语音识别 · 本人校对',
-        ),
-      );
-    }
-    return createCard(
-      draft,
-      sourceKind: SourceKind.ownerInput,
-      sourceLabel: '语音页手动输入 · 本人校对',
-    );
-  }
+  Future<void> saveSpeechDraft(String text, {String? blobId}) => _run(() async {
+    await _content.saveSpeechDraft(text, blobId: blobId);
+    await _refreshUnlockedData();
+  });
 
   Future<List<CardRevision>> cardHistory(String id) =>
       _requireRepository().cardHistory(id);
@@ -729,13 +675,15 @@ class AppController extends ChangeNotifier implements PreviewSession {
 
   Future<EdgePasswordImportResult> importEdgePasswords(Uint8List bytes) async {
     try {
-      final parsed = _edgeImporter.parse(bytes);
-      await _mutate(
-        (repository) => repository.importCredentials(parsed.entries),
-      );
+      late EdgePasswordImportResult parsed;
+      await _run(() async {
+        parsed = await _content.importEdgePasswords(bytes);
+        await _refreshUnlockedData();
+      });
       return parsed;
     } finally {
-      _wipe(bytes);
+      // The presentation busy gate may reject before entering the use case.
+      bytes.fillRange(0, bytes.length, 0);
     }
   }
 
@@ -871,8 +819,6 @@ class AppController extends ChangeNotifier implements PreviewSession {
     if (kDebugMode) return error.toString();
     return '操作失败，请重试';
   }
-
-  void _wipe(Uint8List bytes) => bytes.fillRange(0, bytes.length, 0);
 
   @override
   void dispose() {

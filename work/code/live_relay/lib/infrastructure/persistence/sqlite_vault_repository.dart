@@ -854,6 +854,14 @@ class SqliteVaultRepository implements VaultRepository {
   }
 
   @override
+  Future<VaultBlob?> getBlob(String id) async {
+    final row = await (database.select(
+      database.encryptedBlobs,
+    )..where((table) => table.id.equals(id))).getSingleOrNull();
+    return row == null ? null : _blobFromRow(row);
+  }
+
+  @override
   Future<LifeCard> registerBlob(VaultBlob blob) {
     return database.transaction(() async {
       await database

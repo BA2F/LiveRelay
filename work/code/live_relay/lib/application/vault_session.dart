@@ -9,7 +9,7 @@ import '../core/ports/biometric_key_store.dart';
 import '../core/ports/device_factor_protection.dart';
 import '../core/ports/vault_blob_store.dart';
 import '../core/ports/vault_repository.dart';
-import '../core/ports/unlocked_vault.dart';
+import '../core/ports/vault_originals.dart';
 import '../core/security/chinese_passphrase.dart';
 import '../core/security/vault_key_manager.dart';
 import '../core/security/vault_header_v3.dart';
@@ -32,7 +32,7 @@ typedef OpenVaultRepository = Future<VaultRepository> Function(
 );
 
 /// Owns the unlocked key and database. Presentation and AI never receive keys.
-class VaultSession implements UnlockedVault {
+class VaultSession implements VaultOriginals {
   VaultSession({
     required this._resolveDirectory,
     required this._loadPassphraseCodec,
@@ -494,6 +494,7 @@ class VaultSession implements UnlockedVault {
     return key;
   }
 
+  @override
   Future<VaultBlob> writeOriginal({
     required Uint8List bytes,
     required String originalName,
@@ -508,6 +509,7 @@ class VaultSession implements UnlockedVault {
     mediaKind: mediaKind,
   );
 
+  @override
   Future<Uint8List> readOriginal(VaultBlob blob) {
     final r = repository;
     final key = _key;
@@ -533,6 +535,7 @@ class VaultSession implements UnlockedVault {
     );
   }
 
+  @override
   Future<void> deleteOriginal(VaultBlob blob) =>
       _blobStore.delete(vaultDirectory: _directory, blob: blob);
 

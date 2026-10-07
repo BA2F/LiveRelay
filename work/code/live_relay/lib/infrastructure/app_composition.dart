@@ -12,6 +12,7 @@ import '../core/ports/ai_settings_repository.dart';
 import '../application/vault_backup_service.dart';
 import '../application/vault_session.dart';
 import '../application/vault_snapshot_query.dart';
+import '../application/vault_content_service.dart';
 import '../application/vault_security_service.dart';
 import '../application/local_handoff_service.dart';
 import '../application/recipient_service.dart';
@@ -30,7 +31,6 @@ import 'speech/local_sense_voice_provider.dart';
 import 'backup/life_vault_archive.dart';
 import 'backup/vault_restore_transaction.dart';
 import 'blob/encrypted_blob_store.dart';
-import 'import/edge_password_csv_importer.dart';
 import 'ocr/google_mlkit_ocr_provider.dart';
 import 'persistence/app_database.dart';
 import 'persistence/sqlite_vault_repository.dart';
@@ -120,13 +120,15 @@ AppController createAppController([
       () => VaultRestoreTransaction(session.directory),
     ),
     backup: backup,
-    ocrProvider: ocrProvider ?? GoogleMlKitOcrProvider(),
+    content: VaultContentService(
+      vault: session,
+      ocr: ocrProvider ?? GoogleMlKitOcrProvider(),
+    ),
     agentSettings: agentSettings,
     agent: agent,
     agentReview: AgentReviewService(session),
     snapshotQuery: VaultSnapshotQuery(session),
     speechService: speech,
-    edgeImporter: const EdgePasswordCsvImporter(),
     prepareEnvironment: () async {
       await _prepareEnvironment();
       try {

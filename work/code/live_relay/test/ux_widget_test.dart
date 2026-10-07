@@ -8,9 +8,9 @@ import 'package:live_relay/application/agent/agent_settings_service.dart';
 import 'package:live_relay/application/agent/agent_review_service.dart';
 import 'package:live_relay/application/vault_session.dart';
 import 'package:live_relay/application/vault_snapshot_query.dart';
+import 'package:live_relay/application/vault_content_service.dart';
 import 'package:live_relay/application/vault_backup_service.dart';
 import 'package:live_relay/infrastructure/backup/life_vault_archive.dart';
-import 'package:live_relay/infrastructure/import/edge_password_csv_importer.dart';
 
 import 'support/session_fakes.dart';
 import 'support/verification_fakes.dart';
@@ -39,7 +39,7 @@ class SnapshotController extends AppController {
           archive: LifeVaultArchiveService(),
           restoreTransaction: () => throw UnsupportedError('UI snapshot only'),
         ),
-        ocrProvider: TestOcr(),
+        content: VaultContentService(vault: session, ocr: TestOcr()),
         agent: AgentService(
           vault: session,
           configuration: settings,
@@ -48,7 +48,6 @@ class SnapshotController extends AppController {
         agentSettings: settings,
         agentReview: AgentReviewService(session),
         snapshotQuery: VaultSnapshotQuery(session),
-        edgeImporter: const EdgePasswordCsvImporter(),
         prepareEnvironment: () async {},
       ) {
     final now = DateTime.utc(2026, 10, 1);

@@ -66,6 +66,7 @@ abstract interface class VaultRepository {
   Future<void> recordBackupExport(DateTime time);
 
   Future<List<VaultBlob>> listBlobs();
+  Future<VaultBlob?> getBlob(String id);
 
   Future<LifeCard> registerBlob(VaultBlob blob);
 

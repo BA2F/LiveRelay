@@ -2,9 +2,13 @@
 // These application checks import no Flutter, storage plugin or SQLite adapter.
 import 'dart:async';
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:live_relay/application/agent/agent_review_service.dart';
 import 'package:live_relay/application/vault_snapshot_query.dart';
+import 'package:live_relay/application/vault_content_service.dart';
+import 'package:live_relay/core/ports/vault_originals.dart';
+import 'package:live_relay/core/ports/ocr_provider.dart';
 import 'package:live_relay/application/agent/agent_service.dart';
 import 'package:live_relay/application/agent/agent_settings_service.dart';
 import 'package:live_relay/core/ai/ai_privacy.dart';
@@ -292,6 +296,90 @@ Map<String, Future<void> Function()> agentServiceChecks() => {
         );
         await rejects(Future<void>(() => plan.validateTargets({})), '引用卡片已失效');
       },
+  'headless original registration failure compensates file and wipes input':
+      () async {
+        final vault = _ContentVault();
+        vault.store.rejectRegistration = true;
+        final bytes = Uint8List.fromList([1, 2, 3]);
+        final content = VaultContentService(vault: vault, ocr: _FailingOcr());
+        await rejects(
+          content.importOriginal(
+            bytes: bytes,
+            originalName: 'public.png',
+            mimeType: 'image/png',
+            mediaKind: BlobMediaKind.image,
+          ),
+          'fixture register failed',
+        );
+        require(
+          vault.deleted && bytes.every((b) => b == 0),
+          'Registration failure did not compensate and wipe',
+        );
+      },
+  'headless OCR failure wipes bytes and session replacement discards clear original':
+      () async {
+        final vault = _ContentVault();
+        final content = VaultContentService(vault: vault, ocr: _FailingOcr());
+        await rejects(content.runOcr('original'), 'fixture OCR failed');
+        require(
+          vault.clearBytes.every((b) => b == 0),
+          'OCR failure retained clear bytes',
+        );
+        vault.clearBytes = Uint8List.fromList([4, 5, 6]);
+        vault.readStarted = false;
+        final read = Completer<Uint8List>();
+        vault.pendingRead = read.future;
+        final pending = content.readOriginal('original');
+        final rejected = rejects(pending, '结果已丢弃');
+        for (var i = 0; i < 100 && !vault.readStarted; i++) {
+          await Future<void>.delayed(Duration.zero);
+        }
+        require(vault.readStarted, 'Original read never entered');
+        vault.sessionGeneration++;
+        read.complete(vault.clearBytes);
+        await rejected;
+        require(
+          vault.clearBytes.every((b) => b == 0),
+          'Late original retained clear bytes',
+        );
+      },
+  'headless CSV import preserves exact secret and wipes both success and failure input':
+      () async {
+        final vault = _ContentVault();
+        final content = VaultContentService(vault: vault, ocr: _FailingOcr());
+        final invalid = Uint8List.fromList(utf8.encode('invalid,csv'));
+        await rejects(content.importEdgePasswords(invalid), '需要');
+        require(
+          invalid.every((b) => b == 0),
+          'Invalid CSV retained source bytes',
+        );
+        final valid = Uint8List.fromList(
+          utf8.encode(
+            'name,url,username,password\npublic,https://fixture.invalid,user,"  public secret  "\n',
+          ),
+        );
+        await content.importEdgePasswords(valid);
+        require(
+          valid.every((b) => b == 0) &&
+              vault.store.imported.single.secret == '  public secret  ',
+          'CSV changed secret or retained bytes',
+        );
+      },
+  'headless speech creates an unconfirmed note with explicit original provenance':
+      () async {
+        final vault = _ContentVault();
+        final content = VaultContentService(vault: vault, ocr: _FailingOcr());
+        await content.saveSpeechDraft(
+          '  public transcript  ',
+          blobId: 'original',
+        );
+        require(
+          vault.store.savedDraft!.status == CardStatus.draft &&
+              vault.store.savedDraft!.content == 'public transcript' &&
+              vault.store.sourceKind == SourceKind.audio,
+          'Speech confirmation/provenance changed',
+        );
+      },
   'domain review rules reject missing or non-bundle targets without a database':
       () async {
         final plan = ReviewedAgentPlan(
@@ -548,4 +636,86 @@ class _SnapshotRepository extends _Repository {
   Future<DateTime?> lastBackupExport() async => null;
   @override
   Future<String?> readLocalValue(String key) async => null;
+}
+
+class _ContentVault implements VaultOriginals {
+  @override
+  bool isUnlocked = true;
+  @override
+  int sessionGeneration = 1;
+  final store = _ContentRepository();
+  @override
+  VaultRepository get repository => store;
+  bool deleted = false, readStarted = false;
+  Uint8List clearBytes = Uint8List.fromList([1, 2, 3]);
+  Future<Uint8List>? pendingRead;
+  @override
+  Future<VaultBlob> writeOriginal({
+    required Uint8List bytes,
+    required String originalName,
+    required String mimeType,
+    required BlobMediaKind mediaKind,
+  }) async => store.blob;
+  @override
+  Future<Uint8List> readOriginal(VaultBlob blob) async {
+    readStarted = true;
+    return await (pendingRead ?? Future.value(clearBytes));
+  }
+
+  @override
+  Future<void> deleteOriginal(VaultBlob blob) async {
+    deleted = true;
+  }
+}
+
+class _ContentRepository extends _Repository {
+  final blob = VaultBlob(
+    id: 'original',
+    originalName: 'public.png',
+    mediaKind: BlobMediaKind.image,
+    mimeType: 'image/png',
+    relativePath: 'original.blob',
+    byteLength: 3,
+    sha256: 'fixture-digest',
+    createdAt: DateTime.utc(2026),
+  );
+  @override
+  Future<VaultBlob?> getBlob(String id) async => id == blob.id ? blob : null;
+  bool rejectRegistration = false;
+  List<CredentialDraft> imported = [];
+  CardDraft? savedDraft;
+  SourceKind? sourceKind;
+  @override
+  Future<List<VaultBlob>> listBlobs() async => [blob];
+  @override
+  Future<LifeCard> registerBlob(VaultBlob blob) async {
+    if (rejectRegistration) throw StateError('fixture register failed');
+    return _card('original-card', CardKind.document);
+  }
+
+  @override
+  Future<int> importCredentials(List<CredentialDraft> drafts) async {
+    imported = drafts;
+    return drafts.length;
+  }
+
+  @override
+  Future<LifeCard> createCardFromOriginal(
+    String blobId,
+    CardDraft draft, {
+    SourceKind sourceKind = SourceKind.ownerInput,
+    String? sourceLabel,
+  }) async {
+    savedDraft = draft;
+    this.sourceKind = sourceKind;
+    return _card('speech-draft', CardKind.note);
+  }
+}
+
+class _FailingOcr implements OcrProvider {
+  @override
+  Future<OcrResult> recognize({
+    required Uint8List imageBytes,
+    required String originalName,
+  }) async => throw StateError('fixture OCR failed');
 }
