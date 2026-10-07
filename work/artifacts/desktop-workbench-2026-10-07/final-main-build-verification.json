@@ -46,5 +46,7 @@
   "microphoneHardwareTested": false,
   "remoteAsrTested": false,
   "realPointerWaylandActivationTested": false,
-  "archiveFileContentsVerified": true
+  "archiveFileContentsVerified": true,
+  "verifiedSourceCommit": "9d934e011407d53a0a59be36eb0789f69cd95b17",
+  "sourceChangesAfterBuildAreTestsAndDocumentationOnly": true
 }
