@@ -20,6 +20,12 @@ import 'package:live_relay/infrastructure/app_composition.dart';
 
 import '../test/support/verification_fakes.dart';
 import '../test/support/pdf_fixture.dart';
+import '../test/workbench/remote_speech_test.dart' show wave;
+import '../test/workbench/window_speech_bridge_test.dart'
+    show FixtureWindowSpeech;
+
+import 'package:live_relay/application/speech_service.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 Future<void> main(List<String> arguments) async {
   if (arguments.firstOrNull == '--liverelay-workbench') {
@@ -28,6 +34,10 @@ Future<void> main(List<String> arguments) async {
     return;
   }
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
+  testWidgets(
+    'native detached speech shares recognition, optional original and editable backfill',
+    _speechWindowTest,
+  );
   testWidgets(
     'native detached extension catalog contributes, revokes and persists shared views',
     _extensionWindowTest,
@@ -1055,6 +1065,153 @@ Future<void> _extensionWindowTest(WidgetTester tester) async {
     edits.dispose();
     registry.dispose();
     if (c.isUnlocked) await c.lock();
+    c.dispose();
+    await root.delete(recursive: true);
+  }
+}
+
+Future<void> _speechWindowTest(WidgetTester tester) async {
+  FlutterSecureStorage.setMockInitialValues({});
+  final root = await Directory.systemTemp.createTemp(
+    'liverelay-child-speech-native-',
+  );
+  final file = await File('${root.path}/fixture.wav').writeAsBytes(wave());
+  final provider = FixtureWindowSpeech();
+  final speech = SpeechService(
+    provider,
+    supported: true,
+    remoteProvider: provider,
+  );
+  final ai = RecordingConversationAi();
+  final c = createAppController(
+    root,
+    NoBiometrics(),
+    TestOcr(),
+    ai,
+    TestAiSettings(),
+    null,
+    null,
+    null,
+    speech,
+  );
+  final q = AgentConversation(c);
+  final edits = CardEditSessions(
+    save: (id, draft) => c.updateCard(id, draft),
+    canSave: () => c.isUnlocked && !c.isBusy,
+  );
+  final host = NativeWindowHost(
+    controller: c,
+    edits: edits,
+    conversation: q,
+    onDock: (_) {},
+    diagnostics: true,
+  );
+  Future<Map> wait(
+    DetachedWorkbenchSession child,
+    bool Function(Map) ready,
+  ) async {
+    for (var i = 0; i < 150; i++) {
+      try {
+        final d = await child.channel.invokeMethod<Map>('inspect');
+        if (d != null && ready(d)) return d;
+      } on Object {
+        /* Engine startup/invalidation. */
+      }
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+    throw StateError('语音子窗口未达到预期状态');
+  }
+
+  Future<dynamic> ask(
+    DetachedWorkbenchSession child,
+    String method, [
+    Map args = const {},
+  ]) => child.channel.invokeMethod('diagnosticRequest', {
+    'method': method,
+    'arguments': args,
+  });
+  try {
+    await c.initialize();
+    await c.setupVault(
+      password: 'fixture-speech-password',
+      usesChinesePassphrase: false,
+    );
+    await tester.pumpWidget(
+      const MaterialApp(home: Scaffold(body: Text('fixture speech'))),
+    );
+    final child = await host.open('speech');
+    final status = await wait(
+      child,
+      (d) => d['transcript'] == '' && d['speech']?['ready'] == true,
+    );
+    expect(status['vaultOwner'], false);
+    expect(status['savesOriginal'], false);
+    await child.channel.invokeMethod('diagnosticSpeech', {'path': file.path});
+    await wait(child, (d) => d['transcript'] == '虚构转写');
+    expect(c.blobs, isEmpty);
+    expect(c.cards, isEmpty);
+    q.updateDraft('原有输入');
+    await child.channel.invokeMethod('diagnosticSpeech', {'backfill': true});
+    await wait(child, (d) => d['view'] == 'agent');
+    expect(q.draft, '原有输入\n虚构转写');
+    expect(ai.requests, isEmpty);
+    await ask(child, 'navigate', {'view': 'speech'});
+    await wait(child, (d) => d['transcript'] == '');
+    await child.channel.invokeMethod('diagnosticSpeech', {
+      'path': file.path,
+      'saveOriginal': true,
+    });
+    await wait(
+      child,
+      (d) => d['transcript'] == '虚构转写' && d['savesOriginal'] == true,
+    );
+    expect(c.blobs, hasLength(1));
+    expect(await c.readOriginal(c.blobs.single.id), wave());
+    final evidence = Platform.environment['LIVERELAY_WORKBENCH_EVIDENCE'];
+    if (evidence != null) {
+      final bytes = await child.channel.invokeMethod<Uint8List>('capture');
+      await File('$evidence/native-child-speech.png').writeAsBytes(bytes!);
+    }
+    await child.channel.invokeMethod('diagnosticSpeech', {'saveDraft': true});
+    await wait(child, (d) => d['transcript'] == '');
+    final draft = c.cards.singleWhere((card) => card.content == '虚构转写');
+    expect(draft.status, CardStatus.draft);
+    expect((await c.cardSources(draft.id)).first.blobId, c.blobs.single.id);
+    await q.flush();
+    await c.lock();
+    await host.shutdown(preserve: true);
+    expect(await child.window.process.exitCode, 0);
+    await c.unlockWithPassword('fixture-speech-password');
+    await q.load();
+    expect(q.draft, '原有输入\n虚构转写');
+    expect(c.cards.any((card) => card.content == '虚构转写'), true);
+    await host.restore();
+    expect(host.sessions.single.view, 'speech');
+    await wait(host.sessions.single, (d) => d['transcript'] == '');
+    if (evidence != null) {
+      await File('$evidence/child-speech-verification.json').writeAsString(
+        jsonEncode({
+          'fixtureOnly': true,
+          'sharedNativeSpeechPage': true,
+          'defaultNoOriginal': true,
+          'originalExplicitlySaved': true,
+          'backfillPreservesDraft': true,
+          'noAutomaticAiSend': true,
+          'associatedDraftSaved': true,
+          'encryptedReopen': true,
+          'lockRevokedChild': true,
+          'microphoneHardwareTested': false,
+          'remoteUpstreamTested': false,
+        }),
+      );
+    }
+  } finally {
+    await host.shutdown();
+    host.dispose();
+    q.dispose();
+    edits.dispose();
+    await tester.pumpWidget(const SizedBox());
+    await c.lock();
     c.dispose();
     await root.delete(recursive: true);
   }

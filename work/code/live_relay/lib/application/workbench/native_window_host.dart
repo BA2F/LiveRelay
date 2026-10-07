@@ -14,6 +14,7 @@ import 'window_source_reader.dart';
 import 'window_review_reader.dart';
 import 'window_conversation_bridge.dart';
 import 'window_extension_bridge.dart';
+import 'window_speech_bridge.dart';
 import 'extension_registry.dart';
 import '../../core/domain/entities.dart';
 
@@ -25,6 +26,7 @@ class DetachedWorkbenchSession {
   Map<String, double>? bounds;
   bool closed = false;
   WindowReviewReader? reviewReader;
+  WindowSpeechBridge? speechBridge;
   WindowConversationBridge? conversationBridge;
 }
 
@@ -122,6 +124,7 @@ class NativeWindowHost {
       window.process.exitCode.then((_) async {
         active.conversationBridge?.clear();
         await active.reviewReader?.clear();
+        await active.speechBridge?.clear();
         if (!active.closed && !_disposed && controller.isUnlocked) {
           active.closed = true;
           sessions.remove(active);
@@ -142,6 +145,7 @@ class NativeWindowHost {
         s.closed = true;
         s.conversationBridge?.clear();
         await s.reviewReader?.clear();
+        await s.speechBridge?.clear();
         sessions.remove(s);
         try {
           await s.window.hide();
@@ -200,6 +204,15 @@ class NativeWindowHost {
     LifeCard card() =>
         controller.cards.where((c) => c.id == id).firstOrNull ??
         (throw const FormatException('卡片已不存在'));
+    if (WindowSpeechBridge.methods.contains(call.method)) {
+      final bridge = s.speechBridge ??= WindowSpeechBridge(
+        controller,
+        conversation,
+        active: () =>
+            !_disposed && epoch == _epoch && !s.closed && s.view == 'speech',
+      );
+      return bridge.invoke(call);
+    }
     if (WindowExtensionBridge.methods.contains(call.method)) {
       final registry = extensions;
       if (registry == null) throw const FormatException('扩展管理未就绪');
@@ -257,6 +270,7 @@ class NativeWindowHost {
         s.view = view;
         s.conversationBridge?.clear();
         await s.reviewReader?.clear();
+        await s.speechBridge?.clear();
         _version++;
         await _persist();
       case 'edit':
@@ -329,6 +343,7 @@ class NativeWindowHost {
         s.closed = true;
         s.conversationBridge?.clear();
         await s.reviewReader?.clear();
+        await s.speechBridge?.clear();
         sessions.remove(s);
         onDock(s.view);
         await _persist();
@@ -463,6 +478,7 @@ class NativeWindowHost {
           },
       ];
     }
+    if (s.view == 'speech') data['speech'] = windowSpeech(controller);
     if (s.view == 'agent') {
       final bridge = s.conversationBridge ??= WindowConversationBridge(
         conversation,
@@ -511,6 +527,7 @@ class NativeWindowHost {
       s.closed = true;
       s.conversationBridge?.clear();
       await s.reviewReader?.clear();
+      final speechCleanup = s.speechBridge?.clear();
       try {
         await s.channel
             .invokeMethod('revoke')
@@ -523,6 +540,7 @@ class NativeWindowHost {
         }
       }
       await s.window.stop();
+      await speechCleanup;
       s.channel.close();
     }
     sessions.clear();

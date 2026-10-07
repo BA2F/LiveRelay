@@ -23,6 +23,7 @@ bool detachableView(String view) =>
       'changes',
       'originals',
       'extensions',
+      'speech',
     }.contains(view) ||
     RegExp(r'^(card|history|source|review)/[a-zA-Z0-9-]+(?:/[0-9]+)?$')
         .hasMatch(view) ||

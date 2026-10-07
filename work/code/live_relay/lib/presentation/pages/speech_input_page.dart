@@ -11,21 +11,32 @@ import 'package:provider/provider.dart';
 import 'package:record/record.dart';
 
 import '../../application/app_controller.dart';
-import '../../core/domain/entities.dart';
+import '../../application/speech_input_binding.dart';
+import '../../application/speech_service.dart';
 import '../../infrastructure/speech/local_sense_voice_provider.dart';
 import '../dialogs/speech_settings_dialog.dart';
 
 class SpeechInputPage extends StatefulWidget {
-  const SpeechInputPage({super.key, this.onTranscript});
+  const SpeechInputPage({
+    super.key,
+    this.onTranscript,
+    this.binding,
+    this.onSettings,
+  });
+  final SpeechInputBinding? binding;
+  final VoidCallback? onSettings;
   final ValueChanged<String>? onTranscript;
   @override
-  State<SpeechInputPage> createState() => _SpeechInputPageState();
+  State<SpeechInputPage> createState() => SpeechInputPageState();
 }
 
-class _SpeechInputPageState extends State<SpeechInputPage> {
+class SpeechInputPageState extends State<SpeechInputPage> {
   final _recorder = AudioRecorder();
   final _text = TextEditingController();
-  late AppController _controller;
+  late SpeechInputBinding _binding;
+  final _pending = <Future<void>>{};
+  Future<void>? _cleaning;
+  BuildContext? _consentContext;
   Timer? _limit, _meterTimer;
   StreamSubscription<Amplitude>? _amplitude;
   final _recordClock = Stopwatch();
@@ -40,21 +51,35 @@ class _SpeechInputPageState extends State<SpeechInputPage> {
   @override
   void initState() {
     super.initState();
-    _controller = context.read<AppController>();
-    _controller.addListener(_sessionChanged);
-    _controller.exitCleanups.add(_discardRecording);
+    _binding =
+        widget.binding ??
+        LocalSpeechInputBinding(context.read<AppController>());
+    _binding.session.addListener(_sessionChanged);
+    _binding.speech?.addListener(_serviceChanged);
+    _binding.session.registerPreviewCleanup(_cleanup);
+  }
+
+  void _serviceChanged() {
+    if (mounted) setState(() {});
   }
 
   void _sessionChanged() {
-    if (!_controller.isUnlocked) {
-      _generation++;
-      _controller.speech?.cancelTranscription();
-      _text.clear();
-      _sourceBlobId = null;
-      if (_recording) unawaited(_discardRecording());
-      if (mounted) setState(() {});
-    }
+    if (!_binding.session.isUnlocked) unawaited(_cleanup());
   }
+
+  Future<void> _cleanup() => _cleaning ??= (() async {
+    _generation++;
+    _binding.speech?.cancelTranscription();
+    final dialog = _consentContext;
+    _consentContext = null;
+    if (dialog != null && dialog.mounted) Navigator.of(dialog).pop(false);
+    _text.clear();
+    _sourceBlobId = null;
+    await _discardRecording();
+    if (_working) await _binding.speech?.cancel();
+    await Future.wait(List.of(_pending));
+    if (mounted) setState(() {});
+  })();
 
   Future<void> _discardRecording() async {
     _limit?.cancel();
@@ -90,39 +115,50 @@ class _SpeechInputPageState extends State<SpeechInputPage> {
 
   @override
   void dispose() {
-    _generation++;
-    _controller.speech?.cancelTranscription();
-    _controller.removeListener(_sessionChanged);
-    _controller.exitCleanups.remove(_discardRecording);
-    _limit?.cancel();
-    unawaited(_discardRecording().whenComplete(_recorder.dispose));
-    _text.dispose();
+    _binding.session.removeListener(_sessionChanged);
+    _binding.speech?.removeListener(_serviceChanged);
+    unawaited(
+      _cleanup().whenComplete(() async {
+        _binding.session.unregisterPreviewCleanup(_cleanup);
+        await _recorder.dispose();
+        _text.dispose();
+      }),
+    );
     super.dispose();
   }
 
   Future<void> _action(Future<void> Function() action) async {
+    if (!mounted || !_binding.session.isUnlocked || _cleaning != null) return;
     setState(() {
       _working = true;
       _error = null;
     });
+    final work = (() async {
+      try {
+        await action();
+      } on Object catch (e, stack) {
+        if (kDebugMode) {
+          debugPrintStack(
+            label: 'Speech operation failed (${e.runtimeType})',
+            stackTrace: stack,
+          );
+        }
+        if (mounted && _binding.session.isUnlocked) {
+          setState(
+            () => _error = e is FormatException
+                ? e.message
+                : _binding.speech?.error ?? '操作失败，请检查权限或模型',
+          );
+        }
+      } finally {
+        if (mounted) setState(() => _working = false);
+      }
+    })();
+    _pending.add(work);
     try {
-      await action();
-    } on Object catch (e, stack) {
-      if (kDebugMode) {
-        debugPrintStack(
-          label: 'Speech operation failed (${e.runtimeType})',
-          stackTrace: stack,
-        );
-      }
-      if (mounted) {
-        setState(
-          () => _error = e is FormatException
-              ? e.message
-              : _controller.speech?.error ?? '操作失败，请检查权限或模型',
-        );
-      }
+      await work;
     } finally {
-      if (mounted) setState(() => _working = false);
+      _pending.remove(work);
     }
   }
 
@@ -130,9 +166,9 @@ class _SpeechInputPageState extends State<SpeechInputPage> {
     if (!await _recorder.hasPermission()) {
       throw const FormatException('请允许麦克风权限');
     }
-    if (!mounted || !_controller.isUnlocked) return;
+    if (!mounted || !_binding.session.isUnlocked) return;
     final cache = await privateCacheDirectory();
-    if (!mounted || !_controller.isUnlocked) return;
+    if (!mounted || !_binding.session.isUnlocked) return;
     _recordPath =
         '${cache.path}/speech-${DateTime.now().microsecondsSinceEpoch}.wav';
     await _recorder.start(
@@ -143,7 +179,7 @@ class _SpeechInputPageState extends State<SpeechInputPage> {
       ),
       path: _recordPath!,
     );
-    if (!mounted || !_controller.isUnlocked) {
+    if (!mounted || !_binding.session.isUnlocked) {
       await _discardRecording();
       return;
     }
@@ -198,7 +234,7 @@ class _SpeechInputPageState extends State<SpeechInputPage> {
     await _action(() async {
       try {
         if (model) {
-          await _controller.speech!.install(picked.xFile.path);
+          await _binding.speech!.install(picked.xFile.path);
         } else {
           await _recognizeFile(File(picked.xFile.path));
         }
@@ -212,86 +248,104 @@ class _SpeechInputPageState extends State<SpeechInputPage> {
     });
   }
 
+  String get transcript => _text.text;
+  bool get savesOriginal => _saveOriginal;
+  Future<void> importAudioFile(File file) =>
+      _action(() => _recognizeFile(file));
+  void chooseSaveOriginal(bool value) {
+    if (_working || _recording || !_binding.session.isUnlocked) return;
+    setState(() => _saveOriginal = value);
+  }
+
+  void backfillTranscript() {
+    if (!_working && !_recording && _text.text.trim().isNotEmpty) {
+      widget.onTranscript?.call(_text.text.trim());
+    }
+  }
+
+  Future<void> saveTranscriptDraft() => _action(() async {
+    await _binding.saveDraft(_text.text, blobId: _sourceBlobId);
+    if (mounted && _binding.session.isUnlocked) {
+      _text.clear();
+      _sourceBlobId = null;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('已加密保存为待整理草稿')));
+    }
+  });
+
   Future<void> _recognizeFile(File file) async {
     final generation = _generation;
-    final service = _controller.speech!;
-    final remoteGeneration = service.configurationGeneration;
-    final remote = service.usingRemote;
-    if (!mounted || !_controller.isUnlocked) return;
+    if (!mounted || !_binding.session.isUnlocked) return;
     if (await file.length() > 2 * 1024 * 1024) {
       throw const FormatException('请选择 60 秒以内的 WAV');
     }
     final bytes = await file.readAsBytes();
+    SpeechPreparation? prepared;
     try {
-      if (remote) {
-        if (!mounted || !_controller.isUnlocked || generation != _generation) {
+      prepared = await _binding.prepare(bytes);
+      if (prepared.remote) {
+        if (!mounted ||
+            !_binding.session.isUnlocked ||
+            generation != _generation) {
           return;
         }
-        final settings = service.remoteSettings;
         final allowed = await showDialog<bool>(
           context: context,
-          builder: (context) => AlertDialog(
-            title: const Text('允许上传本次音频？'),
-            content: Text(
-              '${settings.name} · ${settings.model}\n${Uri.tryParse(settings.endpoint)?.host ?? ""}\n'
-              '将上传完整 WAV 音频（${bytes.length} 字节），音频不做敏感内容替换。文字回填不会自动发送给对话服务。',
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context, false),
-                child: const Text('取消'),
+          builder: (context) {
+            _consentContext = context;
+            return AlertDialog(
+              title: const Text('允许上传本次音频？'),
+              content: Text(
+                '${prepared!.name} · ${prepared.model}\n${prepared.host}\n'
+                '将上传完整 WAV 音频（${bytes.length} 字节），音频不做敏感内容替换。文字回填不会自动发送给对话服务。',
               ),
-              FilledButton(
-                onPressed: () => Navigator.pop(context, true),
-                child: const Text('允许本次音频上传'),
-              ),
-            ],
-          ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context, false),
+                  child: const Text('取消'),
+                ),
+                FilledButton(
+                  onPressed: () => Navigator.pop(context, true),
+                  child: const Text('允许本次音频上传'),
+                ),
+              ],
+            );
+          },
         );
+        _consentContext = null;
         if (allowed != true) return;
       }
       if (!mounted ||
-          !_controller.isUnlocked ||
-          generation != _generation ||
-          service.configurationGeneration != remoteGeneration) {
+          !_binding.session.isUnlocked ||
+          generation != _generation) {
         return;
       }
-      String? blobId;
-      if (_saveOriginal) {
-        final original = await _controller.importOriginal(
-          bytes: Uint8List.fromList(bytes),
-          originalName: '语音-${DateTime.now().millisecondsSinceEpoch}.wav',
-          mimeType: 'audio/wav',
-          mediaKind: BlobMediaKind.audio,
-        );
-        if (!mounted || !_controller.isUnlocked || generation != _generation) {
-          return;
-        }
-        blobId = (await _controller.cardSources(original.id)).first.blobId!;
-      }
-      final text = await service.transcribe(
-        bytes,
-        authorizedRemoteGeneration: remote ? remoteGeneration : null,
+      final result = await _binding.recognize(
+        prepared,
+        saveOriginal: _saveOriginal,
       );
-      if (mounted && _controller.isUnlocked && generation == _generation) {
-        _sourceBlobId = blobId;
-        _text.text = text;
+      if (mounted && _binding.session.isUnlocked && generation == _generation) {
+        _sourceBlobId = result.blobId;
+        _text.text = result.text;
       }
     } finally {
-      bytes.fillRange(0, bytes.length, 0);
+      try {
+        if (prepared != null) await _binding.discard(prepared);
+      } finally {
+        bytes.fillRange(0, bytes.length, 0);
+      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final controller = context.watch<AppController>();
-    final service = controller.speech;
+    final service = _binding.speech;
     final busy = _working || (service?.busy ?? false);
     return Scaffold(
       appBar: AppBar(
         title: Text(service?.usingRemote == true ? '远程语音输入' : '本地语音输入'),
       ),
-      body: !controller.isUnlocked
+      body: !_binding.session.isUnlocked
           ? const Center(child: Text('请先解锁资料库'))
           : ListView(
               padding: const EdgeInsets.all(16),
@@ -310,8 +364,7 @@ class _SpeechInputPageState extends State<SpeechInputPage> {
                     value: _saveOriginal,
                     onChanged: busy || _recording
                         ? null
-                        : (value) =>
-                              setState(() => _saveOriginal = value ?? false),
+                        : (value) => chooseSaveOriginal(value ?? false),
                   ),
                 const SizedBox(height: 16),
                 if (service == null)
@@ -347,11 +400,13 @@ class _SpeechInputPageState extends State<SpeechInputPage> {
                         tooltip: '远程语音服务设置',
                         onPressed: busy || _recording
                             ? null
-                            : () => showDialog<void>(
-                                context: context,
-                                builder: (_) =>
-                                    SpeechSettingsDialog(service: service),
-                              ),
+                            : widget.onSettings ??
+                                  () => showDialog<void>(
+                                    context: context,
+                                    builder: (_) => SpeechSettingsDialog(
+                                      service: service as SpeechService,
+                                    ),
+                                  ),
                         icon: const Icon(Icons.settings_outlined),
                       ),
                     ],
@@ -516,26 +571,14 @@ class _SpeechInputPageState extends State<SpeechInputPage> {
                   OutlinedButton.icon(
                     onPressed: busy || _recording || _text.text.trim().isEmpty
                         ? null
-                        : () => widget.onTranscript!(_text.text.trim()),
+                        : backfillTranscript,
                     icon: const Icon(Icons.chat_bubble_outline),
                     label: const Text('填入助手输入'),
                   ),
                 FilledButton(
                   onPressed: busy || _recording || _text.text.trim().isEmpty
                       ? null
-                      : () => _action(() async {
-                          await controller.saveSpeechDraft(
-                            _text.text,
-                            blobId: _sourceBlobId,
-                          );
-                          if (mounted && context.mounted) {
-                            _text.clear();
-                            _sourceBlobId = null;
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('已加密保存为待整理草稿')),
-                            );
-                          }
-                        }),
+                      : saveTranscriptDraft,
                   child: const Text('已核对，保存文字草稿'),
                 ),
               ],

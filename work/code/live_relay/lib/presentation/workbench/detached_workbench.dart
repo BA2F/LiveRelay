@@ -19,6 +19,8 @@ import '../../core/ai/review_source.dart';
 import 'review_source_view.dart';
 import 'detached_conversation_view.dart';
 import 'extensions_view.dart';
+import '../pages/speech_input_page.dart';
+import '../../application/workbench/window_speech_bridge.dart';
 import '../../application/card_summary.dart';
 import '../../application/workbench/window_extension_bridge.dart';
 import '../widgets/local_media_preview.dart';
@@ -84,11 +86,21 @@ class _DetachedWorkbenchState extends State<DetachedWorkbench>
   var _mediaKey = GlobalKey<LocalMediaPreviewState>();
   var _pdfKey = GlobalKey<LocalPdfPreviewState>();
   var _reviewKey = GlobalKey<ReviewSourceViewState>();
+  var _speechKey = GlobalKey<SpeechInputPageState>();
   late final _extensions = RemoteExtensionAccess((method, args) async {
     await _commands;
     if (_revoked || !mounted) throw const FormatException('窗口已关闭');
     await widget.channel.invokeMethod(method, args);
     await _pull();
+  });
+  late final _speech = RemoteSpeechInputBinding(_previewSession, (
+    method,
+    args,
+  ) async {
+    if (_revoked || !mounted) throw const FormatException('窗口已关闭');
+    final result = await widget.channel.invokeMethod(method, args);
+    if (!_revoked && mounted) await _pull();
+    return result;
   });
   BuildContext? _dialogContext;
   List<Map> get _cards => (_data['cards'] as List? ?? []).cast<Map>();
@@ -138,6 +150,9 @@ class _DetachedWorkbenchState extends State<DetachedWorkbench>
               'bounds': await _bounds(),
               'vaultOwner': false,
               'error': _error,
+              'speech': _data['speech'],
+              'transcript': _speechKey.currentState?.transcript,
+              'savesOriginal': _speechKey.currentState?.savesOriginal,
               'extensions': _data['extensions'],
               'contributed': _data['contributed'],
               if (_data['view'] == 'agent')
@@ -182,6 +197,22 @@ class _DetachedWorkbenchState extends State<DetachedWorkbench>
                 'attachments': _reviewKey.currentState?.attachmentCount,
               },
             };
+          case 'diagnosticSpeech':
+            if (!widget.diagnostics || _revoked || _data['view'] != 'speech') {
+              throw StateError('诊断未启用');
+            }
+            final speech = _speechKey.currentState;
+            if (speech == null) throw StateError('语音页未就绪');
+            final a = call.arguments as Map;
+            if (a['saveOriginal'] is bool) {
+              speech.chooseSaveOriginal(a['saveOriginal'] as bool);
+            }
+            if (a['path'] is String) {
+              await speech.importAudioFile(File(a['path'] as String));
+            }
+            if (a['backfill'] == true) speech.backfillTranscript();
+            if (a['saveDraft'] == true) await speech.saveTranscriptDraft();
+            return true;
           case 'diagnosticPdfPage':
             if (!widget.diagnostics || _revoked) throw StateError('诊断未启用');
             final pdf = _pdfKey.currentState;
@@ -316,7 +347,9 @@ class _DetachedWorkbenchState extends State<DetachedWorkbench>
         _mediaKey = GlobalKey<LocalMediaPreviewState>();
         _pdfKey = GlobalKey<LocalPdfPreviewState>();
         _reviewKey = GlobalKey<ReviewSourceViewState>();
+        _speechKey = GlobalKey<SpeechInputPageState>();
       }
+      if (data['speech'] is Map) _speech.update(data['speech'] as Map);
       if (data['extensions'] is List) {
         _extensions.update(data['extensions'] as List);
       }
@@ -390,6 +423,7 @@ class _DetachedWorkbenchState extends State<DetachedWorkbench>
     _geometryTimer?.cancel();
     _wipeBytes();
     _extensions.dispose();
+    _speech.dispose();
     unawaited(_previewSession.revoke().whenComplete(_previewSession.dispose));
     unawaited(widget.channel.setMethodCallHandler(null));
     super.dispose();
@@ -581,6 +615,7 @@ class _DetachedWorkbenchState extends State<DetachedWorkbench>
         'changes': '变更',
         'originals': '原件',
         'extensions': '扩展管理',
+        'speech': '语音输入',
       }.entries)
         {'title': entry.value, 'view': entry.key},
       ...(_data['commands'] as List? ?? []).cast<Map>(),
@@ -613,11 +648,26 @@ class _DetachedWorkbenchState extends State<DetachedWorkbench>
       return widget.channel.invokeMethod(method, args);
     },
     openSettings: () => _act('openMain', {'view': 'settings'}),
-    openSpeech: () => _act('openMain', {'view': 'speech'}),
+    openSpeech: () => _navigate('speech'),
     openManual: () => _act('newCard'),
   );
   Widget _body() {
     final view = _data['view'] as String? ?? '';
+    if (view == 'speech') {
+      return SpeechInputPage(
+        key: _speechKey,
+        binding: _speech,
+        onSettings: () => _act('openMain', {'view': 'speech'}),
+        onTranscript: (text) async {
+          try {
+            await _speech.request('speechBackfill', {'text': text});
+            if (mounted && !_revoked) _navigate('agent');
+          } on Object {
+            if (mounted) setState(() => _error = '无法填入助手，请重试');
+          }
+        },
+      );
+    }
     if (view == 'extensions') {
       return ExtensionsView(registry: _extensions, onOpen: _navigate);
     }

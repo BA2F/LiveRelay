@@ -1,5 +1,7 @@
 import 'dart:io';
 
+import 'speech_access.dart';
+
 import 'package:flutter/foundation.dart';
 
 import '../core/ports/speech_provider.dart';
@@ -8,7 +10,7 @@ import '../core/ports/remote_speech_provider.dart';
 import '../infrastructure/speech/http_remote_speech_provider.dart';
 import '../infrastructure/speech/remote_speech_settings_store.dart';
 
-class SpeechService extends ChangeNotifier {
+class SpeechService extends ChangeNotifier implements SpeechAccess {
   SpeechService(
     this.provider, {
     bool? supported,
@@ -24,12 +26,16 @@ class SpeechService extends ChangeNotifier {
   final RemoteSpeechProvider remoteProvider;
   final RemoteSpeechSettingsStore settingsStore;
   final bool _ownsRemote;
+  @override
   RemoteSpeechSettings remoteSettings = const RemoteSpeechSettings();
+  @override
   bool get usingRemote => remoteSettings.selected;
+  @override
   bool get ready =>
       usingRemote ? remoteSettings.configured : supported && installed;
   int configurationGeneration = 0;
   AiCancellation? _transcription;
+  @override
   void cancelTranscription() => _transcription?.cancel();
   Future<void> configureRemote({
     required String name,
@@ -45,6 +51,7 @@ class SpeechService extends ChangeNotifier {
       apiKey: apiKey,
     );
   }, requiresLocal: false);
+  @override
   Future<void> chooseRemote(bool remote) => _run(() async {
     configurationGeneration++;
     await settingsStore.select(remote);
@@ -53,11 +60,17 @@ class SpeechService extends ChangeNotifier {
     configurationGeneration++;
     await settingsStore.clear();
   }, requiresLocal: false);
+  @override
   final bool supported;
+  @override
   bool installed = false;
+  @override
   bool busy = false;
+  @override
   int received = 0;
+  @override
   int? total;
+  @override
   String? error;
   bool _disposed = false;
   void _changed() {
@@ -100,6 +113,7 @@ class SpeechService extends ChangeNotifier {
     }
   }
 
+  @override
   Future<void> download() => _run(
     () => provider.downloadModel((r, t) {
       received = r;
@@ -107,9 +121,12 @@ class SpeechService extends ChangeNotifier {
       _changed();
     }),
   );
+  @override
   Future<void> install(String path) =>
       _run(() => provider.installArchive(path));
+  @override
   Future<void> remove() => _run(provider.removeModel);
+  @override
   Future<void> cancel() => provider.cancelDownload();
   Future<String> transcribe(
     Uint8List wav, {
