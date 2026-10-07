@@ -1,3 +1,5 @@
+import '../widgets/liverelay_logo.dart';
+
 import 'dart:async';
 import 'dart:io';
 import 'dart:ui' show AppExitResponse;
@@ -710,6 +712,7 @@ class _DesktopWorkbenchState extends State<DesktopWorkbench> {
         autofocus: true,
         child: Scaffold(
           appBar: AppBar(
+            leading: const Center(child: LiveRelayLogo(size: 28)),
             title: const Text('留灯 · 工作台'),
             toolbarHeight: 48,
             actions: [

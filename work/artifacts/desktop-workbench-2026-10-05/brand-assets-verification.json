@@ -1,0 +1,10 @@
+{
+  "staticOnly": true,
+  "sourceAssetsMatch": true,
+  "androidResourceFiles": 10,
+  "androidApkContainsBrandAsset": true,
+  "androidAdaptiveAndMonochromeBundled": true,
+  "windowsIcoSourceMatch": true,
+  "windowsRuntimeVerified": false,
+  "animationsIncluded": false
+}

@@ -1,3 +1,5 @@
+import '../widgets/liverelay_logo.dart';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -37,11 +39,7 @@ class _GateScaffold extends StatelessWidget {
                       ),
                       child: Padding(
                         padding: const EdgeInsets.all(18),
-                        child: Icon(
-                          Icons.lightbulb_rounded,
-                          size: 38,
-                          color: scheme.onPrimaryContainer,
-                        ),
+                        child: const LiveRelayLogo(size: 38),
                       ),
                     ),
                   ),

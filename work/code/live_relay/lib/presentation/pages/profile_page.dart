@@ -1,3 +1,5 @@
+import '../widgets/liverelay_logo.dart';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -154,7 +156,7 @@ class _ProfilePageState extends State<ProfilePage> {
           ),
         const Divider(),
         ListTile(
-          leading: const Icon(Icons.lightbulb_outline),
+          leading: const LiveRelayLogo(size: 24),
           title: const Text('留灯 LiveRelay'),
           subtitle: const Text('1.0.0'),
           onTap: () => versionTap(context.read<DevelopmentControls?>()),

@@ -1,5 +1,5 @@
 {
-  "status": "manual reconstruction; design draft; not adopted in application",
+  "status": "static logo and software icons adopted by user 2026-10-07; motion deferred",
   "source": "ChatGPT生成7暂定稿.png",
   "coordinate_system": "viewBox 0 0 512 512",
   "colors": {
@@ -19,5 +19,12 @@
     "complete_once": 700,
     "handoff_once": 1600
   },
-  "application_files_modified": false
+  "application_files_modified": true,
+  "application_integration": {
+    "flutter": "native static paths, inverse and micro variants",
+    "android": "PNG and adaptive/monochrome bundled; debug build passed",
+    "linux": "native GTK window icon and in-app logo; X11 dimensions observed",
+    "windows": "ICO resource replaced; runtime unverified",
+    "motion": "not integrated"
+  }
 }

@@ -1,3 +1,5 @@
+import '../widgets/liverelay_logo.dart';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -58,11 +60,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   const RecipientEntryButton(),
-                  Icon(
-                    Icons.lightbulb_rounded,
-                    size: 64,
-                    color: Theme.of(context).colorScheme.primary,
-                  ),
+                  const Center(child: LiveRelayLogo(size: 64)),
                   const SizedBox(height: 24),
                   Text(
                     '欢迎使用留灯',

@@ -1,3 +1,5 @@
+import '../widgets/liverelay_logo.dart';
+
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
@@ -715,6 +717,7 @@ class _DetachedWorkbenchState extends State<DetachedWorkbench>
         _dialogContext = context;
         return Scaffold(
           appBar: AppBar(
+            leading: const Center(child: LiveRelayLogo(size: 28)),
             title: const Text('LiveRelay · 独立工作台'),
             actions: [
               if (!_revoked)
