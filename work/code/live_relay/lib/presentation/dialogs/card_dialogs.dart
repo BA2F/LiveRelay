@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
-import '../../application/app_controller.dart';
+import '../controllers/app_controller.dart';
 import '../../core/domain/entities.dart';
 import '../design_system/atoms.dart';
 import '../model_labels.dart';

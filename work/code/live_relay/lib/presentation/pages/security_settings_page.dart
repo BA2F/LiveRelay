@@ -4,7 +4,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../../application/app_controller.dart';
+import '../controllers/app_controller.dart';
 import '../../core/security/owner_crypto.dart';
 import '../../core/security/vault_password_policy.dart';
 import '../dialogs/security_dialogs.dart';

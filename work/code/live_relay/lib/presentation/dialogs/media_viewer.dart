@@ -10,7 +10,7 @@ import '../../infrastructure/private_cache.dart';
 
 import 'package:video_player/video_player.dart';
 
-import '../../application/app_controller.dart';
+import '../controllers/app_controller.dart';
 import '../../application/device_capabilities.dart';
 import '../../core/domain/entities.dart';
 import 'capability_dialog.dart';

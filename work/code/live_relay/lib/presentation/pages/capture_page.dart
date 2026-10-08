@@ -11,7 +11,7 @@ import '../../infrastructure/private_cache.dart';
 import 'package:provider/provider.dart';
 import 'package:record/record.dart';
 
-import '../../application/app_controller.dart';
+import '../controllers/app_controller.dart';
 import '../../application/device_capabilities.dart';
 import '../../core/domain/entities.dart';
 import '../design_system/atoms.dart';

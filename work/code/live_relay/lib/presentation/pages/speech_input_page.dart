@@ -12,9 +12,9 @@ import '../../infrastructure/speech/pcm_wave.dart';
 import 'package:provider/provider.dart';
 import 'package:record/record.dart';
 
-import '../../application/app_controller.dart';
+import '../controllers/app_controller.dart';
 import '../../application/speech_input_binding.dart';
-import '../../application/speech_service.dart';
+import '../controllers/speech_service.dart';
 import '../../infrastructure/speech/local_sense_voice_provider.dart';
 import '../dialogs/speech_settings_dialog.dart';
 

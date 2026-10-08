@@ -5,7 +5,7 @@ import 'dart:ui' show AppExitResponse;
 import 'package:flutter/material.dart';
 import 'package:window_manager/window_manager.dart';
 
-import '../../application/app_controller.dart';
+import '../controllers/app_controller.dart';
 
 /// window_manager replaces GTK's Flutter close handler. Route the real native
 /// close request through the same save contract as AppLifecycleListener.

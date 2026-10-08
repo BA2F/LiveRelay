@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:intl/intl.dart';
 
-import '../../application/app_controller.dart';
+import '../controllers/app_controller.dart';
 import '../../application/device_capabilities.dart';
 import '../pages/recycle_page.dart';
 import '../pages/security_settings_page.dart';

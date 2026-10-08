@@ -11,13 +11,13 @@ import 'package:provider/provider.dart';
 
 import '../../infrastructure/desktop_owner_window.dart';
 
-import '../../application/app_controller.dart';
+import '../controllers/app_controller.dart';
 import '../../application/app_preferences.dart';
-import '../../application/workbench/card_edit_sessions.dart';
-import '../../application/workbench/workbench_layout.dart';
-import '../../application/workbench/extension_registry.dart';
+import 'state/card_edit_sessions.dart';
+import 'state/workbench_layout.dart';
+import 'state/extension_registry.dart';
 import '../../core/domain/entities.dart';
-import '../../application/agent/agent_conversation.dart';
+import '../controllers/agent_conversation.dart';
 import 'conversation_view.dart';
 import '../pages/profile_page.dart';
 import '../pages/passwords_page.dart';
@@ -30,8 +30,8 @@ import 'review_source_view.dart';
 import 'relations_view.dart';
 import 'extensions_view.dart';
 import 'native_window_host.dart';
-import '../../application/workbench/window_projection.dart';
-import '../../application/workbench/workbench_runtime.dart';
+import 'window_projection.dart';
+import 'workbench_runtime.dart';
 
 class DesktopWorkbench extends StatefulWidget {
   const DesktopWorkbench({super.key});

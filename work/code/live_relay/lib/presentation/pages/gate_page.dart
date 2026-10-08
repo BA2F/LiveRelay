@@ -3,7 +3,7 @@ import '../widgets/liverelay_logo.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../../application/app_controller.dart';
+import '../controllers/app_controller.dart';
 import '../../core/security/chinese_passphrase.dart';
 import '../../core/security/vault_password_policy.dart';
 import '../design_system/atoms.dart';

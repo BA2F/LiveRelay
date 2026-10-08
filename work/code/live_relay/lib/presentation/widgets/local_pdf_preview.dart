@@ -8,7 +8,7 @@ import 'package:flutter/material.dart';
 import 'package:pdfium_flutter/pdfium_flutter.dart' show loadPdfium;
 import 'package:pdfrx_engine/pdfrx_engine.dart';
 
-import '../../application/preview_session.dart';
+import '../contracts/preview_session.dart';
 import '../../infrastructure/private_cache.dart';
 
 /// Local bytes only. No URI loading, link activation, scripts or PDF files in

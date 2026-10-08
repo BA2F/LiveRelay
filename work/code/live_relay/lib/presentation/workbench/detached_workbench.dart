@@ -14,17 +14,17 @@ import 'package:window_manager/window_manager.dart';
 
 import '../../infrastructure/desktop_owner_window.dart';
 
-import '../../application/workbench/window_projection.dart';
+import 'window_projection.dart';
 import '../../application/workbench/window_review_reader.dart';
-import '../../application/preview_session.dart';
+import '../contracts/preview_session.dart';
 import '../../core/ai/review_source.dart';
 import 'review_source_view.dart';
 import 'detached_conversation_view.dart';
 import 'extensions_view.dart';
 import '../pages/speech_input_page.dart';
-import '../../application/workbench/window_speech_bridge.dart';
+import 'window_speech_bridge.dart';
 import '../../application/card_summary.dart';
-import '../../application/workbench/window_extension_bridge.dart';
+import 'window_extension_bridge.dart';
 import '../widgets/local_media_preview.dart';
 import '../widgets/local_pdf_preview.dart';
 

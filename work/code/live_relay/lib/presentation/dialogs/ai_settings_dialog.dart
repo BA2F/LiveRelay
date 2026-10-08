@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../../application/app_controller.dart';
+import '../controllers/app_controller.dart';
 import '../../core/ports/ai_provider.dart';
 import '../../core/ai/ai_service_endpoint.dart';
 import '../../core/ai/ai_provider_settings.dart';

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../../application/app_controller.dart';
+import '../controllers/app_controller.dart';
 import '../../application/local_handoff_service.dart';
 import '../../application/release_preview.dart';
 import '../../core/domain/entities.dart';

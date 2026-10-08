@@ -3,9 +3,9 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import '../../application/app_controller.dart';
+import '../controllers/app_controller.dart';
 import '../../application/card_summary.dart';
-import '../../application/workbench/extension_registry.dart';
+import 'state/extension_registry.dart';
 import '../dialogs/local_file_dialogs.dart';
 
 class ExtensionsView extends StatefulWidget {

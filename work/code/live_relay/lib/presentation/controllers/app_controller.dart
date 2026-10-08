@@ -13,7 +13,7 @@ import '../../application/vault_security_service.dart';
 import '../../core/security/recovery_credential.dart';
 import '../../application/draft_agent_service.dart';
 import 'speech_service.dart';
-import '../../application/preview_session.dart';
+import '../contracts/preview_session.dart';
 import '../../application/vault_backup_service.dart';
 
 import '../../core/ai/ai_privacy.dart';
@@ -36,6 +36,7 @@ import '../../core/ai/ai_provider_settings.dart';
 import '../../application/agent/agent_settings_service.dart';
 import '../../application/agent/agent_service.dart';
 import '../../application/agent/conversation_application.dart';
+import '../../application/workbench/workspace_state_store.dart';
 import '../../application/agent/agent_review_service.dart';
 import '../../application/import/edge_password_csv_importer.dart';
 
@@ -186,6 +187,7 @@ class AppController extends ChangeNotifier implements PreviewSession {
   final AgentReviewService _agentReview;
   final VaultSnapshotQuery _snapshotQuery;
   final ConversationApplication? _conversationApplication;
+  late final WorkspaceStateStore workspaceState = WorkspaceStateStore(_session);
   late final ConversationApplication conversationApplication =
       _conversationApplication ??
       ConversationApplication(
@@ -500,17 +502,17 @@ class AppController extends ChangeNotifier implements PreviewSession {
       _mutate((r) => r.restoreOriginal(id));
   Future<LifeCard?> getCard(String id) => _requireRepository().getCard(id);
   Future<String?> readWorkbenchState() =>
-      _requireRepository().readLocalValue('desktop.workbench.v1');
+      workspaceState.read(WorkspaceRecord.layout);
   Future<void> writeWorkbenchState(String value) =>
-      _requireRepository().writeLocalValue('desktop.workbench.v1', value);
+      workspaceState.write(WorkspaceRecord.layout, value);
   Future<String?> readWorkbenchWindows() =>
-      _requireRepository().readLocalValue('desktop.windows.v1');
+      workspaceState.read(WorkspaceRecord.windows);
   Future<void> writeWorkbenchWindows(String value) =>
-      _requireRepository().writeLocalValue('desktop.windows.v1', value);
+      workspaceState.write(WorkspaceRecord.windows, value);
   Future<String?> readWorkbenchExtensions() =>
-      _requireRepository().readLocalValue('workbench.extensions.v1');
+      workspaceState.read(WorkspaceRecord.extensions);
   Future<void> writeWorkbenchExtensions(String value) =>
-      _requireRepository().writeLocalValue('workbench.extensions.v1', value);
+      workspaceState.write(WorkspaceRecord.extensions, value);
   Future<void> createCardFromOriginal(String blobId, CardDraft draft) =>
       _mutate((r) => r.createCardFromOriginal(blobId, draft));
 

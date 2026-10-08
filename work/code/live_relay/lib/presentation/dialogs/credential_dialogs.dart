@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../../application/app_controller.dart';
+import '../controllers/app_controller.dart';
 import '../../application/release_preview.dart';
 import '../../core/domain/entities.dart';
 import '../design_system/atoms.dart';

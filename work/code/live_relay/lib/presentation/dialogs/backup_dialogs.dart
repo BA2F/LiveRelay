@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:intl/intl.dart';
 
-import '../../application/app_controller.dart';
+import '../controllers/app_controller.dart';
 
 class PasswordPromptDialog extends StatefulWidget {
   const PasswordPromptDialog({

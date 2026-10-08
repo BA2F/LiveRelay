@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:provider/provider.dart';
 
-import '../../application/app_controller.dart';
+import '../controllers/app_controller.dart';
 import '../dialogs/card_dialogs.dart';
 import '../dialogs/credential_dialogs.dart';
 import 'cards_page.dart';

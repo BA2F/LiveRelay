@@ -5,7 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
-import '../../application/app_controller.dart';
+import '../controllers/app_controller.dart';
 import '../../application/device_capabilities.dart';
 import '../dialogs/capability_dialog.dart';
 import '../../core/domain/entities.dart';

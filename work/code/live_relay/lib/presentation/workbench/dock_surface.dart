@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../../application/workbench/workbench_layout.dart';
+import 'state/workbench_layout.dart';
 
 typedef WorkbenchViewBuilder = Widget Function(String view, String groupId);
 

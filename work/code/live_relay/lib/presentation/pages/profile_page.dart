@@ -5,7 +5,7 @@ import 'package:provider/provider.dart';
 
 import '../../core/ports/development_controls.dart';
 
-import '../../application/app_controller.dart';
+import '../controllers/app_controller.dart';
 import '../../application/app_preferences.dart';
 import '../../application/device_capabilities.dart';
 import '../dialogs/capability_dialog.dart';

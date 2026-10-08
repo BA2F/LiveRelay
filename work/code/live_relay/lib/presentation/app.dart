@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:provider/provider.dart';
 
-import '../application/app_controller.dart';
+import 'controllers/app_controller.dart';
 import '../application/app_preferences.dart';
 import 'design_system/app_theme.dart';
 import 'pages/gate_page.dart';

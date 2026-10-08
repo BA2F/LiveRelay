@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../../application/agent/agent_conversation.dart';
+import '../controllers/agent_conversation.dart';
 import '../../core/domain/entities.dart';
 import '../dialogs/ai_settings_dialog.dart';
 import 'attachment_strip.dart';

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../../application/agent/agent_conversation.dart';
+import '../controllers/agent_conversation.dart';
 import '../../core/ai/ai_privacy.dart';
 import '../../core/ai/review_actions.dart';
 import '../../core/domain/entities.dart';

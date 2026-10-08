@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../../application/speech_service.dart';
+import '../controllers/speech_service.dart';
 
 class SpeechSettingsDialog extends StatefulWidget {
   const SpeechSettingsDialog({super.key, required this.service});

@@ -4,8 +4,8 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 
-import '../../application/app_controller.dart';
-import '../../application/workbench/card_edit_sessions.dart';
+import '../controllers/app_controller.dart';
+import 'state/card_edit_sessions.dart';
 import '../../core/domain/entities.dart';
 import '../dialogs/media_viewer.dart';
 import '../widgets/local_media_preview.dart';

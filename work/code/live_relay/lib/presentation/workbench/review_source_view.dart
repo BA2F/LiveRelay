@@ -4,7 +4,7 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 
-import '../../application/preview_session.dart';
+import '../contracts/preview_session.dart';
 import '../../core/ai/conversation_attachment.dart';
 import '../../core/ai/review_source.dart';
 import '../widgets/local_media_preview.dart';

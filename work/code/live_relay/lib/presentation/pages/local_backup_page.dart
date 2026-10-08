@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:file_picker/file_picker.dart';
 
-import '../../application/app_controller.dart';
+import '../controllers/app_controller.dart';
 import '../dialogs/backup_dialogs.dart';
 import '../dialogs/local_file_dialogs.dart';
 

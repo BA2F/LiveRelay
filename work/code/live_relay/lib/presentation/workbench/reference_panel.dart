@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../../application/app_controller.dart';
+import '../controllers/app_controller.dart';
 
 class ReferencePanel extends StatelessWidget {
   const ReferencePanel({

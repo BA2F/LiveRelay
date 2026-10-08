@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../../application/app_controller.dart';
+import '../controllers/app_controller.dart';
 import '../design_system/atoms.dart';
 import '../dialogs/card_dialogs.dart';
 import '../dialogs/credential_dialogs.dart';

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../../application/app_controller.dart';
+import '../controllers/app_controller.dart';
 import '../../core/domain/entities.dart';
 import 'card_dialogs.dart';
 import 'ai_settings_dialog.dart';

@@ -3,7 +3,7 @@ import '../widgets/liverelay_logo.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../../application/app_controller.dart';
+import '../controllers/app_controller.dart';
 import '../../application/app_preferences.dart';
 import '../../application/device_capabilities.dart';
 import '../dialogs/backup_dialogs.dart';

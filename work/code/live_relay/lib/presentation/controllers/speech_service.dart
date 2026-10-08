@@ -3,7 +3,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 
 import '../../application/speech/speech_runtime.dart';
-import '../../application/speech_access.dart';
+import '../contracts/speech_access.dart';
 import '../../core/speech/remote_speech_settings.dart';
 
 /// Adapts pure application state to Flutter's Listenable contract.

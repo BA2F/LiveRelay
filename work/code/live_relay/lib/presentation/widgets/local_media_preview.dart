@@ -7,7 +7,7 @@ import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 import 'package:path/path.dart' as path;
 
-import '../../application/preview_session.dart';
+import '../contracts/preview_session.dart';
 import '../../infrastructure/private_cache.dart';
 import '../../infrastructure/local_media_processor.dart';
 

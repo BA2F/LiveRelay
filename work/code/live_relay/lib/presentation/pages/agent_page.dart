@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../../application/app_controller.dart';
+import '../controllers/app_controller.dart';
 import '../../application/draft_agent_service.dart';
 import '../../core/domain/entities.dart';
 import '../dialogs/ai_settings_dialog.dart';
