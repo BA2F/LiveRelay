@@ -1,0 +1,647 @@
+{
+  "recordedAtUtc": "2026-10-08T13:09:20.341866+00:00",
+  "sourceCommit": "d6f967aa8c7bee35821ea01e387e12060713e4a1",
+  "sourceAppTree": "f5c84854ea19f9f4d1b14544e410ceaec8409de3",
+  "baseCommit": "871c34078d8392b5f87f1ac7f707a8be7e842f1a",
+  "branch": "codex/desktop-workbench",
+  "flutterTests": {
+    "passed": 285,
+    "analysis": "No issues found"
+  },
+  "ordinaryDartChecks": {
+    "passed": 66,
+    "includedInFlutterTotal": true,
+    "suites": {
+      "agent_service": 15,
+      "maintenance": 9,
+      "speech": 6,
+      "conversation": 6,
+      "workbench": 5,
+      "device_identity": 8,
+      "card_rules": 4,
+      "records": 13
+    }
+  },
+  "nativeProductChecks": {
+    "passed": 27,
+    "driverMarkersExcluded": true,
+    "suites": [
+      {
+        "name": "workbench",
+        "target": "desktop_workbench_test.dart",
+        "passed": 15,
+        "backend": "wayland"
+      },
+      {
+        "name": "windows",
+        "target": "desktop_windows_test.dart",
+        "passed": 7,
+        "backend": "x11"
+      },
+      {
+        "name": "startup",
+        "target": "desktop_startup_test.dart",
+        "passed": 1,
+        "backend": "wayland"
+      },
+      {
+        "name": "maintenance",
+        "target": "local_completion_desktop_test.dart",
+        "passed": 2,
+        "backend": "wayland"
+      },
+      {
+        "name": "restore",
+        "target": "restore_recovery_desktop_test.dart",
+        "passed": 1,
+        "backend": "wayland"
+      },
+      {
+        "name": "identity",
+        "target": "isolated_delivery_speech_test.dart",
+        "passed": 1,
+        "backend": "wayland"
+      }
+    ]
+  },
+  "normalEntrypointKernels": {
+    "linux": {
+      "normalMainMarkerPresent": true,
+      "integrationTestEntrypointMarkersAbsent": true
+    },
+    "android": {
+      "normalMainMarkerPresent": true,
+      "integrationTestEntrypointMarkersAbsent": true
+    }
+  },
+  "logs": [
+    {
+      "name": "flutter-tests",
+      "path": "work/artifacts/architecture-refactor-2026-10-08/logs/flutter-tests.log",
+      "command": "flutter test --no-pub",
+      "bytes": 101220,
+      "sha256": "66cdc740340db4e8dc9fdb177eb0f7cb2f3f6d4c70b332f0ae0a76ef17b94403",
+      "successful": true
+    },
+    {
+      "name": "flutter-analysis",
+      "path": "work/artifacts/architecture-refactor-2026-10-08/logs/flutter-analysis.log",
+      "command": "flutter analyze --no-pub",
+      "bytes": 96,
+      "sha256": "503fa91fb30689a08cd24725b62c68e9beeef906dd2407f129935313a1275e91",
+      "successful": true
+    },
+    {
+      "name": "headless-agent_service",
+      "path": "work/artifacts/architecture-refactor-2026-10-08/logs/headless-agent_service.log",
+      "command": "dart run test/support/agent_service_headless_checks.dart",
+      "bytes": 1218,
+      "sha256": "dc271b5b238883f94698c18c8bb2def839b893aad4ca9b284ba0f5708c200bed",
+      "successful": true
+    },
+    {
+      "name": "headless-maintenance",
+      "path": "work/artifacts/architecture-refactor-2026-10-08/logs/headless-maintenance.log",
+      "command": "dart run test/support/maintenance_headless_checks.dart",
+      "bytes": 758,
+      "sha256": "0bc35d7a61ce8db8f260acfccb54ef8e501e69f318b08d165211382a87208be0",
+      "successful": true
+    },
+    {
+      "name": "headless-speech",
+      "path": "work/artifacts/architecture-refactor-2026-10-08/logs/headless-speech.log",
+      "command": "dart run test/support/speech_headless_checks.dart",
+      "bytes": 604,
+      "sha256": "db875aed72afeed1b71ec6b29de5710e2bd999b68f9622b5cd8b5b4b8997a77a",
+      "successful": true
+    },
+    {
+      "name": "headless-conversation",
+      "path": "work/artifacts/architecture-refactor-2026-10-08/logs/headless-conversation.log",
+      "command": "dart run test/support/conversation_headless_checks.dart",
+      "bytes": 579,
+      "sha256": "8236d36961e8b2ea31b66d2174c78f2864a443244d2d2165c65c5bdc2d57730c",
+      "successful": true
+    },
+    {
+      "name": "headless-workbench",
+      "path": "work/artifacts/architecture-refactor-2026-10-08/logs/headless-workbench.log",
+      "command": "dart run test/support/workbench_headless_checks.dart",
+      "bytes": 483,
+      "sha256": "cbe5b61392f5bc88de2883ce85a0cd22747bfac3d681a8b88ebfe6f8f9e2ed64",
+      "successful": true
+    },
+    {
+      "name": "headless-device_identity",
+      "path": "work/artifacts/architecture-refactor-2026-10-08/logs/headless-device_identity.log",
+      "command": "dart run test/support/device_identity_headless_checks.dart",
+      "bytes": 696,
+      "sha256": "723141b2f15c171edfff2709837ad215927c2000953f7d6a5fb57cb99a81f9e0",
+      "successful": true
+    },
+    {
+      "name": "headless-card_rules",
+      "path": "work/artifacts/architecture-refactor-2026-10-08/logs/headless-card_rules.log",
+      "command": "dart run test/support/card_rules_headless_checks.dart",
+      "bytes": 371,
+      "sha256": "31378fd986095cc9dd37ec745d2735258811d55460e540677fb8915f4d7c224d",
+      "successful": true
+    },
+    {
+      "name": "headless-records",
+      "path": "work/artifacts/architecture-refactor-2026-10-08/logs/headless-records.log",
+      "command": "dart run test/support/records_headless_checks.dart",
+      "bytes": 1108,
+      "sha256": "d890e6ea61f04c5f7e4126560752f83b7ddce752edff101c47e3cdcf16feb9b5",
+      "successful": true
+    },
+    {
+      "name": "native-workbench",
+      "path": "work/artifacts/architecture-refactor-2026-10-08/logs/native-workbench.log",
+      "command": "GDK_BACKEND=wayland flutter drive --driver=test_driver/native_driver.dart --target=integration_test/desktop_workbench_test.dart -d linux --no-pub",
+      "bytes": 3788,
+      "sha256": "179d325b867d41acdf39bad3d31c8e2c1656e5f8c2a5dbd08df57d5fced3ff5d",
+      "successful": true
+    },
+    {
+      "name": "native-windows",
+      "path": "work/artifacts/architecture-refactor-2026-10-08/logs/native-windows.log",
+      "command": "GDK_BACKEND=x11 flutter drive --driver=test_driver/desktop_windows.dart --target=integration_test/desktop_windows_test.dart -d linux --no-pub",
+      "bytes": 1733,
+      "sha256": "84d5a1c91001bb420629f1ca5f8aa1362867a762816a5109ee662a53afabb71a",
+      "successful": true
+    },
+    {
+      "name": "native-startup",
+      "path": "work/artifacts/architecture-refactor-2026-10-08/logs/native-startup.log",
+      "command": "GDK_BACKEND=wayland flutter drive --driver=test_driver/native_driver.dart --target=integration_test/desktop_startup_test.dart -d linux --no-pub (isolated LIVERELAY_STARTUP_ROOT/XDG_DATA_HOME/TMPDIR; empty in-memory secure storage)",
+      "bytes": 1280,
+      "sha256": "7875b7b6a9af696d7bbd35e145b3c8b438a735ac3efcdb262ef0ae95059dad3c",
+      "successful": true
+    },
+    {
+      "name": "native-maintenance",
+      "path": "work/artifacts/architecture-refactor-2026-10-08/logs/native-maintenance.log",
+      "command": "GDK_BACKEND=wayland flutter drive --driver=test_driver/native_driver.dart --target=integration_test/local_completion_desktop_test.dart -d linux --no-pub",
+      "bytes": 16976,
+      "sha256": "0343211b06ca167bbe980a3b48716465c930826ff571373a7a80561d4c0a33db",
+      "successful": true
+    },
+    {
+      "name": "native-restore",
+      "path": "work/artifacts/architecture-refactor-2026-10-08/logs/native-restore.log",
+      "command": "GDK_BACKEND=wayland flutter drive --driver=test_driver/native_driver.dart --target=integration_test/restore_recovery_desktop_test.dart -d linux --no-pub --dart-define=RESTORE_TEST_PROJECT=/home/tahzun/Development/Projects/LiveRelay/work/code/live_relay",
+      "bytes": 6130,
+      "sha256": "da9f999d0a30d8a1562d62e67173e0bb62c2a9cb9004c60934f58ac72175e28e",
+      "successful": true
+    },
+    {
+      "name": "native-identity",
+      "path": "work/artifacts/architecture-refactor-2026-10-08/logs/native-identity.log",
+      "command": "GDK_BACKEND=wayland flutter drive --driver=test_driver/native_driver.dart --target=integration_test/isolated_delivery_speech_test.dart -d linux --no-pub",
+      "bytes": 1341,
+      "sha256": "ce4e0658c374d699a57c09e28dca461da3aa652a9aa98deea0c6605c6b9596f5",
+      "successful": true
+    },
+    {
+      "name": "build-linux-main",
+      "path": "work/artifacts/architecture-refactor-2026-10-08/logs/build-linux-main.log",
+      "command": "flutter build linux --debug --no-pub --target=lib/main.dart",
+      "bytes": 115,
+      "sha256": "f5d12ffbf438c511b676dc6d5a6d10ec24eabde2599b74c90e895b25f50d24ba",
+      "successful": true
+    },
+    {
+      "name": "build-android-main-offline",
+      "path": "work/artifacts/architecture-refactor-2026-10-08/logs/build-android-main-offline.log",
+      "command": "./gradlew --offline --console=plain -Ptarget-platform=android-arm,android-arm64,android-x64 -Ptarget=lib/main.dart -Pbase-application-name=android.app.Application -Pdart-obfuscation=false -Ptrack-widget-creation=true -Ptree-shake-icons=false assembleDebug",
+      "bytes": 70317,
+      "sha256": "81348de530c5a6e5bb4d5415d4258595563d9bbfbb2ee78f1fbfe8eb5e8e4186",
+      "successful": true
+    },
+    {
+      "name": "build-android-online-failed",
+      "path": "work/artifacts/architecture-refactor-2026-10-08/logs/build-android-online-failed.log",
+      "command": "flutter build apk --debug --no-pub --target=lib/main.dart",
+      "bytes": 64615,
+      "sha256": "6006d5204494f9736a946f1e50116829b3961e12b0a59f2a9b816a7fd79e23fe",
+      "successful": false,
+      "reason": "Maven dynamic metadata TLS handshake failure; offline cache build used instead"
+    }
+  ],
+  "artifacts": [
+    {
+      "platform": "linux-x86_64",
+      "path": "work/exports/release-artifacts/architecture-refactor-2026-10-08/LiveRelay-architecture-2026-10-08-linux-x86_64-debug.tar.gz",
+      "entrypoint": "lib/main.dart",
+      "mode": "debug",
+      "bytes": 62376011,
+      "sha256": "5e5dbd8246b759e67a1e7d9e639fbfb1642591e4dbf4efa22ae454dd4f53593b"
+    },
+    {
+      "platform": "android",
+      "path": "work/exports/release-artifacts/architecture-refactor-2026-10-08/LiveRelay-architecture-2026-10-08-android-debug.apk",
+      "entrypoint": "lib/main.dart",
+      "mode": "debug",
+      "bytes": 330455465,
+      "sha256": "e06a9f8028cf42f6fc676a3689a5b0ad7992130c075b8102cd3934c38b4e07b4"
+    }
+  ],
+  "linuxBundle": {
+    "fileCount": 33,
+    "allArchiveFileHashesMatched": true,
+    "files": [
+      {
+        "path": "data/flutter_assets/AssetManifest.bin",
+        "bytes": 718,
+        "sha256": "7cf62db19a685bb6cc64f067352febf50f7b0c266721b7a1381686e3a1386e28",
+        "mode": "0o644"
+      },
+      {
+        "path": "data/flutter_assets/FontManifest.json",
+        "bytes": 208,
+        "sha256": "cd7e03645bc44b2dd47b7cb626f51c4ecbf55a197ab77241628b47ac165fbe21",
+        "mode": "0o644"
+      },
+      {
+        "path": "data/flutter_assets/NOTICES.Z",
+        "bytes": 118289,
+        "sha256": "4501614c7349a2746e365224b8de6c2ecc88f55bf9780e286d0be60ca49dcd77",
+        "mode": "0o644"
+      },
+      {
+        "path": "data/flutter_assets/NativeAssetsManifest.json",
+        "bytes": 193,
+        "sha256": "5a21ac158f0a94cbf633cc11c7d37100b960567acebf95c7754e9c5bff495cb8",
+        "mode": "0o644"
+      },
+      {
+        "path": "data/flutter_assets/assets/brand/icon-256.png",
+        "bytes": 4689,
+        "sha256": "c8c09e73e7e6fd8679aff8520dd128f6d271f1a36d1f031ed13c26f617a67a10",
+        "mode": "0o644"
+      },
+      {
+        "path": "data/flutter_assets/assets/brand/mark-master.svg",
+        "bytes": 1041,
+        "sha256": "d0dc42b9addb0e9dc67dddb40eafeff07027e74cdfe911a13cca39971f3c1627",
+        "mode": "0o644"
+      },
+      {
+        "path": "data/flutter_assets/assets/brand/mark-micro.svg",
+        "bytes": 1099,
+        "sha256": "0d9f9add8084f5945dc72474b8710534eafd80513751feb27b6f93670f3053a0",
+        "mode": "0o644"
+      },
+      {
+        "path": "data/flutter_assets/assets/extensions/draft-review.lrext.json",
+        "bytes": 679,
+        "sha256": "8ce104e90a243386dd5074a9c26db38b28bcf1d4b5fb0e643194fead3529f6a2",
+        "mode": "0o644"
+      },
+      {
+        "path": "data/flutter_assets/assets/wordlists/new-default-pinyin.wordlist",
+        "bytes": 194312,
+        "sha256": "8afbb9a4435863fd95be35c2d572220110a7674a6020ae65ddcbec5cb90c8daf",
+        "mode": "0o644"
+      },
+      {
+        "path": "data/flutter_assets/fonts/MaterialIcons-Regular.otf",
+        "bytes": 1645184,
+        "sha256": "d9865b671a09d683d13a863089d8825e0f61a37696ce5d7d448bc8023aa62453",
+        "mode": "0o644"
+      },
+      {
+        "path": "data/flutter_assets/kernel_blob.bin",
+        "bytes": 100846160,
+        "sha256": "ad4fe2678f6139bb0fa31b77090306cf795a5825874d510222b86ed1610d109a",
+        "mode": "0o644"
+      },
+      {
+        "path": "data/flutter_assets/packages/cupertino_icons/assets/CupertinoIcons.ttf",
+        "bytes": 257628,
+        "sha256": "67c44fe9183b002e79dde7f6977e2988661c9a3e4a3c5fce968787efdbed823c",
+        "mode": "0o644"
+      },
+      {
+        "path": "data/flutter_assets/packages/media_kit/assets/web/hls1.4.10.js",
+        "bytes": 374690,
+        "sha256": "30b278794fd3f269a47e6dc7b76ae9a04f08acffdd72f9b8cc26d49d3ba09c38",
+        "mode": "0o644"
+      },
+      {
+        "path": "data/flutter_assets/packages/wakelock_plus/assets/no_sleep.js",
+        "bytes": 13669,
+        "sha256": "726c644cda17bf271d996fb629806a59409607e9b00e0dfbf75adfd3986bbb7e",
+        "mode": "0o644"
+      },
+      {
+        "path": "data/flutter_assets/shaders/ink_sparkle.frag",
+        "bytes": 21856,
+        "sha256": "1fe8436a743884cb65078fe8c7b38e18f5365f2a2961270916f426fd13c604af",
+        "mode": "0o644"
+      },
+      {
+        "path": "data/flutter_assets/shaders/stretch_effect.frag",
+        "bytes": 17616,
+        "sha256": "bc7599dbbbaab310efe41520574138d21fb18a88c8fe4495ed79315309336f6f",
+        "mode": "0o644"
+      },
+      {
+        "path": "data/flutter_assets/version.json",
+        "bytes": 90,
+        "sha256": "1fbb0806685c09f205483adf5d22d532d242fe2eb87473b188c67d434042d862",
+        "mode": "0o644"
+      },
+      {
+        "path": "data/icudtl.dat",
+        "bytes": 864880,
+        "sha256": "325a86063d26334c2eabe1743cea073b612540fbf3d8fc2ef0b5708e3763a8c7",
+        "mode": "0o644"
+      },
+      {
+        "path": "lib/libdartjni.so",
+        "bytes": 225648,
+        "sha256": "4b694babd0ae01f221f22e9d448eb4d8d5b9da43eacc9e197a90bf966003cd04",
+        "mode": "0o644"
+      },
+      {
+        "path": "lib/libdesktop_drop_plugin.so",
+        "bytes": 41160,
+        "sha256": "7633740539def01df03e0d6913e647ad0b1b60ec844730a150e1827e632c8ab0",
+        "mode": "0o644"
+      },
+      {
+        "path": "lib/libfile_selector_linux_plugin.so",
+        "bytes": 166672,
+        "sha256": "92f0d470bf59a8d2bdc6368b81cc758afdf4617efe5df60612b28b5c0a00f51a",
+        "mode": "0o644"
+      },
+      {
+        "path": "lib/libflutter_linux_gtk.so",
+        "bytes": 43339464,
+        "sha256": "0be45a31a85922055152335affdcc461705d89ad7b75c8434cc2d2cb195f8da0",
+        "mode": "0o644"
+      },
+      {
+        "path": "lib/libflutter_secure_storage_linux_plugin.so",
+        "bytes": 1944120,
+        "sha256": "4a62c192875a18b849a28ca6b81b5e24c009d5987b02edf7c07461c12f879223",
+        "mode": "0o644"
+      },
+      {
+        "path": "lib/libmedia_kit_libs_linux_plugin.so",
+        "bytes": 20288,
+        "sha256": "dcc075ced27f7aa8204f52dc1fc6deb8cf211fe3ebdb52700d1476b35b505d31",
+        "mode": "0o644"
+      },
+      {
+        "path": "lib/libmedia_kit_video_plugin.so",
+        "bytes": 128016,
+        "sha256": "f06315acf82d01e6c56f4f0f7a644e9121fde0cd5f11a13dd2855b30b29a68f1",
+        "mode": "0o644"
+      },
+      {
+        "path": "lib/libonnxruntime.so",
+        "bytes": 27026609,
+        "sha256": "4b3607aebd1784b26b6f9b20e4bd974c7ab8287043e4d095cb7d2cb40b5e566e",
+        "mode": "0o644"
+      },
+      {
+        "path": "lib/libpdfium.so",
+        "bytes": 7583000,
+        "sha256": "d106072a29b3689a5d6739948f98a97fe3ec82f5a1c309dc44e86f6c549fb44e",
+        "mode": "0o644"
+      },
+      {
+        "path": "lib/librecord_linux_plugin.so",
+        "bytes": 25592,
+        "sha256": "1b230a0e8ba9227f0aa00a8165bc185ac3912199287eef04903bbf9379b5b81e",
+        "mode": "0o644"
+      },
+      {
+        "path": "lib/libscreen_retriever_linux_plugin.so",
+        "bytes": 46960,
+        "sha256": "7432281f635d5e7e6cb7f01172e63e72547ee0e778ffd27d1b36ce5b35bd49d1",
+        "mode": "0o644"
+      },
+      {
+        "path": "lib/libsherpa-onnx-c-api.so",
+        "bytes": 5124768,
+        "sha256": "892443aed68181c59fc2b21c8ece04da7406bb9960f4fb65ed046baf21ae3755",
+        "mode": "0o644"
+      },
+      {
+        "path": "lib/libsqlcipher.so",
+        "bytes": 5360424,
+        "sha256": "cd09126c9e85191f2b4f57e6c0bcd232c7481f56fb1d659b79374ccad21bfef9",
+        "mode": "0o644"
+      },
+      {
+        "path": "lib/libwindow_manager_plugin.so",
+        "bytes": 127240,
+        "sha256": "8e203f3323eb2798e545608dbd54164fb5719e4ea4f560bfbf38f757d9936e97",
+        "mode": "0o644"
+      },
+      {
+        "path": "live_relay",
+        "bytes": 80408,
+        "sha256": "7139ddae57a2ea1b2c1d93f07bb6486d9d9757696271ef5cdfd2f1b14ceb1c73",
+        "mode": "0o755"
+      }
+    ]
+  },
+  "evidenceFiles": [
+    {
+      "path": "work/artifacts/architecture-refactor-2026-10-08/final/startup/native-production-startup.png",
+      "bytes": 98016,
+      "sha256": "b12c2f968d081606f7c94bec73c0c3875b8b056b6f1664469ada29c12a617f30"
+    },
+    {
+      "path": "work/artifacts/architecture-refactor-2026-10-08/final/startup/production-startup-verification.json",
+      "bytes": 847,
+      "sha256": "60a96d9e4ae79436403f50af7ac721df2e867772fcf0d9cf64d29d4b7edb154d"
+    },
+    {
+      "path": "work/artifacts/architecture-refactor-2026-10-08/final/windows/child-agent-verification.json",
+      "bytes": 693,
+      "sha256": "c5c8433fd7f5ec27314b855dbad62df2bd2642b8e29efef6f639f29310ea0e57"
+    },
+    {
+      "path": "work/artifacts/architecture-refactor-2026-10-08/final/windows/child-extensions-verification.json",
+      "bytes": 250,
+      "sha256": "50d096d3638fe2ae76f22153c414f402f5f6f8273c9e92f172b23f267a7b0252"
+    },
+    {
+      "path": "work/artifacts/architecture-refactor-2026-10-08/final/windows/child-media-verification.json",
+      "bytes": 214,
+      "sha256": "d2ac2427be5a17fc44aa450dfaaa8bb37605a383850e855ea2363c93b62b9318"
+    },
+    {
+      "path": "work/artifacts/architecture-refactor-2026-10-08/final/windows/child-pdf-verification.json",
+      "bytes": 136,
+      "sha256": "58363209bd002861a862acfc292a5a0b3ff20141f0c443b884423604f1cad7ef"
+    },
+    {
+      "path": "work/artifacts/architecture-refactor-2026-10-08/final/windows/child-review-verification.json",
+      "bytes": 255,
+      "sha256": "4cbe13e682a044ddf2af66b0756e43534b043614ded9ea06bae88666ef013086"
+    },
+    {
+      "path": "work/artifacts/architecture-refactor-2026-10-08/final/windows/child-speech-verification.json",
+      "bytes": 357,
+      "sha256": "1e160185d0995fa1c9a98d846f8258d9bcef3faf33b1ce4641b5c221653413d6"
+    },
+    {
+      "path": "work/artifacts/architecture-refactor-2026-10-08/final/windows/native-child-agent.png",
+      "bytes": 70499,
+      "sha256": "71777a5d09701a41bea14c19efb6a8cac8585622844e00b2fe1ecdc6978946b1"
+    },
+    {
+      "path": "work/artifacts/architecture-refactor-2026-10-08/final/windows/native-child-extensions.png",
+      "bytes": 77594,
+      "sha256": "68b2036c0fb62dce2e7c00192b43843d98385096c59c7bf5885f7e1bc7ba6e9f"
+    },
+    {
+      "path": "work/artifacts/architecture-refactor-2026-10-08/final/windows/native-child-media.png",
+      "bytes": 26674,
+      "sha256": "5814814ff11b9da65bf80b119f6dbd3c5e058e745c10bbd7de135c784f1fb831"
+    },
+    {
+      "path": "work/artifacts/architecture-refactor-2026-10-08/final/windows/native-child-pdf.png",
+      "bytes": 19294,
+      "sha256": "5607760db2931b0697e9a0a7e66425a21ae2b51512939efec21774d9eb1b2aef"
+    },
+    {
+      "path": "work/artifacts/architecture-refactor-2026-10-08/final/windows/native-child-review.png",
+      "bytes": 64429,
+      "sha256": "468d5778f22df6398863eb46a4360bfd72ae15aaab4e3470f01fc354eae0c364"
+    },
+    {
+      "path": "work/artifacts/architecture-refactor-2026-10-08/final/windows/native-child-speech.png",
+      "bytes": 62278,
+      "sha256": "2b37364c52e636c379139c2e87697bff1e113303836c65d8eb5cf9be327a3bce"
+    },
+    {
+      "path": "work/artifacts/architecture-refactor-2026-10-08/final/windows/native-multimonitor-verification.json",
+      "bytes": 389,
+      "sha256": "acac6ebe4b03ca3ce3f67059c8bccb80d66b283ffdf59368c79994d0b4741cbb"
+    },
+    {
+      "path": "work/artifacts/architecture-refactor-2026-10-08/final/windows/native-window.png",
+      "bytes": 28122,
+      "sha256": "190545fea9947278e26fb93236fa8a61eaab42dff9f35d1c08442db1c43c38e8"
+    },
+    {
+      "path": "work/artifacts/architecture-refactor-2026-10-08/final/windows/window-verification.json",
+      "bytes": 130,
+      "sha256": "d34615a80f432e775204445647f10788cb7dd0567c2f4412ac721de6a7d96051"
+    },
+    {
+      "path": "work/artifacts/architecture-refactor-2026-10-08/final/workbench/media-conversion-verification.json",
+      "bytes": 275,
+      "sha256": "1e6f74cd55dce2e013bdf0ae8ecb209bea4fb64e6c3cdc1bcf3bf0f0f934a57a"
+    },
+    {
+      "path": "work/artifacts/architecture-refactor-2026-10-08/final/workbench/media-verification.json",
+      "bytes": 161,
+      "sha256": "13f36fdbcf61106932027eaced76db9cba5e6b4867bb9d45cc7f296bd12cc257"
+    },
+    {
+      "path": "work/artifacts/architecture-refactor-2026-10-08/final/workbench/native-agent.png",
+      "bytes": 137531,
+      "sha256": "ac8159e7f40c76165e1f0c317bfae1a063c0c7cbc27768255a31268f849fba36"
+    },
+    {
+      "path": "work/artifacts/architecture-refactor-2026-10-08/final/workbench/native-attachments.png",
+      "bytes": 113066,
+      "sha256": "75f0e5938855e6b08dc8b8115be809b5db7a2a14a5e326fbbbd71fdc6a02450d"
+    },
+    {
+      "path": "work/artifacts/architecture-refactor-2026-10-08/final/workbench/native-media-conversion.png",
+      "bytes": 19387,
+      "sha256": "6df3408124e961082abd8b9de4926219cc632cf0af12779a9802aa1285ab5d96"
+    },
+    {
+      "path": "work/artifacts/architecture-refactor-2026-10-08/final/workbench/native-media.png",
+      "bytes": 17253,
+      "sha256": "d7c903972a25aecd3aefce2928637b00de01c369e8de7123bbfb26b4f052330e"
+    },
+    {
+      "path": "work/artifacts/architecture-refactor-2026-10-08/final/workbench/native-model-plan.png",
+      "bytes": 95032,
+      "sha256": "aa227538118eb7fe6e6046d6ca628aa5afb42ec5625fa00256a6098cee279c60"
+    },
+    {
+      "path": "work/artifacts/architecture-refactor-2026-10-08/final/workbench/native-multimodal.png",
+      "bytes": 31154,
+      "sha256": "7ccfbba2f61f3fc97e6b4485673e245eb147e9faf781d6f5dde8f710b62422a6"
+    },
+    {
+      "path": "work/artifacts/architecture-refactor-2026-10-08/final/workbench/native-network-autosave.png",
+      "bytes": 118871,
+      "sha256": "f5f00233bc3e79c636629dd1586eae19141b6562e781ff6f923d10b864f614c3"
+    },
+    {
+      "path": "work/artifacts/architecture-refactor-2026-10-08/final/workbench/native-pdf.png",
+      "bytes": 36784,
+      "sha256": "0f0276031eff74e351d054253ed646604e1197a2c0013482c75b1b75c6c5757b"
+    },
+    {
+      "path": "work/artifacts/architecture-refactor-2026-10-08/final/workbench/native-providers.png",
+      "bytes": 79199,
+      "sha256": "04fc0cdbde4d9584f50ac42c73207196594aba9fbc4cff2f1dcf2792fcead1bf"
+    },
+    {
+      "path": "work/artifacts/architecture-refactor-2026-10-08/final/workbench/native-relations.png",
+      "bytes": 69000,
+      "sha256": "49f437fe792e62c47adefc23a763be49f8a08bf9361fec176f8806c114301ed4"
+    },
+    {
+      "path": "work/artifacts/architecture-refactor-2026-10-08/final/workbench/native-remote-speech.png",
+      "bytes": 63982,
+      "sha256": "00bb9d78d4389af20b8a110bd5f5c81682abb2e2695bc78f53f00c31b5c6343c"
+    },
+    {
+      "path": "work/artifacts/architecture-refactor-2026-10-08/final/workbench/native-review-actions.png",
+      "bytes": 127615,
+      "sha256": "ff693624cda6e3f22b85ba6a1ea2e2704706638266dcb58ec4ebd851559ed128"
+    },
+    {
+      "path": "work/artifacts/architecture-refactor-2026-10-08/final/workbench/native-review-source.png",
+      "bytes": 149150,
+      "sha256": "4b3b83ae274ec0730eed268b25b42eb4a789c546f436291a70d5794ae28d1270"
+    },
+    {
+      "path": "work/artifacts/architecture-refactor-2026-10-08/final/workbench/native-workbench.png",
+      "bytes": 101854,
+      "sha256": "02f25eb7422bba19bd393cf363d7676cbe4dcd9b74a4af7a0699fb599af34f38"
+    },
+    {
+      "path": "work/artifacts/architecture-refactor-2026-10-08/final/workbench/network-autosave-verification.json",
+      "bytes": 180,
+      "sha256": "83058aa9377ccb117bbe6c50a35ba06b703e53136c199d17b3d54e8851d78ac1"
+    },
+    {
+      "path": "work/artifacts/architecture-refactor-2026-10-08/final/workbench/pdf-verification.json",
+      "bytes": 253,
+      "sha256": "74ed73334eb30389aa4799691baea9f9b741716f765445029c0a876eeffb83cb"
+    },
+    {
+      "path": "work/artifacts/architecture-refactor-2026-10-08/final/workbench/review-source-verification.json",
+      "bytes": 385,
+      "sha256": "2c1f3aa45d557927a8bc3dee522e784e61f2e4e58db69529e734526b624ef588"
+    },
+    {
+      "path": "work/artifacts/architecture-refactor-2026-10-08/final/workbench/verification.json",
+      "bytes": 349,
+      "sha256": "e3aad95e0cb0f98dcfd7e27f781a88b91cae602d69375bb73fc43e17f24755c9"
+    }
+  ],
+  "limits": [
+    "Host Linux debug build; not a new Ubuntu22.04 portable release",
+    "No phone installation, main merge, tag movement or release",
+    "Native speech/network checks use controlled providers; no new microphone/remote ASR acceptance",
+    "Internal Dart APIs are not a versioned Rust/GPUI IPC/FFI contract"
+  ]
+}
