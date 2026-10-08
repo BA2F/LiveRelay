@@ -121,7 +121,7 @@ class VaultSnapshotQuery {
       repository.insights(),
       repository.listCards(recycled: true),
       repository.listCredentials(recycled: true),
-      CardReferenceStore(repository).read(),
+      repository.cardReferences(),
       repository.recycledOriginalIds(),
       repository.lastBackupExport(),
       includeOwnerProfile

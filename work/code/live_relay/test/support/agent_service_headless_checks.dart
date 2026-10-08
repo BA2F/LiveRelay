@@ -17,6 +17,7 @@ import 'package:live_relay/core/ai/review_actions.dart';
 import 'package:live_relay/core/ai/review_source.dart';
 import 'package:live_relay/core/ai/reviewed_agent_plan.dart';
 import 'package:live_relay/core/domain/entities.dart';
+import 'package:live_relay/core/domain/card_references.dart';
 import 'package:live_relay/core/ports/ai_conversation_provider.dart';
 import 'package:live_relay/core/ports/ai_provider.dart';
 import 'package:live_relay/core/ports/ai_settings_repository.dart';
@@ -613,6 +614,8 @@ class _SnapshotVault implements UnlockedVault {
 }
 
 class HeadlessSnapshotRepository extends _Repository {
+  @override
+  Future<List<CardReference>> cardReferences() async => [];
   Future<List<LifeCard>>? pendingCards;
   @override
   Future<List<LifeCard>> listCards({

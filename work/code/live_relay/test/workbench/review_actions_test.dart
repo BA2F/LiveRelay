@@ -1,7 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:live_relay/core/ai/review_actions.dart';
 import 'package:live_relay/core/ai/review_source.dart';
-import 'package:live_relay/core/domain/card_references.dart';
+import 'package:live_relay/application/workbench/card_references.dart';
 import 'package:live_relay/core/domain/entities.dart';
 import 'package:live_relay/infrastructure/persistence/app_database.dart';
 import 'package:live_relay/infrastructure/persistence/sqlite_vault_repository.dart';

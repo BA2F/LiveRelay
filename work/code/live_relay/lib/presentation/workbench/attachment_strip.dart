@@ -7,7 +7,7 @@ import 'package:flutter/material.dart';
 
 import '../controllers/agent_conversation.dart';
 import '../contracts/preview_session.dart';
-import '../../application/speech_input_binding.dart';
+import '../controllers/speech_input_binding.dart';
 import '../../infrastructure/local_media_processor.dart';
 import '../pages/speech_input_page.dart';
 import '../../core/ai/conversation_attachment.dart';

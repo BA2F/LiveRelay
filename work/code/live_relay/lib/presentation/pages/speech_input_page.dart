@@ -13,7 +13,7 @@ import 'package:provider/provider.dart';
 import 'package:record/record.dart';
 
 import '../controllers/app_controller.dart';
-import '../../application/speech_input_binding.dart';
+import '../controllers/speech_input_binding.dart';
 import '../controllers/speech_service.dart';
 import '../../infrastructure/speech/local_sense_voice_provider.dart';
 import '../dialogs/speech_settings_dialog.dart';

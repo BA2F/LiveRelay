@@ -4,6 +4,7 @@ import 'package:drift/drift.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../core/domain/entities.dart';
+import '../../core/domain/card_mutations.dart';
 import '../../core/ai/review_source.dart';
 import '../../core/ai/review_actions.dart';
 import '../../core/ai/reviewed_agent_plan.dart';
@@ -213,6 +214,45 @@ class SqliteVaultRepository implements VaultRepository {
     return row == null ? null : _cardFromRow(row);
   }
 
+  static const _referencesKey = 'workbench.references.v1';
+  @override
+  Future<List<CardReference>> cardReferences() async {
+    final raw = await readLocalValue(_referencesKey);
+    if (raw == null) return [];
+    final data = jsonDecode(raw) as Map<String, dynamic>;
+    if (data['version'] != 1) throw const FormatException('引用版本不支持');
+    return List.unmodifiable([
+      for (final r in data['references'] as List)
+        CardReference(r['from'] as String, r['to'] as String),
+    ]);
+  }
+
+  @override
+  Future<void> setCardReferences(String from, List<String> input) async {
+    final targets = CardReferenceRules.targets(from, List.of(input));
+    return database.transaction(() async {
+      final facts = <String, LifeCard?>{};
+      for (final id in [from, ...targets]) {
+        facts[id] = await getCard(id);
+      }
+      CardReferenceRules.validate(from, targets, facts);
+      final next = CardReferenceRules.replace(
+        await cardReferences(),
+        from,
+        targets,
+      );
+      await writeLocalValue(
+        _referencesKey,
+        jsonEncode({
+          'version': 1,
+          'references': [
+            for (final r in next) {'from': r.from, 'to': r.to},
+          ],
+        }),
+      );
+    });
+  }
+
   @override
   Future<List<CardRevision>> cardHistory(String cardId) async {
     final rows =
@@ -243,11 +283,11 @@ class SqliteVaultRepository implements VaultRepository {
     String? blobId,
     String? sourceText,
   }) async {
-    _validateCardDraft(draft);
+    DraftRules.validateCard(draft);
     final id = _uuid.v7();
     final sourceId = _uuid.v7();
     final now = _now;
-    final tags = _normalizedTags(draft.tags);
+    final tags = DraftRules.normalizedTags(draft.tags);
     await database
         .into(database.sources)
         .insert(
@@ -305,14 +345,14 @@ class SqliteVaultRepository implements VaultRepository {
     String changeNote = '更新卡片',
   }) {
     return database.transaction(() async {
-      _validateCardDraft(draft);
+      DraftRules.validateCard(draft);
       final existing = await getCard(id);
       if (existing == null || existing.isDeleted) {
         throw StateError('卡片不存在');
       }
       final now = _now;
       final revision = existing.revisionNumber + 1;
-      final tags = _normalizedTags(draft.tags);
+      final tags = DraftRules.normalizedTags(draft.tags);
       await (database.update(
         database.cards,
       )..where((table) => table.id.equals(id))).write(
@@ -348,9 +388,9 @@ class SqliteVaultRepository implements VaultRepository {
   }
 
   @override
-  Future<LifeCard> confirmCard(String id) async {
+  Future<LifeCard> confirmCard(String id) => database.transaction(() async {
     final card = await getCard(id);
-    if (card == null) throw StateError('卡片不存在');
+    if (card == null || card.isDeleted) throw StateError('卡片不存在');
     if (card.status == CardStatus.confirmed) return card;
     return updateCard(
       id,
@@ -363,16 +403,19 @@ class SqliteVaultRepository implements VaultRepository {
       ),
       changeNote: '本人确认草稿',
     );
-  }
+  });
 
   @override
   Future<List<LifeCard>> splitCard(String id, List<CardDraft> parts) {
-    if (parts.length < 2) throw const FormatException('拆分至少需要两张卡片');
+    final requested = List<CardDraft>.unmodifiable(
+      parts.map(DraftRules.freeze),
+    );
+    if (requested.length < 2) throw const FormatException('拆分至少需要两张卡片');
     return database.transaction(() async {
       final original = await getCard(id);
-      if (original == null || original.isDeleted) throw StateError('卡片不存在');
+      final plan = SplitCardPlan(original, requested);
       final now = _now;
-      final revision = original.revisionNumber + 1;
+      final revision = plan.revision;
       await (database.update(
         database.cards,
       )..where((table) => table.id.equals(id))).write(
@@ -385,24 +428,18 @@ class SqliteVaultRepository implements VaultRepository {
       await _insertCardRevision(
         cardId: id,
         number: revision,
-        draft: CardDraft(
-          title: original.title,
-          content: original.content,
-          kind: original.kind,
-          status: CardStatus.split,
-          tags: original.tags,
-        ),
+        draft: plan.parent,
         sourceKind: SourceKind.ownerInput,
         sourceLabel: '本人整理',
-        changeNote: '拆分为 ${parts.length} 张独立卡片',
+        changeNote: plan.revisionNote,
         createdAt: now,
       );
       final children = <LifeCard>[];
-      for (final part in parts) {
+      for (final part in plan.parts) {
         final child = await _insertCard(
           part,
           sourceKind: SourceKind.ownerInput,
-          sourceLabel: '由「${original.title}」拆分',
+          sourceLabel: plan.childSourceLabel,
           parentCardId: id,
         );
         children.add(child);
@@ -424,27 +461,20 @@ class SqliteVaultRepository implements VaultRepository {
 
   @override
   Future<LifeCard> combineCards(String title, List<String> memberIds) {
-    if (memberIds.length < 2) throw const FormatException('组合至少需要两张卡片');
+    final plan = BundleCardPlan(title, memberIds);
     return database.transaction(() async {
-      final uniqueIds = memberIds.toSet();
-      if (uniqueIds.length != memberIds.length) {
-        throw const FormatException('组合卡片不能包含重复成员');
+      final facts = <String, LifeCard?>{};
+      for (final id in plan.memberIds) {
+        facts[id] = await getCard(id);
       }
-      for (final id in memberIds) {
-        if (await getCard(id) == null) throw StateError('组合成员不存在');
-      }
+      plan.validateMembers(facts);
       final bundle = await _insertCard(
-        CardDraft(
-          title: title.trim(),
-          content: '组合展示 ${memberIds.length} 张独立卡片',
-          kind: CardKind.bundle,
-          tags: const ['组合'],
-        ),
+        plan.draft,
         sourceKind: SourceKind.ownerInput,
         sourceLabel: '本人组合',
       );
       final now = _now;
-      for (final memberId in memberIds) {
+      for (final memberId in plan.memberIds) {
         await database
             .into(database.cardRelations)
             .insert(
@@ -1132,7 +1162,7 @@ class SqliteVaultRepository implements VaultRepository {
       for (var i = 0; i < reviewed.actions.length; i++) {
         final plan = reviewed.actions[i], card = cards[i];
         if (plan.referenceIds.isNotEmpty) {
-          await CardReferenceStore(this).replace(card.id, plan.referenceIds);
+          await setCardReferences(card.id, plan.referenceIds);
         }
         if (plan.bundleId != null) {
           await database
@@ -1248,9 +1278,9 @@ class SqliteVaultRepository implements VaultRepository {
   @override
   Future<CredentialEntry> saveCredential(CredentialDraft draft, {String? id}) {
     return database.transaction(() async {
-      _validateCredentialDraft(draft);
+      DraftRules.validateCredential(draft);
       final now = _now;
-      final tags = _normalizedTags(draft.tags);
+      final tags = DraftRules.normalizedTags(draft.tags);
       if (id == null) {
         final newId = _uuid.v7();
         await database
@@ -1301,7 +1331,7 @@ class SqliteVaultRepository implements VaultRepository {
     return database.transaction(() async {
       final now = _now;
       for (final draft in drafts) {
-        _validateCredentialDraft(draft);
+        DraftRules.validateCredential(draft);
         final id = _uuid.v7();
         await database
             .into(database.credentials)
@@ -1313,7 +1343,9 @@ class SqliteVaultRepository implements VaultRepository {
                 secret: draft.secret,
                 website: Value(draft.website.trim()),
                 notes: Value(draft.notes.trim()),
-                tagsJson: Value(jsonEncode(_normalizedTags(draft.tags))),
+                tagsJson: Value(
+                  jsonEncode(DraftRules.normalizedTags(draft.tags)),
+                ),
                 createdAt: now,
                 updatedAt: now,
               ),
@@ -1485,46 +1517,50 @@ class SqliteVaultRepository implements VaultRepository {
   }
 
   @override
-  Future<void> transitionLifeState(
-    LifeState to, {
-    required String reason,
-  }) async {
-    final from = await currentLifeState();
-    _stateMachine.validate(from, to);
-    await database
-        .into(database.lifeStateEvents)
-        .insert(
-          LifeStateEventsCompanion.insert(
-            fromState: from.name,
-            toState: to.name,
-            reason: reason.trim().isEmpty ? 'MVP 人工模拟' : reason.trim(),
-            occurredAt: _now,
-          ),
+  Future<void> transitionLifeState(LifeState to, {required String reason}) =>
+      database.transaction(() async {
+        final from = await currentLifeState();
+        _stateMachine.validate(from, to);
+        await database
+            .into(database.lifeStateEvents)
+            .insert(
+              LifeStateEventsCompanion.insert(
+                fromState: from.name,
+                toState: to.name,
+                reason: reason.trim().isEmpty ? 'MVP 人工模拟' : reason.trim(),
+                occurredAt: _now,
+              ),
+            );
+        await _audit(
+          'transition',
+          'lifeState',
+          to.name,
+          '${from.name} → ${to.name}',
         );
-    await _audit(
-      'transition',
-      'lifeState',
-      to.name,
-      '${from.name} → ${to.name}',
-    );
-  }
+      });
 
   @override
-  Future<void> resetLifeStateSimulation({required String reason}) async {
-    final from = await currentLifeState();
-    if (from == LifeState.active) return;
-    await database
-        .into(database.lifeStateEvents)
-        .insert(
-          LifeStateEventsCompanion.insert(
-            fromState: from.name,
-            toState: LifeState.active.name,
-            reason: reason.trim().isEmpty ? '重置 MVP 模拟' : reason.trim(),
-            occurredAt: _now,
-          ),
+  Future<void> resetLifeStateSimulation({required String reason}) =>
+      database.transaction(() async {
+        final from = await currentLifeState();
+        if (from == LifeState.active) return;
+        await database
+            .into(database.lifeStateEvents)
+            .insert(
+              LifeStateEventsCompanion.insert(
+                fromState: from.name,
+                toState: LifeState.active.name,
+                reason: reason.trim().isEmpty ? '重置 MVP 模拟' : reason.trim(),
+                occurredAt: _now,
+              ),
+            );
+        await _audit(
+          'demoReset',
+          'lifeState',
+          LifeState.active.name,
+          '明确重置模拟状态',
         );
-    await _audit('demoReset', 'lifeState', LifeState.active.name, '明确重置模拟状态');
-  }
+      });
 
   @override
   Future<VaultInsights> insights() async {
@@ -1568,7 +1604,7 @@ class SqliteVaultRepository implements VaultRepository {
             number: number,
             title: draft.title,
             content: draft.content,
-            tagsJson: Value(jsonEncode(_normalizedTags(draft.tags))),
+            tagsJson: Value(jsonEncode(DraftRules.normalizedTags(draft.tags))),
             status: draft.status.name,
             sourceKind: sourceKind.name,
             sourceLabel: sourceLabel,
@@ -1766,20 +1802,4 @@ class SqliteVaultRepository implements VaultRepository {
 
   List<String> _decodeTags(String source) =>
       (jsonDecode(source) as List).whereType<String>().toList(growable: false);
-
-  List<String> _normalizedTags(Iterable<String> tags) => tags
-      .map((tag) => tag.trim())
-      .where((tag) => tag.isNotEmpty)
-      .toSet()
-      .toList(growable: false);
-
-  void _validateCardDraft(CardDraft draft) {
-    if (draft.title.trim().isEmpty) throw const FormatException('标题不能为空');
-    if (draft.content.trim().isEmpty) throw const FormatException('内容不能为空');
-  }
-
-  void _validateCredentialDraft(CredentialDraft draft) {
-    if (draft.title.trim().isEmpty) throw const FormatException('条目名称不能为空');
-    if (draft.secret.isEmpty) throw const FormatException('密码不能为空');
-  }
 }

@@ -228,7 +228,7 @@ class AppController extends ChangeNotifier implements PreviewSession {
   List<LifeCard> cards = const [];
   List<CardReference> cardReferences = const [];
   Future<void> setCardReferences(String from, List<String> targets) =>
-      _mutate((r) => CardReferenceStore(r).replace(from, targets));
+      _mutate((r) => r.setCardReferences(from, targets));
   List<LifeCard> recycledCards = const [];
   List<CredentialEntry> recycledCredentials = const [];
   DateTime? lastBackupExport;

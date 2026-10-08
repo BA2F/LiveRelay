@@ -11,7 +11,7 @@ import '../../core/ai/conversation_attachment.dart';
 import '../controllers/app_controller.dart';
 import '../controllers/agent_conversation.dart';
 import '../contracts/preview_session.dart';
-import '../../application/speech_input_binding.dart';
+import '../controllers/speech_input_binding.dart';
 import '../contracts/speech_access.dart';
 
 Map<String, Object?> windowSpeech(AppController controller) {

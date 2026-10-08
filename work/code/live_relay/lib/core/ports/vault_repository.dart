@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 
 import '../domain/entities.dart';
+import '../domain/card_references.dart';
 import '../ai/review_source.dart';
 import '../ai/review_actions.dart';
 
@@ -19,6 +20,8 @@ abstract interface class VaultRepository {
   });
 
   Future<LifeCard?> getCard(String id);
+  Future<List<CardReference>> cardReferences();
+  Future<void> setCardReferences(String from, List<String> targets);
 
   Future<List<CardRevision>> cardHistory(String cardId);
 

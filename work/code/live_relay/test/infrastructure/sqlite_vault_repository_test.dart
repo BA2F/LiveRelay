@@ -214,4 +214,92 @@ void main() {
     expect(history, hasLength(3));
     expect(history.first.reason, '重新开始演示');
   });
+  test(
+    'invalid split is atomic; recycled cards cannot be confirmed or combined',
+    () async {
+      final a = await repository.createCard(
+        const CardDraft(
+          title: 'Public predecessor',
+          content: 'Public body',
+          status: CardStatus.draft,
+        ),
+      );
+      final b = await repository.createCard(
+        const CardDraft(title: 'Public member', content: 'Public body'),
+      );
+      await expectLater(
+        repository.splitCard(a.id, const [
+          CardDraft(title: 'Valid child', content: 'Public body'),
+          CardDraft(title: '', content: 'Invalid child'),
+        ]),
+        throwsFormatException,
+      );
+      expect((await repository.getCard(a.id))!.status, CardStatus.draft);
+      expect(await repository.cardHistory(a.id), hasLength(1));
+      expect(await repository.listCards(), hasLength(2));
+      expect(await repository.relationsForCard(a.id), isEmpty);
+      await repository.trashCard(b.id);
+      await expectLater(
+        repository.combineCards('Public bundle', [a.id, b.id]),
+        throwsStateError,
+      );
+      await expectLater(repository.confirmCard(b.id), throwsStateError);
+      expect(await repository.listCards(), hasLength(1));
+      expect(await repository.cardHistory(b.id), hasLength(1));
+    },
+  );
+  test('reference changes validate current facts atomically and retain prior links', () async {
+    final cards = <LifeCard>[];
+    for (final name in ['A', 'B', 'C']) {
+      cards.add(
+        await repository.createCard(
+          CardDraft(title: 'Public $name', content: 'Public body'),
+        ),
+      );
+    }
+    await repository.setCardReferences(cards[0].id, [cards[1].id]);
+    await repository.trashCard(cards[2].id);
+    await expectLater(
+      repository.setCardReferences(cards[0].id, [cards[2].id]),
+      throwsFormatException,
+    );
+    expect((await repository.cardReferences()).single.to, cards[1].id);
+    await repository.restoreCard(cards[2].id);
+    await repository.setCardReferences(cards[0].id, [cards[2].id, cards[2].id]);
+    expect((await repository.cardReferences()).single.to, cards[2].id);
+    expect(
+      await repository.readLocalValue('workbench.references.v1'),
+      contains('"version":1'),
+    );
+  });
+  test('life transition and audit commit together and simultaneous duplicates serialize', () async {
+    await database.customStatement(
+      "CREATE TRIGGER fixture_fail_audit BEFORE INSERT ON audit_events WHEN NEW.action='transition' BEGIN SELECT RAISE(ABORT, 'fixture audit denied'); END",
+    );
+    await expectLater(
+      repository.transitionLifeState(
+        LifeState.incapacitated,
+        reason: 'Public fixture',
+      ),
+      throwsA(anything),
+    );
+    expect(await repository.currentLifeState(), LifeState.active);
+    expect(await repository.lifeStateHistory(), isEmpty);
+    await database.customStatement('DROP TRIGGER fixture_fail_audit');
+    Future<Object?> attempt() async {
+      try {
+        await repository.transitionLifeState(
+          LifeState.incapacitated,
+          reason: 'Public fixture',
+        );
+        return null;
+      } on Object catch (e) {
+        return e;
+      }
+    }
+
+    final results = await Future.wait([attempt(), attempt()]);
+    expect(results.where((v) => v == null), hasLength(1));
+    expect(await repository.lifeStateHistory(), hasLength(1));
+  });
 }
