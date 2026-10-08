@@ -1,6 +1,6 @@
 import 'package:flutter/foundation.dart';
 
-import '../infrastructure/speech/remote_speech_settings_store.dart';
+import '../core/speech/remote_speech_settings.dart';
 
 /// Model controls and public status only; contains no credential access.
 abstract interface class SpeechAccess implements Listenable {

@@ -3,23 +3,12 @@ import 'dart:convert';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 import '../../core/ports/remote_speech_provider.dart';
+import '../../core/ports/speech_settings_repository.dart';
+import '../../core/speech/remote_speech_settings.dart';
 
-class RemoteSpeechSettings {
-  const RemoteSpeechSettings({
-    this.name = '远程语音服务',
-    this.endpoint = '',
-    this.model = '',
-    this.hasApiKey = false,
-    this.selected = false,
-    this.protocol = RemoteSpeechProtocol.openAiMultipart,
-  });
-  final String name, endpoint, model;
-  final bool hasApiKey, selected;
-  final RemoteSpeechProtocol protocol;
-  bool get configured => endpoint.isNotEmpty && model.isNotEmpty && hasApiKey;
-}
+export '../../core/speech/remote_speech_settings.dart';
 
-class RemoteSpeechSettingsStore {
+class RemoteSpeechSettingsStore implements SpeechSettingsRepository {
   RemoteSpeechSettingsStore({FlutterSecureStorage? storage})
     : _storage =
           storage ??
@@ -42,21 +31,29 @@ class RemoteSpeechSettingsStore {
     return Map<String, dynamic>.from(data);
   }
 
-  Future<RemoteSpeechSettings> read() async {
+  @override
+  Future<RemoteSpeechSettings> read() async => _settings(await _load());
+
+  RemoteSpeechSettings _settings(Map<String, dynamic> d) =>
+      RemoteSpeechSettings(
+        name: d['name'] as String? ?? '远程语音服务',
+        endpoint: d['endpoint'] as String? ?? '',
+        model: d['model'] as String? ?? '',
+        selected: d['selected'] == true,
+        hasApiKey: (d['key'] as String? ?? '').isNotEmpty,
+        protocol: RemoteSpeechProtocol.values.byName(
+          d['protocol'] as String? ?? 'openAiMultipart',
+        ),
+      );
+
+  @override
+  Future<RemoteSpeechCredentials> readCredentials() async {
     final d = await _load();
-    return RemoteSpeechSettings(
-      name: d['name'] as String? ?? '远程语音服务',
-      endpoint: d['endpoint'] as String? ?? '',
-      model: d['model'] as String? ?? '',
-      selected: d['selected'] == true,
-      hasApiKey: (d['key'] as String? ?? '').isNotEmpty,
-      protocol: RemoteSpeechProtocol.values.byName(
-        d['protocol'] as String? ?? 'openAiMultipart',
-      ),
-    );
+    return RemoteSpeechCredentials(_settings(d), d['key'] as String?);
   }
 
   Future<String?> readApiKey() async => (await _load())['key'] as String?;
+  @override
   Future<void> save({
     required String name,
     required String endpoint,
@@ -94,6 +91,7 @@ class RemoteSpeechSettingsStore {
     );
   }
 
+  @override
   Future<void> select(bool remote) async {
     if (remote && !(await read()).configured) {
       throw const FormatException('请先配置远程语音服务');
@@ -104,5 +102,6 @@ class RemoteSpeechSettingsStore {
     await _storage.write(key: _key, value: jsonEncode(d));
   }
 
+  @override
   Future<void> clear() => _storage.delete(key: _key);
 }

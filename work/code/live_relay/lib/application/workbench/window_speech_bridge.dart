@@ -5,7 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../core/media/pcm_wave.dart';
-import '../../infrastructure/speech/remote_speech_settings_store.dart';
+import '../../core/speech/remote_speech_settings.dart';
 import '../../core/domain/entities.dart';
 import '../../core/ai/conversation_attachment.dart';
 import '../app_controller.dart';

@@ -6,7 +6,6 @@ import 'package:flutter/services.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:live_relay/application/agent/agent_conversation.dart';
-import 'package:live_relay/application/speech_service.dart';
 import 'package:live_relay/application/workbench/window_speech_bridge.dart';
 import 'package:live_relay/core/ports/speech_provider.dart';
 import 'package:live_relay/core/ports/remote_speech_provider.dart';
@@ -26,7 +25,7 @@ void main() {
           'liverelay-window-speech-',
         );
         final provider = FixtureWindowSpeech();
-        final service = SpeechService(
+        final service = createSpeechService(
           provider,
           supported: true,
           remoteProvider: provider,

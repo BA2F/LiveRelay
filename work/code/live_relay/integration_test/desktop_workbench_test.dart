@@ -15,7 +15,6 @@ import 'package:live_relay/presentation/workbench/workbench_card_editor.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
-import 'package:live_relay/application/speech_service.dart';
 import 'package:live_relay/core/ports/speech_provider.dart';
 import 'package:live_relay/infrastructure/speech/http_remote_speech_provider.dart';
 import 'package:live_relay/presentation/pages/speech_input_page.dart';
@@ -1166,7 +1165,7 @@ void main() {
           );
         }),
       );
-      final speech = SpeechService(
+      final speech = createSpeechService(
         _NoSpeechModel(),
         supported: true,
         remoteProvider: remote,
@@ -2344,7 +2343,11 @@ Future<void> _mediaConversionTest(WidgetTester tester) async {
   final originalBytes = await m4a.readAsBytes();
   final provider = RecordingConversationAi();
   final local = FixtureWindowSpeech();
-  final speech = SpeechService(local, supported: true, remoteProvider: local);
+  final speech = createSpeechService(
+    local,
+    supported: true,
+    remoteProvider: local,
+  );
   final c = createAppController(
     root,
     NoBiometrics(),

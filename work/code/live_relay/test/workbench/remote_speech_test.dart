@@ -1,3 +1,5 @@
+import 'package:live_relay/infrastructure/app_composition.dart';
+
 import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
@@ -6,7 +8,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
-import 'package:live_relay/application/speech_service.dart';
 import 'package:live_relay/core/ports/ai_provider.dart';
 import 'package:live_relay/core/ports/speech_provider.dart';
 import 'package:live_relay/core/ports/remote_speech_provider.dart';
@@ -86,7 +87,7 @@ void main() {
   test('local default never uploads, remote requires current one-time confirmation, cancellation discards late text and wipes audio', () async {
     final local = _Local();
     final remote = _Remote();
-    final service = SpeechService(
+    final service = createSpeechService(
       local,
       supported: true,
       remoteProvider: remote,

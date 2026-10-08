@@ -11,7 +11,6 @@ import 'package:integration_test/integration_test.dart';
 import 'package:provider/provider.dart';
 import 'package:live_relay/application/app_controller.dart';
 import 'package:live_relay/application/agent/agent_conversation.dart';
-import 'package:live_relay/application/speech_service.dart';
 import 'package:live_relay/core/domain/entities.dart';
 import 'package:live_relay/infrastructure/app_composition.dart';
 import 'package:live_relay/infrastructure/speech/local_sense_voice_provider.dart';
@@ -32,7 +31,7 @@ void main() {
         'liverelay-public-speech-',
       );
       final local = LocalSenseVoiceProvider(() async => Directory(modelRoot!));
-      final speech = SpeechService(local);
+      final speech = createSpeechService(local);
       final ai = RecordingConversationAi();
       final c = createAppController(
         root,

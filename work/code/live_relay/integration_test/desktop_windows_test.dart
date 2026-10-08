@@ -27,7 +27,6 @@ import '../test/workbench/remote_speech_test.dart' show wave;
 import '../test/workbench/window_speech_bridge_test.dart'
     show FixtureWindowSpeech;
 
-import 'package:live_relay/application/speech_service.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 Future<void> main(List<String> arguments) async {
@@ -1245,7 +1244,7 @@ Future<void> _speechWindowTest(WidgetTester tester) async {
     0,
   );
   final provider = FixtureWindowSpeech();
-  final speech = SpeechService(
+  final speech = createSpeechService(
     provider,
     supported: true,
     remoteProvider: provider,

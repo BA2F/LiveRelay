@@ -12,7 +12,7 @@ import '../../application/recipient_service.dart';
 import '../../application/vault_security_service.dart';
 import '../../core/security/recovery_credential.dart';
 import '../../application/draft_agent_service.dart';
-import '../../application/speech_service.dart';
+import 'speech_service.dart';
 import '../../application/preview_session.dart';
 import '../../application/vault_backup_service.dart';
 

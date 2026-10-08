@@ -26,7 +26,13 @@ import 'private_cache.dart';
 import 'ai/configured_ai_provider.dart';
 import 'agent/linux_bash_command_provider.dart';
 import '../application/draft_agent_service.dart';
-import '../application/speech_service.dart';
+import '../presentation/controllers/speech_service.dart';
+import '../application/speech/speech_runtime.dart';
+import '../core/ports/speech_provider.dart';
+import '../core/ports/remote_speech_provider.dart';
+import '../core/ports/speech_settings_repository.dart';
+import 'speech/http_remote_speech_provider.dart';
+import 'speech/remote_speech_settings_store.dart';
 import 'speech/local_sense_voice_provider.dart';
 import 'backup/life_vault_archive.dart';
 import 'backup/vault_restore_transaction.dart';
@@ -85,7 +91,7 @@ AppController createAppController([
   final selectedAi = aiProvider ?? ConfiguredAiProvider();
   final speech =
       speechService ??
-      SpeechService(
+      createSpeechService(
         LocalSenseVoiceProvider(() async {
           final support =
               applicationDirectory ?? await getApplicationSupportDirectory();
@@ -159,4 +165,27 @@ Future<void> _clearKnownPlaintextCache() async {
     // Cache is outside the authenticated Vault. Cleanup is retried on every
     // start and failure must not turn into data loss or an unlock failure.
   }
+}
+
+/// Platform defaults and ownership belong to composition, not the use case.
+SpeechService createSpeechService(
+  SpeechProvider provider, {
+  bool? supported,
+  RemoteSpeechProvider? remoteProvider,
+  SpeechSettingsRepository? settingsStore,
+}) {
+  final remote = remoteProvider ?? HttpRemoteSpeechProvider();
+  return SpeechService(
+    SpeechRuntime(
+      provider: provider,
+      supported:
+          supported ??
+          (Platform.isAndroid || Platform.isLinux || Platform.isWindows),
+      remoteProvider: remote,
+      settingsRepository: settingsStore ?? RemoteSpeechSettingsStore(),
+      disposeRemote: remoteProvider == null
+          ? (remote as HttpRemoteSpeechProvider).close
+          : null,
+    ),
+  );
 }
