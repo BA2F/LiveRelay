@@ -28,7 +28,7 @@ import '../../core/ports/ai_provider.dart';
 import '../../core/ports/ai_conversation_provider.dart';
 import '../../core/ports/device_factor_protection.dart';
 import '../../application/vault_content_service.dart';
-import '../../core/ports/vault_repository.dart';
+import '../../application/vault_records_application.dart';
 import '../../core/security/chinese_passphrase.dart';
 import '../../core/storage/vault_failures.dart';
 import '../../core/security/vault_key_manager.dart';
@@ -44,6 +44,8 @@ export '../../application/vault_session.dart' show VaultSessionState;
 
 class AppController extends ChangeNotifier implements PreviewSession {
   AppController({
+    required this.records,
+    this.capabilities = const DeviceCapabilities(DevicePlatform.other),
     required this._session,
     required this._backup,
     required this._content,
@@ -179,6 +181,7 @@ class AppController extends ChangeNotifier implements PreviewSession {
   });
   final SpeechService? _speechService;
   SpeechService? get speech => _speechService;
+  final VaultRecordsApplication records;
   final VaultSession _session;
   final VaultBackupService _backup;
   final VaultContentService _content;
@@ -228,7 +231,7 @@ class AppController extends ChangeNotifier implements PreviewSession {
   List<LifeCard> cards = const [];
   List<CardReference> cardReferences = const [];
   Future<void> setCardReferences(String from, List<String> targets) =>
-      _mutate((r) => r.setCardReferences(from, targets));
+      _recordMutation(() => records.setCardReferences(from, targets));
   List<LifeCard> recycledCards = const [];
   List<CredentialEntry> recycledCredentials = const [];
   DateTime? lastBackupExport;
@@ -249,7 +252,7 @@ class AppController extends ChangeNotifier implements PreviewSession {
 
   @override
   bool get isUnlocked => sessionState == VaultSessionState.unlocked;
-  DeviceCapabilities capabilities = DeviceCapabilities.current();
+  DeviceCapabilities capabilities;
   void setDemonstrationCapabilities(DeviceCapabilities value) {
     capabilities = value;
     notifyListeners();
@@ -437,7 +440,7 @@ class AppController extends ChangeNotifier implements PreviewSession {
   }
 
   Future<void> markBackupExported() =>
-      _mutate((r) => r.recordBackupExport(DateTime.now()));
+      _recordMutation(records.markBackupExported);
 
   Future<BackupPreview> inspectBackup(Uint8List bytes, String password) async {
     late BackupPreview preview;
@@ -451,8 +454,8 @@ class AppController extends ChangeNotifier implements PreviewSession {
     CardDraft draft, {
     SourceKind sourceKind = SourceKind.ownerInput,
     String sourceLabel = '本人输入',
-  }) => _mutate(
-    (repository) => repository.createCard(
+  }) => _recordMutation(
+    () => records.createCard(
       draft,
       sourceKind: sourceKind,
       sourceLabel: sourceLabel,
@@ -463,44 +466,46 @@ class AppController extends ChangeNotifier implements PreviewSession {
     String id,
     CardDraft draft, {
     String changeNote = '更新卡片',
-  }) => _mutate(
-    (repository) => repository.updateCard(id, draft, changeNote: changeNote),
+  }) => _recordMutation(
+    () => records.updateCard(id, draft, changeNote: changeNote),
   );
 
   Future<void> confirmCard(String id) =>
-      _mutate((repository) => repository.confirmCard(id));
+      _recordMutation(() => records.confirmCard(id));
 
   Future<void> splitCard(String id, List<CardDraft> parts) =>
-      _mutate((repository) => repository.splitCard(id, parts));
+      _recordMutation(() => records.splitCard(id, parts));
 
   Future<void> combineCards(String title, List<String> memberIds) =>
-      _mutate((repository) => repository.combineCards(title, memberIds));
+      _recordMutation(() => records.combineCards(title, memberIds));
 
-  Future<void> restoreCard(String id) => _mutate((r) => r.restoreCard(id));
+  Future<void> restoreCard(String id) =>
+      _recordMutation(() => records.restoreCard(id));
   Future<void> restoreCredential(String id) =>
-      _mutate((r) => r.restoreCredential(id));
+      _recordMutation(() => records.restoreCredential(id));
   Future<List<LifeCard>> cardsForBlob(String blobId) =>
-      _requireRepository().cardsForBlob(blobId);
-  Future<List<CardSource>> cardSources(String id) =>
-      _requireRepository().cardSources(id);
+      records.cardsForBlob(blobId);
+  Future<List<CardSource>> cardSources(String id) => records.cardSources(id);
   Future<List<CardSource>> currentCardSources(String id) =>
-      _requireRepository().currentCardSources(id);
+      records.currentCardSources(id);
   Future<void> setCardOriginals(String id, List<String> blobIds) =>
-      _mutate((r) => r.setCardOriginals(id, blobIds));
+      _recordMutation(() => records.setCardOriginals(id, blobIds));
   Future<void> restoreCardRevision(String id, int number) =>
-      _mutate((r) => r.restoreCardRevision(id, number));
+      _recordMutation(() => records.restoreCardRevision(id, number));
   Future<CardDeletionPreview> previewCardDeletion(List<String> ids) =>
-      _requireRepository().previewCardDeletion(ids);
+      records.previewCardDeletion(ids);
   Future<void> trashCards(
     List<String> ids, {
     bool recycleUnsharedOriginals = false,
-  }) => _mutate(
-    (r) =>
-        r.trashCards(ids, recycleUnsharedOriginals: recycleUnsharedOriginals),
+  }) => _recordMutation(
+    () => records.trashCards(
+      ids,
+      recycleUnsharedOriginals: recycleUnsharedOriginals,
+    ),
   );
   Future<void> restoreOriginal(String id) =>
-      _mutate((r) => r.restoreOriginal(id));
-  Future<LifeCard?> getCard(String id) => _requireRepository().getCard(id);
+      _recordMutation(() => records.restoreOriginal(id));
+  Future<LifeCard?> getCard(String id) => records.getCard(id);
   Future<String?> readWorkbenchState() =>
       workspaceState.read(WorkspaceRecord.layout);
   Future<void> writeWorkbenchState(String value) =>
@@ -514,10 +519,10 @@ class AppController extends ChangeNotifier implements PreviewSession {
   Future<void> writeWorkbenchExtensions(String value) =>
       workspaceState.write(WorkspaceRecord.extensions, value);
   Future<void> createCardFromOriginal(String blobId, CardDraft draft) =>
-      _mutate((r) => r.createCardFromOriginal(blobId, draft));
+      _recordMutation(() => records.createCardFromOriginal(blobId, draft));
 
   Future<void> trashCard(String id) =>
-      _mutate((repository) => repository.trashCard(id));
+      _recordMutation(() => records.trashCard(id));
 
   Future<LifeCard> importOriginal({
     required Uint8List bytes,
@@ -527,14 +532,14 @@ class AppController extends ChangeNotifier implements PreviewSession {
   }) async {
     late LifeCard card;
     try {
-      await _runWrite(() async {
-        card = await _content.importOriginal(
+      await _run(() async {
+        card = await records.importOriginal(
           bytes: bytes,
           originalName: originalName,
           mimeType: mimeType,
           mediaKind: mediaKind,
         );
-        await _refreshUnlockedData();
+        _applyCurrentSnapshot();
       });
       return card;
     } finally {
@@ -542,20 +547,19 @@ class AppController extends ChangeNotifier implements PreviewSession {
     }
   }
 
-  Future<Uint8List> readOriginal(String blobId) =>
-      _content.readOriginal(blobId);
+  Future<Uint8List> readOriginal(String blobId) => records.readOriginal(blobId);
 
   Future<LifeCard> runOcr(String blobId) async {
     late LifeCard card;
-    await _runWrite(() async {
-      card = await _content.runOcr(blobId);
-      await _refreshUnlockedData();
+    await _run(() async {
+      card = await records.runOcr(blobId);
+      _applyCurrentSnapshot();
     });
     return card;
   }
 
   Future<void> saveSensitiveMarks(String blobId, List<SensitiveMark> marks) =>
-      _mutate((repository) => repository.saveSensitiveMarks(blobId, marks));
+      _recordMutation(() => records.saveSensitiveMarks(blobId, marks));
 
   String previewAiDisclosure(String blobId, List<SensitiveMark> marks) {
     final blob = blobs.firstWhereOrNull((item) => item.id == blobId);
@@ -629,7 +633,7 @@ class AppController extends ChangeNotifier implements PreviewSession {
     List<SensitiveMark> marks,
   ) => _agent.prepare(text, marks);
   Future<String?> readConversationState() =>
-      _requireRepository().readChunkedLocalValue('agent.conversation.v1');
+      conversationApplication.readConversationState();
   Future<void> writeConversationState(String value) =>
       conversationApplication.writeConversationState(value);
   Future<AiConversationResponse> converse(
@@ -681,38 +685,34 @@ class AppController extends ChangeNotifier implements PreviewSession {
   });
 
   Future<void> saveSpeechDraft(String text, {String? blobId}) =>
-      _runWrite(() async {
-        await _content.saveSpeechDraft(text, blobId: blobId);
-        await _refreshUnlockedData();
-      });
+      _recordMutation(() => records.saveSpeechDraft(text, blobId: blobId));
 
-  Future<List<CardRevision>> cardHistory(String id) =>
-      _requireRepository().cardHistory(id);
+  Future<List<CardRevision>> cardHistory(String id) => records.cardHistory(id);
 
   Future<ReviewSource?> cardReviewSource(String id) =>
-      _requireRepository().cardReviewSource(id);
+      records.cardReviewSource(id);
 
   Future<List<ReviewActions>?> reviewedActions(String reviewId) =>
       _agentReview.reviewedActions(reviewId);
 
   Future<List<CardRelation>> cardRelations(String id) =>
-      _requireRepository().relationsForCard(id);
+      records.cardRelations(id);
 
   Future<void> saveCredential(CredentialDraft draft, {String? id}) =>
-      _mutate((repository) => repository.saveCredential(draft, id: id));
+      _recordMutation(() => records.saveCredential(draft, id: id));
 
   Future<void> trashCredential(String id) =>
-      _mutate((repository) => repository.trashCredential(id));
+      _recordMutation(() => records.trashCredential(id));
 
   Future<void> purgeCredential(String id) =>
-      _mutate((repository) => repository.purgeCredential(id));
+      _recordMutation(() => records.purgeCredential(id));
 
   Future<EdgePasswordImportResult> importEdgePasswords(Uint8List bytes) async {
     try {
       late EdgePasswordImportResult parsed;
       await _run(() async {
-        parsed = await _content.importEdgePasswords(bytes);
-        await _refreshUnlockedData();
+        parsed = await records.importEdgePasswords(bytes);
+        _applyCurrentSnapshot();
       });
       return parsed;
     } finally {
@@ -722,22 +722,19 @@ class AppController extends ChangeNotifier implements PreviewSession {
   }
 
   Future<List<CredentialRevision>> credentialHistory(String id) =>
-      _requireRepository().credentialHistory(id);
+      records.credentialHistory(id);
 
   Future<ReleasePolicy> releasePolicy(String recordType, String recordId) =>
-      _requireRepository().getReleasePolicy(recordType, recordId);
+      records.releasePolicy(recordType, recordId);
 
   Future<void> saveReleasePolicy(ReleasePolicy policy) =>
-      _mutate((repository) => repository.saveReleasePolicy(policy));
+      _recordMutation(() => records.saveReleasePolicy(policy));
 
   Future<void> transitionLifeState(LifeState state, {required String reason}) =>
-      _mutate(
-        (repository) => repository.transitionLifeState(state, reason: reason),
-      );
+      _recordMutation(() => records.transitionLifeState(state, reason: reason));
 
-  Future<void> resetLifeStateSimulation() => _mutate(
-    (repository) =>
-        repository.resetLifeStateSimulation(reason: '用户明确重置 MVP 模拟'),
+  Future<void> resetLifeStateSimulation() => _recordMutation(
+    () => records.resetLifeStateSimulation(reason: '用户明确重置 MVP 模拟'),
   );
 
   List<LifeCard> get executorCards {
@@ -821,18 +818,16 @@ class AppController extends ChangeNotifier implements PreviewSession {
   Future<void> _runWrite(Future<void> Function() action) =>
       _run(() => _session.runMutation(action));
 
-  Future<void> _mutate(
-    Future<Object?> Function(VaultRepository repository) action,
-  ) {
-    return _run(
-      () => _session.runMutation(() async {
-        await action(_requireRepository());
-        await _refreshUnlockedData();
-      }),
-    );
+  void _applyCurrentSnapshot() {
+    final snapshot = _snapshotQuery.current;
+    if (snapshot != null) _applySnapshot(snapshot);
   }
 
-  VaultRepository _requireRepository() => _session.repository;
+  Future<void> _recordMutation<T>(Future<T> Function() operation) =>
+      _run(() async {
+        await operation();
+        _applyCurrentSnapshot();
+      });
 
   Future<void> _run(Future<void> Function() action) async {
     if (isBusy) throw StateError('请等待当前操作完成');

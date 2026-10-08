@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:path_provider/path_provider.dart';
 
 import '../application/app_controller.dart';
+import '../core/device/device_capabilities.dart';
 import '../application/device_preferences_runtime.dart';
 import '../presentation/controllers/app_preferences.dart';
 import 'persistence/file_device_preferences_repository.dart';
@@ -17,6 +18,7 @@ import '../application/vault_backup_service.dart';
 import '../application/vault_session.dart';
 import '../application/vault_snapshot_query.dart';
 import '../application/vault_content_service.dart';
+import '../application/vault_records_application.dart';
 import '../application/vault_security_service.dart';
 import '../application/local_handoff_service.dart';
 import '../presentation/controllers/recipient_service.dart';
@@ -58,6 +60,20 @@ AppPreferences createAppPreferences([File? file]) => AppPreferences(
 RecipientService createRecipientService(
   Future<Directory> Function() resolveDirectory,
 ) => RecipientService(RecipientRuntime(FileRecipientStore(resolveDirectory)));
+
+DeviceCapabilities currentDeviceCapabilities() => DeviceCapabilities(
+  Platform.isAndroid
+      ? DevicePlatform.android
+      : Platform.isIOS
+      ? DevicePlatform.ios
+      : Platform.isLinux
+      ? DevicePlatform.linux
+      : Platform.isWindows
+      ? DevicePlatform.windows
+      : Platform.isMacOS
+      ? DevicePlatform.macos
+      : DevicePlatform.other,
+);
 
 AppController createAppController([
   Directory? applicationDirectory,
@@ -135,6 +151,13 @@ AppController createAppController([
     ocr: ocrProvider ?? GoogleMlKitOcrProvider(),
   );
   return AppController(
+    capabilities: currentDeviceCapabilities(),
+    records: VaultRecordsApplication(
+      vault: session,
+      content: content,
+      snapshots: snapshots,
+      clock: clock ?? DateTime.now,
+    ),
     conversationApplication: ConversationApplication(
       vault: session,
       settings: agentSettings,

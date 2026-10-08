@@ -26,8 +26,9 @@ class WorkbenchRuntime extends ChangeNotifier {
           controller.workspaceState.write(WorkspaceRecord.extensions, value),
     );
     edits = CardEditSessions(
-      save: (id, draft) =>
-          controller.updateCard(id, draft, changeNote: '工作台自动保存'),
+      save: (id, draft) => controller.records
+          .updateCard(id, draft, changeNote: '工作台自动保存')
+          .then((_) {}),
       canSave: () => controller.isUnlocked && !controller.isBusy,
     );
     windows = NativeWindowHost(

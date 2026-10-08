@@ -9,6 +9,7 @@ import 'package:live_relay/application/agent/agent_review_service.dart';
 import 'package:live_relay/application/vault_session.dart';
 import 'package:live_relay/application/vault_snapshot_query.dart';
 import 'package:live_relay/application/vault_content_service.dart';
+import 'package:live_relay/application/vault_records_application.dart';
 import 'package:live_relay/application/vault_backup_service.dart';
 import 'package:live_relay/infrastructure/backup/life_vault_archive.dart';
 
@@ -32,14 +33,30 @@ class SnapshotController extends AppController {
   SnapshotController._withSettings(
     VaultSession session,
     AgentSettingsService settings,
+  ) : this._withServices(
+        session,
+        settings,
+        VaultContentService(vault: session, ocr: TestOcr()),
+        VaultSnapshotQuery(session),
+      );
+  SnapshotController._withServices(
+    VaultSession session,
+    AgentSettingsService settings,
+    VaultContentService content,
+    VaultSnapshotQuery snapshots,
   ) : super(
+        records: VaultRecordsApplication(
+          vault: session,
+          content: content,
+          snapshots: snapshots,
+        ),
         session: session,
         backup: VaultBackupService(
           session: session,
           archive: LifeVaultArchiveService(),
           restoreTransaction: () => throw UnsupportedError('UI snapshot only'),
         ),
-        content: VaultContentService(vault: session, ocr: TestOcr()),
+        content: content,
         agent: AgentService(
           vault: session,
           configuration: settings,
@@ -47,7 +64,7 @@ class SnapshotController extends AppController {
         ),
         agentSettings: settings,
         agentReview: AgentReviewService(session),
-        snapshotQuery: VaultSnapshotQuery(session),
+        snapshotQuery: snapshots,
         prepareEnvironment: () async {},
       ) {
     final now = DateTime.utc(2026, 10, 1);
