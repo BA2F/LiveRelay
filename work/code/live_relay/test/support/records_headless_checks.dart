@@ -96,7 +96,8 @@ class Repository extends HeadlessSnapshotRepository {
     CardKind? kind,
     CardStatus? status,
     bool recycled = false,
-  }) async => recycled ? [] : List.of(cards);
+  }) async =>
+      recycled ? [] : await (pendingCards ?? Future.value(List.of(cards)));
   @override
   Future<LifeCard> createCard(
     CardDraft draft, {
@@ -411,6 +412,79 @@ Map<String, Future<void> Function()> recordsChecks() => {
         }
       },
 };
+Map<String, Future<void> Function()> snapshotPublicationChecks() => {
+  'typed snapshot publication completes presentation mapping before command resolves':
+      () async {
+        final f = await Fixture.make();
+        String? observed;
+        final subscription = f.snapshots.changes.listen(
+          (snapshot) => observed = snapshot.cards.single.title,
+        );
+        try {
+          await f.application.createCard(
+            const CardDraft(
+              title: 'Public synchronous title',
+              content: 'Public body',
+            ),
+          );
+          check(
+            observed == 'Public synchronous title',
+            'Projection still stale when save completed',
+          );
+        } finally {
+          await subscription.cancel();
+          f.dispose();
+        }
+      },
+  'snapshot publication observer lock revokes cache and rejects the returning query':
+      () async {
+        final f = await Fixture.make();
+        Future<void>? closing;
+        final subscription = f.snapshots.changes.listen((_) {
+          closing = f.session.close();
+        });
+        try {
+          await reject(f.snapshots.load(), '已关闭或重开');
+          await closing;
+          check(
+            f.snapshots.current == null && !f.session.isUnlocked,
+            'Observer lock retained published cache',
+          );
+        } finally {
+          await subscription.cancel();
+          f.dispose();
+        }
+      },
+  'older snapshot query cannot replace a newer published projection': () async {
+    final f = await Fixture.make();
+    final older = Completer<List<LifeCard>>();
+    try {
+      f.repository.pendingCards = older.future;
+      final rejected = reject(f.snapshots.load(), '较新的查询');
+      await Future<void>.delayed(Duration.zero);
+      f.repository.pendingCards = null;
+      f.repository.cards.add(
+        card(
+          const CardDraft(title: 'Newer public title', content: 'Public body'),
+        ),
+      );
+      await f.snapshots.load();
+      older.complete([
+        card(
+          const CardDraft(title: 'Older public title', content: 'Public body'),
+        ),
+      ]);
+      await rejected;
+      check(
+        f.snapshots.current!.cards.single.title == 'Newer public title',
+        'Old result overwrote fresh snapshot',
+      );
+    } finally {
+      f.dispose();
+    }
+  },
+};
+
 Map<String, Future<void> Function()> ownerAgentChecks() => {
   'headless owner profile command shares the gate and lock discards completion':
       () async {
@@ -549,7 +623,11 @@ Map<String, Future<void> Function()> ownerAgentChecks() => {
 };
 
 Future<void> main() async {
-  for (final entry in {...recordsChecks(), ...ownerAgentChecks()}.entries) {
+  for (final entry in {
+    ...recordsChecks(),
+    ...ownerAgentChecks(),
+    ...snapshotPublicationChecks(),
+  }.entries) {
     await entry.value();
     stdout.writeln('PASS ${entry.key}');
   }

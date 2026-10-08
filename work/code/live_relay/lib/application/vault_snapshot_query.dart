@@ -64,7 +64,8 @@ class VaultSnapshotQuery {
   StreamSubscription<void>? _sessionSubscription;
   VaultSnapshot? _current;
   bool _disposed = false;
-  final _changes = StreamController<VaultSnapshot>.broadcast();
+  int _latestLoad = 0;
+  final _changes = StreamController<VaultSnapshot>.broadcast(sync: true);
   Stream<VaultSnapshot> get changes => _changes.stream;
   VaultSnapshot? get current =>
       !_disposed &&
@@ -74,6 +75,7 @@ class VaultSnapshotQuery {
       : null;
   void dispose() {
     _disposed = true;
+    _latestLoad++;
     _current = null;
     unawaited(_sessionSubscription?.cancel());
     unawaited(_changes.close());
@@ -88,6 +90,7 @@ class VaultSnapshotQuery {
 
   Future<VaultSnapshot> load({bool includeOwnerProfile = true}) async {
     if (_disposed || !vault.isUnlocked) throw StateError('请先解锁资料库');
+    final request = ++_latestLoad;
     final generation = vault.sessionGeneration;
     final snapshot = await inspectRepository(
       vault.repository,
@@ -99,8 +102,16 @@ class VaultSnapshotQuery {
         generation != vault.sessionGeneration) {
       throw StateError('资料库已关闭或重开，本次查询已丢弃');
     }
+    if (request != _latestLoad) throw StateError('较新的查询已取代本次刷新');
     _current = snapshot;
     _changes.add(snapshot);
+    // A synchronous observer may lock/dispose/reopen during publication.
+    if (_disposed ||
+        !vault.isUnlocked ||
+        generation != vault.sessionGeneration) {
+      throw StateError('资料库已关闭或重开，本次查询已丢弃');
+    }
+    if (request != _latestLoad) throw StateError('较新的查询已取代本次刷新');
     return snapshot;
   }
 
