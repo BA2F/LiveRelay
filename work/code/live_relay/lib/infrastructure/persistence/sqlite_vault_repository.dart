@@ -56,6 +56,16 @@ class SqliteVaultRepository implements VaultRepository {
   }
 
   @override
+  Future<void> writeLocalValues(Map<String, String> values) {
+    final input = Map<String, String>.unmodifiable(values);
+    return database.transaction(() async {
+      for (final entry in input.entries) {
+        await writeLocalValue(entry.key, entry.value);
+      }
+    });
+  }
+
+  @override
   Future<String?> readChunkedLocalValue(String key) =>
       database.transaction(() async {
         final raw = await readLocalValue(key);

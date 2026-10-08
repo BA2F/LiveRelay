@@ -167,7 +167,7 @@ AppController createAppController([
       snapshots: snapshots,
     ),
     session: session,
-    handoff: LocalHandoffService(session),
+    handoff: LocalHandoffService(session, originals: session),
     recipient: createRecipientService(() async {
       final support =
           applicationDirectory ?? await getApplicationSupportDirectory();

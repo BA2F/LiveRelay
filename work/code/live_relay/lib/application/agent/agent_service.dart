@@ -6,7 +6,7 @@ import '../../core/ai/review_action_proposal.dart';
 import '../../core/domain/entities.dart';
 import '../../core/ports/ai_conversation_provider.dart';
 import '../../core/ports/ai_provider.dart';
-import '../../core/ports/unlocked_vault.dart';
+import '../../core/ports/vault_lifecycle.dart';
 import '../draft_agent_service.dart';
 import 'agent_settings_service.dart';
 
@@ -21,7 +21,7 @@ class AgentService {
     required this.provider,
     this.drafts,
   });
-  final UnlockedVault vault;
+  final VaultLifecycle vault;
   final AgentSettingsService configuration;
   final AiProvider provider;
   final DraftAgentService? drafts;
@@ -57,6 +57,7 @@ class AgentService {
       throw const FormatException('服务配置正在保存，请等待保存完成后重新检查本轮发送范围');
     }
     if (!vault.isUnlocked) throw StateError('请先解锁资料库');
+    if (vault.isMaintaining) throw StateError('资料库维护正在进行');
     final settings = configuration.settings;
     if (!settings.isConfigured) {
       throw const FormatException('请先配置 AI 服务；也可以在我的资料中手动新建卡片');
@@ -159,34 +160,43 @@ class AgentService {
     requireResponses: true,
   );
 
-  Future<int> organizeOriginal(
-    VaultBlob blob,
-    List<SensitiveMark> marks,
-  ) => _request((request) async {
-    await vault.repository.saveSensitiveMarks(blob.id, marks);
-    request.ensureCurrent();
-    final settings = request.settings;
-    final payload = _privacy.tokenize(lines: blob.ocrLines, marks: marks);
-    final response = await provider.organize(
-      AiProviderRequest(
-        endpoint: Uri.parse(settings.endpoint),
-        apiKey: request.key,
-        model: settings.model,
-        redactedText: payload.redactedText,
-        protocol: settings.protocol,
-        cancellation: request.cancellation,
-      ),
-    );
-    request.ensureCurrent();
-    final suggestions = _privacy.validateAndRehydrate(response, payload);
-    final cards = await vault.repository.saveAiSuggestions(
-      blob.id,
-      suggestions.map((s) => s.toDraft()).toList(growable: false),
-      providerLabel:
-          '获授权云 AI · ${settings.model} · ${Uri.parse(settings.endpoint).host}',
-    );
-    return cards.length;
-  });
+  Future<int> organizeOriginal(VaultBlob blob, List<SensitiveMark> marks) {
+    final input = List<SensitiveMark>.unmodifiable(marks);
+    final payload = _privacy.tokenize(lines: blob.ocrLines, marks: input);
+    return _request((request) async {
+      await vault.runMutation(() async {
+        request.ensureCurrent();
+        await vault.repository.saveSensitiveMarks(blob.id, input);
+        request.ensureCurrent();
+      });
+      request.ensureCurrent();
+      final settings = request.settings;
+      final response = await provider.organize(
+        AiProviderRequest(
+          endpoint: Uri.parse(settings.endpoint),
+          apiKey: request.key,
+          model: settings.model,
+          redactedText: payload.redactedText,
+          protocol: settings.protocol,
+          cancellation: request.cancellation,
+        ),
+      );
+      request.ensureCurrent();
+      final suggestions = _privacy.validateAndRehydrate(response, payload);
+      final cards = await vault.runMutation(() async {
+        request.ensureCurrent();
+        final saved = await vault.repository.saveAiSuggestions(
+          blob.id,
+          suggestions.map((s) => s.toDraft()).toList(growable: false),
+          providerLabel:
+              '获授权云 AI · ${settings.model} · ${Uri.parse(settings.endpoint).host}',
+        );
+        request.ensureCurrent();
+        return saved;
+      });
+      return cards.length;
+    });
+  }
 
   void dispose() {
     cancel();

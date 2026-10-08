@@ -8,7 +8,8 @@ import '../core/identity/hpke.dart';
 import '../core/security/header_encoding.dart';
 import '../core/security/owner_crypto.dart';
 import 'release_preview.dart';
-import 'vault_session.dart';
+import '../core/ports/vault_lifecycle.dart';
+import '../core/ports/vault_originals.dart';
 
 import 'package:cryptography/cryptography.dart';
 
@@ -27,22 +28,80 @@ class ScopedRecord {
 }
 
 class LocalHandoffService {
-  LocalHandoffService(this.session);
-  final VaultSession session;
+  LocalHandoffService(this.session, {required this.originals});
+  final VaultLifecycle session;
+  final VaultOriginals originals;
+  void _current(int generation) {
+    if (!session.isUnlocked || generation != session.sessionGeneration) {
+      throw StateError('会话已锁定或重开');
+    }
+  }
+
+  Future<T> _owned<T>(Future<T> Function() operation) async {
+    T? result;
+    try {
+      return await session.runMutation(() async {
+        final generation = session.sessionGeneration;
+        final value = await operation();
+        result = value;
+        _current(generation);
+        return value;
+      });
+    } on Object {
+      final late = result;
+      if (late is Uint8List) OwnerCrypto.wipe(late);
+      rethrow;
+    }
+  }
+
+  Future<void> saveProfile(String name, String contact, String note) =>
+      _owned(() => _saveProfile(name, contact, note));
+  Future<Map<String, Object?>> publicIdentity() => _owned(_publicIdentity);
+  Future<Uint8List> createChallenge(
+    Map<String, Object?> recipient,
+    String fingerprint,
+  ) {
+    final input = Map<String, Object?>.unmodifiable(recipient);
+    return _owned(() => _createChallenge(input, fingerprint));
+  }
+
+  Future<void> acceptProof(Map<String, Object?> response) {
+    final input = Map<String, Object?>.unmodifiable(response);
+    return _owned(() => _acceptProof(input));
+  }
+
+  Future<Uint8List> exportScope(
+    String fingerprint,
+    List<ScopedRecord> selections,
+  ) {
+    final input = List<ScopedRecord>.unmodifiable([
+      for (final selection in selections)
+        ScopedRecord(
+          selection.type,
+          selection.id,
+          selection.level,
+          history: selection.history,
+          originalIds: List.unmodifiable(selection.originalIds),
+        ),
+    ]);
+    return _owned(() => _exportScope(fingerprint, input));
+  }
+
   VaultRepository get _repository {
     if (!session.isUnlocked) throw StateError('请先解锁所有者资料库');
     return session.repository;
   }
 
-  Future<void>? _initialization;
   Future<Map<String, Object?>> profile() async {
+    final generation = session.sessionGeneration;
     final raw = await _repository.readLocalValue('identity.profile');
+    _current(generation);
     return raw == null
         ? {'name': '本人', 'contact': '', 'note': ''}
         : Map<String, Object?>.from(jsonDecode(raw) as Map);
   }
 
-  Future<void> saveProfile(String name, String contact, String note) async {
+  Future<void> _saveProfile(String name, String contact, String note) async {
     LocalIdentity.validateName(name);
     if (contact.length > 300 || note.length > 2000) {
       throw const FormatException('身份资料过长');
@@ -54,13 +113,13 @@ class LocalHandoffService {
   }
 
   Future<void> _initializeOwner() async {
-    final r = _repository, epoch = session.operationEpoch;
+    final r = _repository, epoch = session.sessionGeneration;
     if (await r.readLocalValue('handoff.owner') != null) return;
     final identity = await LocalIdentity.create(
       (await profile())['name'] as String,
     );
     try {
-      if (epoch != session.operationEpoch) throw StateError('会话已锁定');
+      if (epoch != session.sessionGeneration) throw StateError('会话已锁定');
       await r.writeLocalValue(
         'handoff.owner',
         jsonEncode(await identity.privateData()),
@@ -71,12 +130,7 @@ class LocalHandoffService {
   }
 
   Future<LocalIdentity> _owner() async {
-    final current = _initialization ??= _initializeOwner();
-    try {
-      await current;
-    } finally {
-      if (identical(current, _initialization)) _initialization = null;
-    }
+    await _initializeOwner();
     final stored = await _repository.readLocalValue('handoff.owner');
     return LocalIdentity.fromPrivate(jsonDecode(stored!) as Map);
   }
@@ -87,7 +141,7 @@ class LocalHandoffService {
       utf8.encode((await profile())['name'] as String),
     ),
   };
-  Future<Map<String, Object?>> publicIdentity() async {
+  Future<Map<String, Object?>> _publicIdentity() async {
     final owner = await _owner();
     try {
       return await _public(owner);
@@ -97,11 +151,13 @@ class LocalHandoffService {
   }
 
   Future<Map<String, Object?>> recipients() async {
+    final generation = session.sessionGeneration;
     final raw = await _repository.readLocalValue('handoff.recipients');
+    _current(generation);
     return raw == null ? {} : Map<String, Object?>.from(jsonDecode(raw) as Map);
   }
 
-  Future<Uint8List> createChallenge(
+  Future<Uint8List> _createChallenge(
     Map<String, Object?> recipient,
     String confirmedFingerprint,
   ) async {
@@ -109,7 +165,7 @@ class LocalHandoffService {
     if (confirmedFingerprint != fp) {
       throw const FormatException('请通过独立渠道核对并完整输入接收者指纹');
     }
-    final epoch = session.operationEpoch;
+    final epoch = session.sessionGeneration;
     final owner = await _owner();
     final random = OwnerCrypto.random(32);
     try {
@@ -131,7 +187,7 @@ class LocalHandoffService {
         ...unsigned,
         'signature': await owner.sign(HeaderEncoding.encode(unsigned)),
       };
-      if (epoch != session.operationEpoch) throw StateError('会话已锁定');
+      if (epoch != session.sessionGeneration) throw StateError('会话已锁定');
       await _repository.writeLocalValue(
         'handoff.challenge',
         jsonEncode({
@@ -151,8 +207,8 @@ class LocalHandoffService {
     }
   }
 
-  Future<void> acceptProof(Map<String, Object?> response) async {
-    final r = _repository, epoch = session.operationEpoch;
+  Future<void> _acceptProof(Map<String, Object?> response) async {
+    final r = _repository, epoch = session.sessionGeneration;
     final raw = await r.readLocalValue('handoff.challenge');
     if (raw == null || raw == '{}') throw StateError('没有待验证挑战');
     final pending = jsonDecode(raw) as Map;
@@ -192,19 +248,21 @@ class LocalHandoffService {
       'public': recipient,
       'verifiedAt': DateTime.now().toUtc().toIso8601String(),
     };
-    if (epoch != session.operationEpoch) throw StateError('身份验证已取消');
-    await r.writeLocalValue('handoff.recipients', jsonEncode(bindings));
-    await r.writeLocalValue('handoff.challenge', '{}');
+    if (epoch != session.sessionGeneration) throw StateError('身份验证已取消');
+    await r.writeLocalValues({
+      'handoff.recipients': jsonEncode(bindings),
+      'handoff.challenge': '{}',
+    });
   }
 
-  Future<Uint8List> exportScope(
+  Future<Uint8List> _exportScope(
     String recipientFingerprint,
     List<ScopedRecord> selections,
   ) async {
     if (!session.isUnlocked || selections.isEmpty || selections.length > 200) {
       throw StateError('请选择 1–200 条明确授权的记录');
     }
-    final r = _repository, epoch = session.operationEpoch;
+    final r = _repository, epoch = session.sessionGeneration;
     final binding = (await recipients())[recipientFingerprint];
     if (binding is! Map) throw StateError('请先验证接收者身份');
     final recipient = Map<String, Object?>.from(binding['public'] as Map);
@@ -253,7 +311,7 @@ class LocalHandoffService {
             if (total > 64 * 1024 * 1024) {
               throw StateError('本地交接原件总计不能超过 64 MB');
             }
-            final clear = await session.readOriginal(blob);
+            final clear = await originals.readOriginal(blob);
             try {
               files[id] = {
                 'name': blob.originalName,
@@ -332,7 +390,7 @@ class LocalHandoffService {
         ...unsigned,
         'signature': await owner.sign(HeaderEncoding.encode(unsigned)),
       });
-      if (epoch != session.operationEpoch) {
+      if (epoch != session.sessionGeneration) {
         OwnerCrypto.wipe(bytes);
         throw StateError('交接已取消');
       }

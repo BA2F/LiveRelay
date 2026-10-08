@@ -22,6 +22,7 @@ import 'package:live_relay/core/ports/ai_conversation_provider.dart';
 import 'package:live_relay/core/ports/ai_provider.dart';
 import 'package:live_relay/core/ports/ai_settings_repository.dart';
 import 'package:live_relay/core/ports/unlocked_vault.dart';
+import 'package:live_relay/core/ports/vault_lifecycle.dart';
 import 'package:live_relay/core/ports/vault_repository.dart';
 
 void require(bool value, String message) {
@@ -526,7 +527,15 @@ class HeadlessAiSettings implements AiSettingsRepository {
   );
 }
 
-class _Vault implements UnlockedVault {
+class _Vault implements VaultLifecycle {
+  @override
+  Stream<void> get changes => const Stream.empty();
+  @override
+  bool get isMaintaining => false;
+  @override
+  bool get isWriting => false;
+  @override
+  Future<T> runMutation<T>(Future<T> Function() operation) => operation();
   @override
   bool isUnlocked = true;
   @override

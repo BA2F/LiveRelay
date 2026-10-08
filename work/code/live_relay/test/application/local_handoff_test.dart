@@ -1,4 +1,5 @@
 import 'package:live_relay/infrastructure/app_composition.dart';
+
 import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
@@ -35,7 +36,7 @@ void main() {
       await session.prepare();
       await session.openWithKey(Uint8List(32));
       session.markUnlocked();
-      final owner = LocalHandoffService(session);
+      final owner = LocalHandoffService(session, originals: session);
       await owner.saveProfile('虚构所有者', 'fictional', 'private profile');
       await receiver.initialize();
       await receiver.create('虚构接收者', 'recipient-password');
@@ -54,6 +55,16 @@ void main() {
       final proof = jsonDecode(
         utf8.decode(await receiver.answerChallenge(challenge, ownerFp)),
       ) as Map<String, Object?>;
+      // Binding and challenge consumption are one durable transaction.
+      await repository.database.customStatement(
+        "CREATE TRIGGER fixture_fail_challenge BEFORE UPDATE ON vault_local_state WHEN NEW.name='handoff.challenge' BEGIN SELECT RAISE(ABORT, 'fixture challenge denied'); END",
+      );
+      await expectLater(owner.acceptProof(proof), throwsA(anything));
+      expect(await owner.recipients(), isEmpty);
+      expect(await repository.readLocalValue('handoff.challenge'), isNot('{}'));
+      await repository.database.customStatement(
+        'DROP TRIGGER fixture_fail_challenge',
+      );
       await owner.acceptProof(proof);
       await expectLater(owner.acceptProof(proof), throwsStateError);
       final sourceAttachment = ConversationAttachment.read(

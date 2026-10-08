@@ -74,8 +74,9 @@ void main() {
         if (file.startsWith('lib/core/')) {
           for (final m in directives.allMatches(sources[file]!)) {
             final target = localTarget(file, m[1]!);
-            if (target != null && !target.startsWith('lib/core/'))
+            if (target != null && !target.startsWith('lib/core/')) {
               violations.add('$file -> $target');
+            }
           }
           inspect(file, file, {});
         } else if (file.startsWith('lib/application/') &&

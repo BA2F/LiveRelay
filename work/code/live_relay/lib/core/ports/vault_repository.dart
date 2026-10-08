@@ -12,6 +12,9 @@ abstract interface class VaultRepository {
   Future<void> importLocalState(Uint8List bytes);
   Future<String?> readLocalValue(String key);
   Future<void> writeLocalValue(String key, String value);
+
+  /// All values commit together, including challenge consumption and binding.
+  Future<void> writeLocalValues(Map<String, String> values);
   Future<List<LifeCard>> listCards({
     String query = '',
     CardKind? kind,
