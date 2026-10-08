@@ -380,6 +380,14 @@ class FakeVault implements VaultMaintenance {
   );
   @override
   get deviceProtection => null;
+  @override
+  Stream<void> get changes => const Stream.empty();
+  @override
+  bool get isMaintaining => maintenanceBusy;
+  @override
+  bool get isWriting => false;
+  @override
+  Future<T> runMutation<T>(Future<T> Function() operation) => operation();
   bool maintenanceBusy = false;
   int suspends = 0, opens = 0, closes = 0, legacyDisables = 0;
   Uint8List? proof, borrowedOldKey, borrowedNextKey;

@@ -8,6 +8,7 @@ import '../application/app_controller.dart';
 import '../application/agent/agent_settings_service.dart';
 import '../application/agent/agent_service.dart';
 import '../application/agent/agent_review_service.dart';
+import '../application/agent/conversation_application.dart';
 import '../core/ports/ai_settings_repository.dart';
 import '../application/vault_backup_service.dart';
 import '../application/vault_session.dart';
@@ -114,7 +115,21 @@ AppController createAppController([
     provider: selectedAi,
     drafts: DraftAgentService(selectedAi, commands: commands),
   );
+  final review = AgentReviewService(session);
+  final snapshots = VaultSnapshotQuery(session);
+  final content = VaultContentService(
+    vault: session,
+    ocr: ocrProvider ?? GoogleMlKitOcrProvider(),
+  );
   return AppController(
+    conversationApplication: ConversationApplication(
+      vault: session,
+      settings: agentSettings,
+      agent: agent,
+      review: review,
+      content: content,
+      snapshots: snapshots,
+    ),
     session: session,
     handoff: LocalHandoffService(session),
     recipient: RecipientService(() async {
@@ -127,14 +142,11 @@ AppController createAppController([
       () => VaultRestoreTransaction(session.directory),
     ),
     backup: backup,
-    content: VaultContentService(
-      vault: session,
-      ocr: ocrProvider ?? GoogleMlKitOcrProvider(),
-    ),
+    content: content,
     agentSettings: agentSettings,
     agent: agent,
-    agentReview: AgentReviewService(session),
-    snapshotQuery: VaultSnapshotQuery(session),
+    agentReview: review,
+    snapshotQuery: snapshots,
     speechService: speech,
     prepareEnvironment: () async {
       await _prepareEnvironment();

@@ -453,17 +453,17 @@ class _Fixture {
     this.provider,
     this.agent,
   );
-  final _Settings store;
+  final HeadlessAiSettings store;
   final AgentSettingsService configuration;
   final _Vault vault;
-  final _Provider provider;
+  final HeadlessAiProvider provider;
   final AgentService agent;
   static Future<_Fixture> create() async {
-    final store = _Settings();
+    final store = HeadlessAiSettings();
     final configuration = AgentSettingsService(store);
     await configuration.initialize();
     final vault = _Vault();
-    final provider = _Provider();
+    final provider = HeadlessAiProvider();
     return _Fixture(
       store,
       configuration,
@@ -483,7 +483,7 @@ class _Fixture {
   }
 }
 
-class _Settings implements AiSettingsRepository {
+class HeadlessAiSettings implements AiSettingsRepository {
   AiProviderSettings selected = const AiProviderSettings(
     endpoint: 'https://fixture.invalid/chat',
     model: 'fixture-model',
@@ -538,7 +538,7 @@ class _Vault implements UnlockedVault {
   }
 }
 
-class _Provider implements AiProvider, AiConversationProvider {
+class HeadlessAiProvider implements AiProvider, AiConversationProvider {
   final requests = <AiProviderRequest>[];
   final replies = <Completer<AiConversationResponse>>[];
   Future<void> waitForRequests(int expected) async {
@@ -607,12 +607,12 @@ class _SnapshotVault implements UnlockedVault {
   bool isUnlocked = true;
   @override
   int sessionGeneration = 1;
-  final store = _SnapshotRepository();
+  final store = HeadlessSnapshotRepository();
   @override
   VaultRepository get repository => store;
 }
 
-class _SnapshotRepository extends _Repository {
+class HeadlessSnapshotRepository extends _Repository {
   Future<List<LifeCard>>? pendingCards;
   @override
   Future<List<LifeCard>> listCards({

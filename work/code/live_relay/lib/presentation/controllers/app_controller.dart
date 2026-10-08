@@ -35,6 +35,7 @@ import '../../core/security/vault_key_manager.dart';
 import '../../core/ai/ai_provider_settings.dart';
 import '../../application/agent/agent_settings_service.dart';
 import '../../application/agent/agent_service.dart';
+import '../../application/agent/conversation_application.dart';
 import '../../application/agent/agent_review_service.dart';
 import '../../application/import/edge_password_csv_importer.dart';
 
@@ -51,6 +52,7 @@ class AppController extends ChangeNotifier implements PreviewSession {
     required this._snapshotQuery,
     required this._prepareEnvironment,
     this._speechService,
+    this._conversationApplication,
     this._securityService,
     this.handoff,
     this.recipient,
@@ -58,6 +60,20 @@ class AppController extends ChangeNotifier implements PreviewSession {
     _agentSubscriptions = [
       _agent.activity.listen((_) => notifyListeners()),
       _agentSettings.changes.listen((_) => notifyListeners()),
+      _session.changes.listen((_) {
+        if (!_disposed) {
+          if (!_session.isUnlocked) _clearUnlockedData();
+          notifyListeners();
+        }
+      }),
+      _snapshotQuery.changes.listen((snapshot) {
+        if (!_disposed &&
+            isUnlocked &&
+            snapshot.sessionGeneration == _session.sessionGeneration) {
+          _applySnapshot(snapshot);
+          notifyListeners();
+        }
+      }),
       if (_securityService != null)
         _securityService.changes.listen((_) => notifyListeners()),
     ];
@@ -169,6 +185,17 @@ class AppController extends ChangeNotifier implements PreviewSession {
   final AgentService _agent;
   final AgentReviewService _agentReview;
   final VaultSnapshotQuery _snapshotQuery;
+  final ConversationApplication? _conversationApplication;
+  late final ConversationApplication conversationApplication =
+      _conversationApplication ??
+      ConversationApplication(
+        vault: _session,
+        settings: _agentSettings,
+        agent: _agent,
+        review: _agentReview,
+        content: _content,
+        snapshots: _snapshotQuery,
+      );
   late final List<StreamSubscription<Object?>> _agentSubscriptions;
   final Future<void> Function() _prepareEnvironment;
 
@@ -186,7 +213,9 @@ class AppController extends ChangeNotifier implements PreviewSession {
   void unregisterPreviewCleanup(Future<void> Function() cleanup) =>
       exitCleanups.remove(cleanup);
   Future<AppExitResponse> Function()? desktopExitRequested;
-  bool isBusy = false;
+  bool _uiBusy = false;
+  bool get isBusy => _uiBusy || _session.isWriting || _session.isMaintaining;
+  set isBusy(bool value) => _uiBusy = value;
   bool agentCommandsAvailable = false;
   AiProviderSettings get aiSettings => _agentSettings.settings;
   List<AiProviderSettings> get aiProfiles => _agentSettings.profiles;
@@ -495,16 +524,20 @@ class AppController extends ChangeNotifier implements PreviewSession {
     required BlobMediaKind mediaKind,
   }) async {
     late LifeCard card;
-    await _run(() async {
-      card = await _content.importOriginal(
-        bytes: bytes,
-        originalName: originalName,
-        mimeType: mimeType,
-        mediaKind: mediaKind,
-      );
-      await _refreshUnlockedData();
-    });
-    return card;
+    try {
+      await _runWrite(() async {
+        card = await _content.importOriginal(
+          bytes: bytes,
+          originalName: originalName,
+          mimeType: mimeType,
+          mediaKind: mediaKind,
+        );
+        await _refreshUnlockedData();
+      });
+      return card;
+    } finally {
+      bytes.fillRange(0, bytes.length, 0);
+    }
   }
 
   Future<Uint8List> readOriginal(String blobId) =>
@@ -512,7 +545,7 @@ class AppController extends ChangeNotifier implements PreviewSession {
 
   Future<LifeCard> runOcr(String blobId) async {
     late LifeCard card;
-    await _run(() async {
+    await _runWrite(() async {
       card = await _content.runOcr(blobId);
       await _refreshUnlockedData();
     });
@@ -595,8 +628,8 @@ class AppController extends ChangeNotifier implements PreviewSession {
   ) => _agent.prepare(text, marks);
   Future<String?> readConversationState() =>
       _requireRepository().readChunkedLocalValue('agent.conversation.v1');
-  Future<void> writeConversationState(String value) => _requireRepository()
-      .writeChunkedLocalValue('agent.conversation.v1', value);
+  Future<void> writeConversationState(String value) =>
+      conversationApplication.writeConversationState(value);
   Future<AiConversationResponse> converse(
     String text,
     List<Map<String, Object?>> history, {
@@ -627,7 +660,7 @@ class AppController extends ChangeNotifier implements PreviewSession {
     List<String> originalIds = const [],
     ReviewSource? reviewSource,
     List<ReviewActions> actions = const [],
-  }) => _run(() async {
+  }) => _runWrite(() async {
     await _agentReview.accept(
       reviewId,
       sourceText,
@@ -640,15 +673,16 @@ class AppController extends ChangeNotifier implements PreviewSession {
     await _refreshUnlockedData();
   });
 
-  Future<void> saveAgentDrafts(AgentDraftBatch batch) => _run(() async {
+  Future<void> saveAgentDrafts(AgentDraftBatch batch) => _runWrite(() async {
     await _agentReview.saveDrafts(batch);
     await _refreshUnlockedData();
   });
 
-  Future<void> saveSpeechDraft(String text, {String? blobId}) => _run(() async {
-    await _content.saveSpeechDraft(text, blobId: blobId);
-    await _refreshUnlockedData();
-  });
+  Future<void> saveSpeechDraft(String text, {String? blobId}) =>
+      _runWrite(() async {
+        await _content.saveSpeechDraft(text, blobId: blobId);
+        await _refreshUnlockedData();
+      });
 
   Future<List<CardRevision>> cardHistory(String id) =>
       _requireRepository().cardHistory(id);
@@ -763,6 +797,10 @@ class AppController extends ChangeNotifier implements PreviewSession {
         snapshot.sessionGeneration != _session.sessionGeneration) {
       throw StateError('资料库已关闭或重开，本次查询已丢弃');
     }
+    _applySnapshot(snapshot);
+  }
+
+  void _applySnapshot(VaultSnapshot snapshot) {
     cards = snapshot.cards;
     cardReferences = snapshot.references;
     blobs = snapshot.blobs;
@@ -778,13 +816,18 @@ class AppController extends ChangeNotifier implements PreviewSession {
     if (handoff != null) ownerProfile = snapshot.ownerProfile;
   }
 
+  Future<void> _runWrite(Future<void> Function() action) =>
+      _run(() => _session.runMutation(action));
+
   Future<void> _mutate(
     Future<Object?> Function(VaultRepository repository) action,
   ) {
-    return _run(() async {
-      await action(_requireRepository());
-      await _refreshUnlockedData();
-    });
+    return _run(
+      () => _session.runMutation(() async {
+        await action(_requireRepository());
+        await _refreshUnlockedData();
+      }),
+    );
   }
 
   VaultRepository _requireRepository() => _session.repository;
@@ -824,6 +867,7 @@ class AppController extends ChangeNotifier implements PreviewSession {
     for (final subscription in _agentSubscriptions) {
       unawaited(subscription.cancel());
     }
+    _snapshotQuery.dispose();
     _agent.dispose();
     _agentSettings.dispose();
     _securityService?.dispose();

@@ -4,6 +4,7 @@ import 'dart:convert';
 import '../core/domain/card_references.dart';
 import '../core/domain/entities.dart';
 import '../core/ports/unlocked_vault.dart';
+import '../core/ports/vault_lifecycle.dart';
 import '../core/ports/vault_repository.dart';
 
 /// A typed application query result. Collection structure is immutable; UI
@@ -49,7 +50,35 @@ class VaultSnapshot {
 }
 
 class VaultSnapshotQuery {
-  const VaultSnapshotQuery(this.vault);
+  VaultSnapshotQuery(this.vault) {
+    final source = vault;
+    if (source is VaultLifecycle) {
+      _sessionSubscription = source.changes.listen((_) {
+        if (!vault.isUnlocked ||
+            _current?.sessionGeneration != vault.sessionGeneration) {
+          _current = null;
+        }
+      });
+    }
+  }
+  StreamSubscription<void>? _sessionSubscription;
+  VaultSnapshot? _current;
+  bool _disposed = false;
+  final _changes = StreamController<VaultSnapshot>.broadcast();
+  Stream<VaultSnapshot> get changes => _changes.stream;
+  VaultSnapshot? get current =>
+      !_disposed &&
+          vault.isUnlocked &&
+          _current?.sessionGeneration == vault.sessionGeneration
+      ? _current
+      : null;
+  void dispose() {
+    _disposed = true;
+    _current = null;
+    unawaited(_sessionSubscription?.cancel());
+    unawaited(_changes.close());
+  }
+
   final UnlockedVault vault;
   static const defaultProfile = <String, Object?>{
     'name': '本人',
@@ -58,16 +87,20 @@ class VaultSnapshotQuery {
   };
 
   Future<VaultSnapshot> load({bool includeOwnerProfile = true}) async {
-    if (!vault.isUnlocked) throw StateError('请先解锁资料库');
+    if (_disposed || !vault.isUnlocked) throw StateError('请先解锁资料库');
     final generation = vault.sessionGeneration;
     final snapshot = await inspectRepository(
       vault.repository,
       sessionGeneration: generation,
       includeOwnerProfile: includeOwnerProfile,
     );
-    if (!vault.isUnlocked || generation != vault.sessionGeneration) {
+    if (_disposed ||
+        !vault.isUnlocked ||
+        generation != vault.sessionGeneration) {
       throw StateError('资料库已关闭或重开，本次查询已丢弃');
     }
+    _current = snapshot;
+    _changes.add(snapshot);
     return snapshot;
   }
 

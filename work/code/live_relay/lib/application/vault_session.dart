@@ -37,17 +37,52 @@ class VaultSession implements VaultMaintenance {
 
   final VaultInstallationFactory _installationFactory;
   bool _maintenanceBusy = false;
+  bool _writeBusy = false;
   bool _disposed = false;
+  final _changes = StreamController<void>.broadcast(sync: true);
+  @override
+  Stream<void> get changes => _changes.stream;
+  @override
+  bool get isMaintaining => _maintenanceBusy;
+  @override
+  bool get isWriting => _writeBusy;
+  @override
+  Future<T> runMutation<T>(Future<T> Function() operation) async {
+    if (_disposed || !isUnlocked) throw StateError('请先解锁资料库');
+    if (_maintenanceBusy || _writeBusy) throw StateError('请等待当前资料库操作完成');
+    final epoch = operationEpoch;
+    _writeBusy = true;
+    _changed();
+    try {
+      final result = await operation();
+      if (_disposed || epoch != operationEpoch) throw StateError('资料库操作已取消');
+      return result;
+    } finally {
+      _writeBusy = false;
+      _changed();
+    }
+  }
+
+  void _changed() {
+    if (!_changes.isClosed) _changes.add(null);
+  }
+
+  void _setState(VaultSessionState value) {
+    _state = value;
+    _changed();
+  }
 
   @override
   Future<T> exclusiveMaintenance<T>(Future<T> Function() operation) async {
     if (_disposed) throw StateError('资料库会话已销毁');
-    if (_maintenanceBusy) throw StateError('资料库维护正在进行');
+    if (_maintenanceBusy || _writeBusy) throw StateError('资料库维护正在进行');
     _maintenanceBusy = true;
+    _changed();
     try {
       return await operation();
     } finally {
       _maintenanceBusy = false;
+      _changed();
     }
   }
 
@@ -106,24 +141,24 @@ class VaultSession implements VaultMaintenance {
     } on Object {
       _biometricAvailable = false;
     }
-    _state = _header == null
-        ? VaultSessionState.needsSetup
-        : VaultSessionState.locked;
+    _setState(
+      _header == null ? VaultSessionState.needsSetup : VaultSessionState.locked,
+    );
   }
 
   @override
-  void fail() => _state = VaultSessionState.failure;
+  void fail() => _setState(VaultSessionState.failure);
   @override
-  void markUnlocked() => _state = VaultSessionState.unlocked;
+  void markUnlocked() => _setState(VaultSessionState.unlocked);
   @override
   Future<void> reloadHeader() async =>
       _header = await _keyManager.readMetadata();
   @override
   Future<void> inspectRecoveredHeader() async {
     await reloadHeader();
-    _state = _header == null
-        ? VaultSessionState.needsSetup
-        : VaultSessionState.locked;
+    _setState(
+      _header == null ? VaultSessionState.needsSetup : VaultSessionState.locked,
+    );
   }
 
   Future<void> loadPassphraseCodec() async {
@@ -161,7 +196,7 @@ class VaultSession implements VaultMaintenance {
       _wipe(key);
     }
     await reloadHeader();
-    _state = VaultSessionState.unlocked;
+    _setState(VaultSessionState.unlocked);
   }
 
   Future<void> unlockWithPassword(String password) async {
@@ -186,7 +221,7 @@ class VaultSession implements VaultMaintenance {
     } finally {
       _wipe(key);
     }
-    _state = VaultSessionState.unlocked;
+    _setState(VaultSessionState.unlocked);
   }
 
   @override
@@ -240,7 +275,7 @@ class VaultSession implements VaultMaintenance {
         await close();
         throw StateError('解锁已取消');
       }
-      _state = VaultSessionState.unlocked;
+      _setState(VaultSessionState.unlocked);
     } finally {
       _wipe(key);
     }
@@ -311,7 +346,7 @@ class VaultSession implements VaultMaintenance {
         },
         closeInstalled: close,
       );
-      _state = VaultSessionState.unlocked;
+      _setState(VaultSessionState.unlocked);
     } on Object {
       await close();
       if (installationStarted) {
@@ -390,7 +425,7 @@ class VaultSession implements VaultMaintenance {
       _keyManager.unlockWithRecovery(text);
   @override
   void markRecovering() {
-    _state = VaultSessionState.recovering;
+    _setState(VaultSessionState.recovering);
   }
 
   Future<void> unlockWithRecovery(String encodedRecovery) async {
@@ -409,7 +444,7 @@ class VaultSession implements VaultMaintenance {
     } finally {
       _wipe(key);
     }
-    _state = VaultSessionState.recovering;
+    _setState(VaultSessionState.recovering);
   }
 
   Future<void> unlockWithBiometric() async {
@@ -446,7 +481,7 @@ class VaultSession implements VaultMaintenance {
     } finally {
       _wipe(key);
     }
-    _state = VaultSessionState.unlocked;
+    _setState(VaultSessionState.unlocked);
   }
 
   Future<void> setBiometricEnabled(bool enabled) async {
@@ -528,6 +563,7 @@ class VaultSession implements VaultMaintenance {
   @override
   Future<void> suspendDatabase() async {
     _sessionGeneration++;
+    _changed();
     final repository = _repository;
     _repository = null;
     if (repository != null) await repository.close();
@@ -535,6 +571,7 @@ class VaultSession implements VaultMaintenance {
 
   @override
   Future<void> close() async {
+    if (state != VaultSessionState.failure) _setState(VaultSessionState.locked);
     _sessionGeneration++;
     _deviceOperationEpoch++;
     try {
@@ -546,7 +583,9 @@ class VaultSession implements VaultMaintenance {
       await suspendDatabase();
     } finally {
       _clearSessionKey();
-      if (state != VaultSessionState.failure) _state = VaultSessionState.locked;
+      if (state != VaultSessionState.failure) {
+        _setState(VaultSessionState.locked);
+      }
     }
   }
 
@@ -628,7 +667,9 @@ class VaultSession implements VaultMaintenance {
 
   void dispose() {
     _disposed = true;
-    if (_state != VaultSessionState.failure) _state = VaultSessionState.locked;
+    if (_state != VaultSessionState.failure) {
+      _setState(VaultSessionState.locked);
+    }
     _sessionGeneration++;
     _deviceOperationEpoch++;
     unawaited(_deviceFactorProtection?.cancel().catchError((Object _) {}));
@@ -636,5 +677,6 @@ class VaultSession implements VaultMaintenance {
     _repository = null;
     _clearSessionKey();
     if (repository != null) unawaited(repository.close());
+    unawaited(_changes.close());
   }
 }

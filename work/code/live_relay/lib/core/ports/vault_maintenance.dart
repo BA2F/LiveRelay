@@ -6,6 +6,7 @@ import '../security/vault_header_v3.dart';
 import '../security/vault_header_metadata.dart';
 import 'device_factor_protection.dart';
 import 'vault_originals.dart';
+import 'vault_lifecycle.dart';
 import 'vault_repository.dart';
 
 enum VaultSessionState {
@@ -21,7 +22,8 @@ enum VaultSessionState {
 /// Presentation/Agent receive narrower ports; borrowed keys must be wiped by
 /// the caller and must never be serialized into an IPC or presentation event.
 /// Directory is a local Dart IO location, not a portable public wire contract.
-abstract interface class VaultMaintenance implements VaultOriginals {
+abstract interface class VaultMaintenance
+    implements VaultOriginals, VaultLifecycle {
   VaultSessionState get state;
   VaultHeaderMetadata? get header;
   Directory get directory;
