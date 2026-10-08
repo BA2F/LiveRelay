@@ -1345,6 +1345,8 @@ Future<void> _speechWindowTest(WidgetTester tester) async {
       await File('$evidence/native-child-speech.png').writeAsBytes(bytes!);
     }
     await child.channel.invokeMethod('diagnosticSpeech', {'saveDraft': true});
+    final saved = await child.channel.invokeMethod<Map>('inspect');
+    expect(saved?['speechOperationError'], isNull);
     await wait(child, (d) => d['transcript'] == '');
     final draft = c.cards.singleWhere((card) => card.content == '虚构转写');
     expect(draft.status, CardStatus.draft);

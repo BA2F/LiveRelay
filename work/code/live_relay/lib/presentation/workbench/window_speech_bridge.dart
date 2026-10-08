@@ -197,6 +197,13 @@ class WindowSpeechBridge {
             if (generation != _generation) throw const FormatException('识别已取消');
             String? blobId;
             if (original != null) {
+              // Drain this workbench's queued conversation autosave before
+              // competing for the shared vault write gate.
+              await conversation.finishPendingSave();
+              _check();
+              if (generation != _generation) {
+                throw const FormatException('识别已取消');
+              }
               final card = await controller.importOriginal(
                 bytes: Uint8List.fromList(original.bytes),
                 originalName: original.name,
@@ -253,6 +260,10 @@ class WindowSpeechBridge {
             (blobId != null && !_saved.contains(blobId))) {
           throw const FormatException('语音草稿或关联原件无效');
         }
+        final generation = _generation;
+        await conversation.finishPendingSave();
+        _check();
+        if (generation != _generation) throw const FormatException('语音视图已变化');
         await controller.saveSpeechDraft(text, blobId: blobId as String?);
       case 'speechBackfill':
         final text = a['text'];

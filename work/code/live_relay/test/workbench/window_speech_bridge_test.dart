@@ -126,10 +126,18 @@ void main() {
           }) as Map;
           expect(c.blobs, hasLength(1));
           expect(await c.readOriginal(c.blobs.single.id), wave());
+          final saving = c.records.vault.changes.firstWhere(
+            (_) => c.records.vault.isWriting,
+          );
+          q.updateDraft('待保存的助手草稿');
+          final autosave = q.flush();
+          await saving;
+          expect(c.isBusy, true);
           await invoke('saveSpeechDraft', {
             'text': '本人校对文字',
             'blobId': result['blobId'],
           });
+          await autosave;
           final draft = c.cards.singleWhere((card) => card.content == '本人校对文字');
           expect(
             (await c.cardSources(draft.id)).first.blobId,
@@ -139,7 +147,7 @@ void main() {
           await c.lock();
           await c.unlockWithPassword('fixture-speech-password');
           await q.load();
-          expect(q.draft, '本人核对转写');
+          expect(q.draft, '待保存的助手草稿');
           expect(c.cards.any((card) => card.content == '本人校对文字'), true);
           provider.delay = true;
           prepared = await invoke('prepareSpeech', {'wav': input}) as Map;

@@ -154,6 +154,7 @@ Map<String, Future<void> Function()> conversationChecks() => {
         try {
           f.repository.saved = '{"version":9}';
           await reject(f.runtime.load(), '版本不支持');
+          await f.runtime.finishPendingSave();
           await reject(f.runtime.flush(), '明确开始新会话');
           check(
             f.repository.saved == '{"version":9}',
@@ -163,6 +164,32 @@ Map<String, Future<void> Function()> conversationChecks() => {
           check(
             jsonDecode(f.repository.saved!)['version'] == 1,
             'Explicit recovery did not save',
+          );
+        } finally {
+          f.dispose();
+        }
+      },
+  'headless pending autosave drains before a sibling command without creating an empty record':
+      () async {
+        final f = await Fixture.make();
+        try {
+          await f.runtime.finishPendingSave();
+          check(f.repository.saved == null, 'Created an unsolicited record');
+          f.repository.pendingSave = Completer<void>();
+          f.runtime.updateDraft('public pending draft');
+          var finished = false;
+          final drained = f.runtime.finishPendingSave().then((_) {
+            finished = true;
+          });
+          await f.repository.writeEntered.future;
+          check(f.session.isWriting && !finished, 'Skipped an active autosave');
+          f.repository.pendingSave!.complete();
+          await drained;
+          check(
+            !f.session.isWriting &&
+                jsonDecode(f.repository.saved!)['draft'] ==
+                    'public pending draft',
+            'Pending draft was not committed before completion',
           );
         } finally {
           f.dispose();

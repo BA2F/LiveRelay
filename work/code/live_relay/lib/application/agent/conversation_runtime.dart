@@ -484,6 +484,11 @@ class ConversationRuntime {
     _changed();
   }
 
+  /// Finish existing autosaves before another view takes the shared write gate.
+  /// With no pending edits this does not create/overwrite a conversation record.
+  Future<void> finishPendingSave() =>
+      _saveTimer?.isActive == true ? flush() : _writes;
+
   Future<void> flush() {
     if (_persistenceBlocked) {
       return Future.error(const FormatException('会话记录无法读取，请先明确开始新会话'));

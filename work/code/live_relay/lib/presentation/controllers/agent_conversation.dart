@@ -77,6 +77,7 @@ class AgentConversation extends ChangeNotifier {
       runtime.adoptProposal(message, index);
   Future<void> load() => runtime.load();
   Future<void> flush() => runtime.flush();
+  Future<void> finishPendingSave() => runtime.finishPendingSave();
   Future<bool> send(PreparedConversationTurn turn) => runtime.send(turn);
   Future<void> retrySave() => runtime.retrySave();
   Future<void> accept(ConversationMessage message) => runtime.accept(message);

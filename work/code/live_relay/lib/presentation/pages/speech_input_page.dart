@@ -266,6 +266,7 @@ class SpeechInputPageState extends State<SpeechInputPage> {
   }
 
   String get transcript => _text.text;
+  String? get operationError => _error;
   bool get savesOriginal => _saveOriginal;
   Future<void> importAudioFile(File file) =>
       _action(() => _recognizeFile(file));

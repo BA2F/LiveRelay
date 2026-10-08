@@ -160,6 +160,7 @@ class _DetachedWorkbenchState extends State<DetachedWorkbench>
               'ownerWindowHint': _ownerWindowHint,
               'speech': _data['speech'],
               'transcript': _speechKey.currentState?.transcript,
+              'speechOperationError': _speechKey.currentState?.operationError,
               'savesOriginal': _speechKey.currentState?.savesOriginal,
               'extensions': _data['extensions'],
               'contributed': _data['contributed'],
