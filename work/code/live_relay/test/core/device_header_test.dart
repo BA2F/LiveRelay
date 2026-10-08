@@ -1,3 +1,5 @@
+import 'package:live_relay/infrastructure/backup/vault_restore_transaction.dart';
+
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
@@ -127,6 +129,7 @@ void main() {
     );
     var opens = 0;
     final session = VaultSession(
+      installationFactory: (directory) => VaultRestoreTransaction(directory),
       resolveDirectory: () async => dir,
       loadPassphraseCodec: () async => ChinesePassphraseCodec.parse(
         await File('assets/wordlists/new-default-pinyin.wordlist')

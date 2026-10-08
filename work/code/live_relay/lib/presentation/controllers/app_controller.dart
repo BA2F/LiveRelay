@@ -30,10 +30,7 @@ import '../../core/ports/device_factor_protection.dart';
 import '../../application/vault_content_service.dart';
 import '../../core/ports/vault_repository.dart';
 import '../../core/security/chinese_passphrase.dart';
-import '../../infrastructure/backup/life_vault_archive.dart'
-    show LifeVaultArchiveException;
-import '../../infrastructure/backup/vault_restore_transaction.dart'
-    show VaultRecoveryException;
+import '../../core/storage/vault_failures.dart';
 import '../../core/security/vault_key_manager.dart';
 import '../../core/ai/ai_provider_settings.dart';
 import '../../application/agent/agent_settings_service.dart';
@@ -61,9 +58,10 @@ class AppController extends ChangeNotifier implements PreviewSession {
     _agentSubscriptions = [
       _agent.activity.listen((_) => notifyListeners()),
       _agentSettings.changes.listen((_) => notifyListeners()),
+      if (_securityService != null)
+        _securityService.changes.listen((_) => notifyListeners()),
     ];
     _speechService?.addListener(notifyListeners);
-    _securityService?.addListener(notifyListeners);
   }
 
   Map<String, Object?> ownerProfile = const {
@@ -828,7 +826,6 @@ class AppController extends ChangeNotifier implements PreviewSession {
     }
     _agent.dispose();
     _agentSettings.dispose();
-    _securityService?.removeListener(notifyListeners);
     _securityService?.dispose();
     recipient?.dispose();
     _speechService?.removeListener(notifyListeners);

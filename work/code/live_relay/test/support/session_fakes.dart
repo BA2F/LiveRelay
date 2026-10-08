@@ -1,3 +1,5 @@
+import 'package:live_relay/infrastructure/backup/vault_restore_transaction.dart';
+
 import 'dart:io';
 import 'dart:typed_data';
 
@@ -43,6 +45,7 @@ VaultSession fixtureSession({
   OpenVaultRepository? openRepository,
   TrackingBlobStore? blobStore,
 }) => VaultSession(
+  installationFactory: (directory) => VaultRestoreTransaction(directory),
   resolveDirectory: () async => directory ?? Directory('/unused-test-vault'),
   loadPassphraseCodec: () async => ChinesePassphraseCodec.parse(
     await File('assets/wordlists/new-default-pinyin.wordlist').readAsString(),

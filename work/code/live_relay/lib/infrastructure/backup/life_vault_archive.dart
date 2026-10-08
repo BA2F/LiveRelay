@@ -10,39 +10,16 @@ import '../../core/security/vault_header_v3.dart';
 import '../../core/security/header_encoding.dart';
 import '../../core/security/owner_crypto.dart';
 
-class LifeVaultArchiveException implements Exception {
-  const LifeVaultArchiveException(this.message);
+import '../../core/ports/vault_archive.dart';
+import '../../core/storage/vault_failures.dart';
 
-  final String message;
-
-  @override
-  String toString() => message;
-}
-
-class StagedLifeVault {
-  const StagedLifeVault({
-    required this.directory,
-    required this.manifestBytes,
-    required this.manifestMac,
-    this.version = 1,
-    this.kind = 'full',
-    this.snapshotId,
-    this.omitted = const {},
-  });
-
-  final Directory directory;
-  final Uint8List manifestBytes;
-  final Uint8List manifestMac;
-  final int version;
-  final String kind;
-  final String? snapshotId;
-  final Map<String, Object?> omitted;
-}
+export '../../core/ports/vault_archive.dart' show StagedLifeVault;
+export '../../core/storage/vault_failures.dart' show LifeVaultArchiveException;
 
 /// Open, versioned `.lvault` container used to move an already encrypted
 /// runtime vault. ZIP is only the envelope: SQLCipher and encrypted blobs keep
 /// contents confidential, while a VMK-derived HMAC authenticates completeness.
-class LifeVaultArchiveService {
+class LifeVaultArchiveService implements VaultArchive {
   static const formatName = 'LiveRelay LifeVault';
   static const formatVersion = 1;
   static const _containerName = 'container.json';
@@ -57,6 +34,7 @@ class LifeVaultArchiveService {
   final _hmac = Hmac.sha256();
   final _hkdf = Hkdf(hmac: Hmac.sha256(), outputLength: 32);
 
+  @override
   Future<Uint8List> create({
     required Directory vaultDirectory,
     required Uint8List masterKey,
@@ -164,6 +142,7 @@ class LifeVaultArchiveService {
     return ZipEncoder().encodeBytes(archive, level: 0);
   }
 
+  @override
   Future<StagedLifeVault> stage({
     required Uint8List archiveBytes,
     required Directory stagingParent,
@@ -294,6 +273,7 @@ class LifeVaultArchiveService {
         kind: kind as String,
         snapshotId: container['snapshotId'] as String?,
         omitted: omitted,
+        createdAt: DateTime.tryParse('${container["createdAt"]}'),
       );
     } on Object {
       if (await staging.exists()) await staging.delete(recursive: true);
@@ -311,6 +291,7 @@ class LifeVaultArchiveService {
     }
   }
 
+  @override
   Future<void> verifyAuthentication({
     required StagedLifeVault staged,
     required Uint8List masterKey,

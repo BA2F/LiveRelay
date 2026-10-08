@@ -9,22 +9,14 @@ import '../core/ports/biometric_key_store.dart';
 import '../core/ports/device_factor_protection.dart';
 import '../core/ports/vault_blob_store.dart';
 import '../core/ports/vault_repository.dart';
-import '../core/ports/vault_originals.dart';
+import '../core/ports/vault_maintenance.dart';
+import '../core/ports/vault_installation.dart';
+import '../core/storage/vault_failures.dart';
 import '../core/security/chinese_passphrase.dart';
 import '../core/security/vault_key_manager.dart';
 import '../core/security/vault_header_v3.dart';
 import '../core/security/recovery_credential.dart';
-import '../infrastructure/backup/vault_restore_transaction.dart'
-    show VaultRecoveryException, VaultRestoreTransaction;
-
-enum VaultSessionState {
-  loading,
-  needsSetup,
-  locked,
-  unlocked,
-  recovering,
-  failure,
-}
+export '../core/ports/vault_maintenance.dart' show VaultSessionState;
 
 typedef OpenVaultRepository = Future<VaultRepository> Function(
   Directory directory,
@@ -32,15 +24,32 @@ typedef OpenVaultRepository = Future<VaultRepository> Function(
 );
 
 /// Owns the unlocked key and database. Presentation and AI never receive keys.
-class VaultSession implements VaultOriginals {
+class VaultSession implements VaultMaintenance {
   VaultSession({
     required this._resolveDirectory,
     required this._loadPassphraseCodec,
     required this._openRepository,
     required this._biometricKeyStore,
     required this._blobStore,
+    required this._installationFactory,
     this._deviceFactorProtection,
   });
+
+  final VaultInstallationFactory _installationFactory;
+  bool _maintenanceBusy = false;
+  bool _disposed = false;
+
+  @override
+  Future<T> exclusiveMaintenance<T>(Future<T> Function() operation) async {
+    if (_disposed) throw StateError('资料库会话已销毁');
+    if (_maintenanceBusy) throw StateError('资料库维护正在进行');
+    _maintenanceBusy = true;
+    try {
+      return await operation();
+    } finally {
+      _maintenanceBusy = false;
+    }
+  }
 
   final Future<Directory> Function() _resolveDirectory;
   final Future<ChinesePassphraseCodec> Function() _loadPassphraseCodec;
@@ -61,11 +70,14 @@ class VaultSession implements VaultOriginals {
   VaultSessionState _state = VaultSessionState.loading;
   VaultHeaderMetadata? _header;
   bool _biometricAvailable = false;
+  @override
   VaultSessionState get state => _state;
+  @override
   VaultHeaderMetadata? get header => _header;
   bool get biometricAvailable => _biometricAvailable;
   @override
   bool get isUnlocked => _state == VaultSessionState.unlocked;
+  @override
   Directory get directory => _directory;
 
   Future<void> prepare() async {
@@ -99,10 +111,14 @@ class VaultSession implements VaultOriginals {
         : VaultSessionState.locked;
   }
 
+  @override
   void fail() => _state = VaultSessionState.failure;
+  @override
   void markUnlocked() => _state = VaultSessionState.unlocked;
+  @override
   Future<void> reloadHeader() async =>
       _header = await _keyManager.readMetadata();
+  @override
   Future<void> inspectRecoveredHeader() async {
     await reloadHeader();
     _state = _header == null
@@ -173,7 +189,9 @@ class VaultSession implements VaultOriginals {
     _state = VaultSessionState.unlocked;
   }
 
+  @override
   int get operationEpoch => _deviceOperationEpoch;
+  @override
   Future<T> withMasterKey<T>(
     Future<T> Function(Uint8List key) operation,
   ) async {
@@ -188,6 +206,7 @@ class VaultSession implements VaultOriginals {
     }
   }
 
+  @override
   Future<Uint8List> authenticateDaily(
     String password, {
     Uint8List? keyFile,
@@ -233,6 +252,22 @@ class VaultSession implements VaultOriginals {
     bool usesChinesePassphrase = false,
     int? wordCount,
     bool enableBiometric = false,
+  }) => exclusiveMaintenance(
+    () => _createModern(
+      password: password,
+      recovery: recovery,
+      usesChinesePassphrase: usesChinesePassphrase,
+      wordCount: wordCount,
+      enableBiometric: enableBiometric,
+    ),
+  );
+
+  Future<void> _createModern({
+    required String password,
+    required RecoveryCredential recovery,
+    required bool usesChinesePassphrase,
+    int? wordCount,
+    required bool enableBiometric,
   }) async {
     if (state != VaultSessionState.needsSetup) throw StateError('当前不能创建');
     final canonical = usesChinesePassphrase
@@ -244,7 +279,7 @@ class VaultSession implements VaultOriginals {
     VaultHeaderV3? candidate;
     Directory? staging;
     final epoch = operationEpoch;
-    final transaction = VaultRestoreTransaction(directory);
+    final transaction = _installationFactory(directory);
     var installationStarted = false;
     try {
       candidate = await VaultHeaderV3.create(
@@ -307,16 +342,42 @@ class VaultSession implements VaultOriginals {
     }
   }
 
+  @override
+  Future<VaultHeaderMetadata?> readStagedHeader(Directory staged) =>
+      VaultKeyManager(staged).readMetadata();
+  @override
+  Future<Uint8List> authenticateStaged(
+    Directory staged,
+    String credential,
+    VaultHeaderMetadata metadata,
+  ) {
+    final manager = VaultKeyManager(staged);
+    return credential.startsWith('LRR1')
+        ? manager.unlockWithRecovery(credential)
+        : manager.unlock(canonicalizePassword(credential, metadata));
+  }
+
+  @override
+  Future<void> disableStagedLegacyBiometric(Directory staged) =>
+      VaultKeyManager(staged).setBiometricEnabled(false);
+  @override
+  Future<void> writeStagedHeader(Directory staged, VaultHeaderV3 header) =>
+      VaultKeyManager(staged).writeV3(header);
+
+  @override
   Future<VaultHeaderV3?> modernHeader() => _keyManager.readV3();
   VaultBlobStore get blobStore => _blobStore;
+  @override
   DeviceFactorProtection? get deviceProtection => _deviceFactorProtection;
+  @override
   Future<void> copyBlobUnderKey({
+    Directory? source,
     required Directory target,
     required Uint8List oldKey,
     required Uint8List newKey,
     required VaultBlob blob,
   }) => _blobStore.copyUnderKey(
-    source: directory,
+    source: source ?? directory,
     target: target,
     oldKey: oldKey,
     newKey: newKey,
@@ -324,8 +385,10 @@ class VaultSession implements VaultOriginals {
   );
 
   /// Recovery opens only the reset workflow, without normal page projections.
+  @override
   Future<Uint8List> authenticateRecovery(String text) =>
       _keyManager.unlockWithRecovery(text);
+  @override
   void markRecovering() {
     _state = VaultSessionState.recovering;
   }
@@ -428,6 +491,7 @@ class VaultSession implements VaultOriginals {
     return _keyManager.unlock(canonicalizePassword(password, metadata));
   }
 
+  @override
   String canonicalizePassword(String password, VaultHeaderMetadata metadata) =>
       metadata.usesChinesePassphrase
       ? _passphraseCodec.canonicalize(
@@ -437,18 +501,31 @@ class VaultSession implements VaultOriginals {
       : password;
 
   /// Opens a temporary verified backup without changing the active session.
+  @override
   Future<VaultRepository> openTemporary(Directory directory, Uint8List key) =>
       _openRepository(directory, key);
 
+  @override
   Future<void> openWithKey(Uint8List key) async {
+    if (_disposed) throw StateError('资料库会话已销毁');
+    final epoch = operationEpoch;
     await suspendDatabase();
+    if (_disposed || epoch != operationEpoch) throw StateError('打开已取消');
+    final openingGeneration = sessionGeneration;
     final repository = await _openRepository(_directory, key);
+    if (_disposed ||
+        epoch != operationEpoch ||
+        openingGeneration != sessionGeneration) {
+      await repository.close();
+      throw StateError('打开已取消');
+    }
     _repository = repository;
     _clearSessionKey();
     _sessionKey = Uint8List.fromList(key);
   }
 
   /// Export needs closed SQLite files while retaining its current UI state.
+  @override
   Future<void> suspendDatabase() async {
     _sessionGeneration++;
     final repository = _repository;
@@ -456,6 +533,7 @@ class VaultSession implements VaultOriginals {
     if (repository != null) await repository.close();
   }
 
+  @override
   Future<void> close() async {
     _sessionGeneration++;
     _deviceOperationEpoch++;
@@ -472,6 +550,7 @@ class VaultSession implements VaultOriginals {
     }
   }
 
+  @override
   Future<void> clearDeviceKeyAfterRestore() async {
     try {
       await _biometricKeyStore.clear();
@@ -548,6 +627,7 @@ class VaultSession implements VaultOriginals {
   void _wipe(Uint8List bytes) => bytes.fillRange(0, bytes.length, 0);
 
   void dispose() {
+    _disposed = true;
     if (_state != VaultSessionState.failure) _state = VaultSessionState.locked;
     _sessionGeneration++;
     _deviceOperationEpoch++;

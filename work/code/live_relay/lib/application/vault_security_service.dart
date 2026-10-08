@@ -1,25 +1,54 @@
 import 'dart:io';
 import 'dart:convert';
 
-import 'package:flutter/foundation.dart';
+import 'dart:async';
+import 'dart:typed_data';
+
+import 'package:collection/collection.dart';
 
 import '../core/security/owner_crypto.dart';
 import '../core/security/recovery_credential.dart';
 import '../core/security/vault_header_v3.dart';
-import '../core/security/vault_key_manager.dart';
-import '../infrastructure/backup/vault_restore_transaction.dart';
-import 'vault_session.dart';
+import '../core/security/vault_header_metadata.dart';
+import '../core/ports/vault_installation.dart';
+import '../core/ports/vault_maintenance.dart';
 
-class VaultSecurityService extends ChangeNotifier {
+class VaultSecurityProgress {
+  const VaultSecurityProgress(this.busy, this.stage);
+  final bool busy;
+  final String stage;
+}
+
+class VaultSecurityService {
   VaultSecurityService(this.session, this.createTransaction);
-  final VaultSession session;
-  final VaultRestoreTransaction Function() createTransaction;
+  final VaultMaintenance session;
+  final VaultInstallation Function() createTransaction;
   late final transaction = createTransaction();
-  String stage = '';
-  bool busy = false;
+  String _stageText = '';
+  bool _busy = false;
+  bool _disposed = false;
+  String get stage => _stageText;
+  bool get busy => _busy;
+  final _changes = StreamController<VaultSecurityProgress>.broadcast();
+  Stream<VaultSecurityProgress> get changes => _changes.stream;
+  void _changed() {
+    if (!_disposed) _changes.add(VaultSecurityProgress(busy, stage));
+  }
+
+  void dispose() {
+    _disposed = true;
+    unawaited(_changes.close());
+  }
+
+  void _checkEpoch(int epoch) {
+    if (_disposed || epoch != session.operationEpoch) {
+      throw StateError('安全更新已取消');
+    }
+  }
+
   void _stage(String value) {
-    stage = value;
-    notifyListeners();
+    _stageText = value;
+    _changed();
   }
 
   Future<void> configure({
@@ -33,20 +62,49 @@ class VaultSecurityService extends ChangeNotifier {
     bool biometric = false,
     bool chinese = false,
     int? wordCount,
+  }) => session.exclusiveMaintenance(
+    () => _configure(
+      oldPassword: oldPassword,
+      newPassword: newPassword,
+      recoveryText: recoveryText,
+      recoveryConfirmation: recoveryConfirmation,
+      policy: policy,
+      oldKeyFile: oldKeyFile,
+      newKeyFile: newKeyFile,
+      biometric: biometric,
+      chinese: chinese,
+      wordCount: wordCount,
+    ),
+  );
+
+  Future<void> _configure({
+    required String oldPassword,
+    required String newPassword,
+    required String recoveryText,
+    required String recoveryConfirmation,
+    required String policy,
+    Uint8List? oldKeyFile,
+    Uint8List? newKeyFile,
+    required bool biometric,
+    required bool chinese,
+    int? wordCount,
   }) async {
+    if (_disposed) throw StateError('安全服务已销毁');
     if (busy) throw StateError('安全更新正在进行');
     if (recoveryText != recoveryConfirmation) {
       throw const FormatException('请完整回输恢复凭证确认');
     }
+    final startingEpoch = session.operationEpoch;
     final recovery = await RecoveryCredential.parse(recoveryText);
-    busy = true;
-    notifyListeners();
+    _busy = true;
+    _changed();
     Directory? staging;
     Uint8List? snapshot;
     final nextKey = OwnerCrypto.random(32);
     VaultHeaderV3? candidate;
     var committed = false;
     try {
+      _checkEpoch(startingEpoch);
       await session.withMasterKey((oldKey) async {
         final epoch = session.operationEpoch;
         if (session.state != VaultSessionState.recovering) {
@@ -55,7 +113,9 @@ class VaultSecurityService extends ChangeNotifier {
             keyFile: oldKeyFile,
           );
           try {
-            if (!listEquals(proof, oldKey)) throw StateError('当前会话已变化');
+            if (!const ListEquality<int>().equals(proof, oldKey)) {
+              throw StateError('当前会话已变化');
+            }
           } finally {
             OwnerCrypto.wipe(proof);
           }
@@ -100,17 +160,20 @@ class VaultSecurityService extends ChangeNotifier {
         staging = await session.directory.parent.createTemp(
           'liverelay-restore-',
         );
-        await VaultKeyManager(staging!).writeV3(candidate!);
+        await session.writeStagedHeader(staging!, candidate!);
         final target = await session.openTemporary(staging!, nextKey);
         try {
           await target.importLocalState(snapshot!);
         } finally {
-          await target.close();
-          OwnerCrypto.wipe(snapshot);
-          snapshot = null;
+          try {
+            await target.close();
+          } finally {
+            OwnerCrypto.wipe(snapshot);
+            snapshot = null;
+          }
         }
         for (var i = 0; i < blobs.length; i++) {
-          if (epoch != session.operationEpoch) throw StateError('安全更新已取消');
+          _checkEpoch(epoch);
           _stage('重新加密原件 ${i + 1}/${blobs.length}');
           if (missing.containsKey(blobs[i].relativePath)) continue;
           await session.copyBlobUnderKey(
@@ -120,30 +183,28 @@ class VaultSecurityService extends ChangeNotifier {
             blob: blobs[i],
           );
         }
-        if (epoch != session.operationEpoch) throw StateError('安全更新已取消');
+        _checkEpoch(epoch);
         _stage('核验并提交新资料库');
         await session.close();
         final installingEpoch = session.operationEpoch;
         await transaction.install(
           staging!,
           verifyInstalled: () async {
-            if (installingEpoch != session.operationEpoch) {
-              throw StateError('安全更新已取消');
-            }
+            _checkEpoch(installingEpoch);
             await session.openWithKey(nextKey);
             await session.reloadHeader();
-            if (installingEpoch != session.operationEpoch) {
-              throw StateError('安全更新已取消');
-            }
+            _checkEpoch(installingEpoch);
             for (final blob in blobs) {
               if (missing.containsKey(blob.relativePath)) continue;
               final clear = await session.readOriginal(blob);
               OwnerCrypto.wipe(clear);
+              _checkEpoch(installingEpoch);
             }
           },
           closeInstalled: session.close,
         );
         committed = true;
+        _checkEpoch(installingEpoch);
         session.markUnlocked();
         await session.clearDeviceKeyAfterRestore();
         for (final ref in previous?.deviceReferences ?? <String>[]) {
@@ -175,15 +236,18 @@ class VaultSecurityService extends ChangeNotifier {
           }
         }
       }
-      if (staging != null && await staging!.exists()) {
-        await staging!.delete(recursive: true);
+      try {
+        if (staging != null && await staging!.exists()) {
+          await staging!.delete(recursive: true);
+        }
+      } finally {
+        OwnerCrypto.wipe(snapshot);
+        OwnerCrypto.wipe(nextKey);
+        recovery.dispose();
+        _busy = false;
+        _stageText = '';
+        _changed();
       }
-      OwnerCrypto.wipe(snapshot);
-      OwnerCrypto.wipe(nextKey);
-      recovery.dispose();
-      busy = false;
-      stage = '';
-      notifyListeners();
     }
   }
 }

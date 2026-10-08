@@ -8,14 +8,12 @@ import '../core/security/owner_crypto.dart';
 
 import 'dart:typed_data';
 
-import 'package:archive/archive.dart';
-
 import '../core/domain/entities.dart';
 import '../core/ports/vault_repository.dart';
-import '../core/security/vault_key_manager.dart';
-import '../infrastructure/backup/life_vault_archive.dart';
-import '../infrastructure/backup/vault_restore_transaction.dart';
-import 'vault_session.dart';
+import '../core/ports/vault_archive.dart';
+import '../core/ports/vault_installation.dart';
+import '../core/ports/vault_maintenance.dart';
+import '../core/storage/vault_failures.dart';
 import 'vault_snapshot_query.dart';
 
 /// Coordinates authenticated archives and K0 installation. UI callbacks only
@@ -23,44 +21,74 @@ import 'vault_snapshot_query.dart';
 class VaultBackupService {
   VaultBackupService({
     required this._session,
-    required LifeVaultArchiveService archive,
-    required VaultRestoreTransaction Function() restoreTransaction,
+    required VaultArchive archive,
+    required VaultInstallation Function() restoreTransaction,
   }) : _archiveService = archive,
        _createRestoreTransaction = restoreTransaction;
 
-  final VaultSession _session;
-  final LifeVaultArchiveService _archiveService;
-  final VaultRestoreTransaction Function() _createRestoreTransaction;
-  late final VaultRestoreTransaction _restoreTransaction =
+  final VaultMaintenance _session;
+  final VaultArchive _archiveService;
+  final VaultInstallation Function() _createRestoreTransaction;
+  late final VaultInstallation _restoreTransaction =
       _createRestoreTransaction();
   String? recoveryNotice;
 
-  Future<void> recover() async {
+  Future<void> recover() => _session.exclusiveMaintenance(() async {
     recoveryNotice = await _restoreTransaction.recover();
-  }
+  });
 
   Future<Uint8List> export(
     String password, {
     required Future<void> Function() refreshUnlockedData,
-  }) async {
-    if (!_session.isUnlocked) throw StateError('请先解锁加密资料库');
-    if (await missingCount() > 0) throw StateError('请先补齐原件再导出完整备份');
-    final key = password.startsWith('LRR1')
-        ? await _session.authenticateRecovery(password)
-        : await _session.authenticateDaily(password);
-    try {
-      await _session.suspendDatabase();
-      return await _archiveService.create(
+  }) => _session.exclusiveMaintenance(
+    () => _exportAuthenticated(
+      password,
+      refreshUnlockedData,
+      (key) => _archiveService.create(
         vaultDirectory: _session.directory,
         masterKey: key,
-      );
-    } finally {
+      ),
+      _wipe,
+    ),
+  );
+
+  /// Never reopen a locked/disposed session from an export's late finally.
+  /// If reopening/refresh fails, a produced result is withheld and discarded.
+  Future<T> _exportAuthenticated<T>(
+    String credential,
+    Future<void> Function() refresh,
+    Future<T> Function(Uint8List key) create,
+    void Function(T value) discard,
+  ) async {
+    if (!_session.isUnlocked) throw StateError('请先解锁加密资料库');
+    final epoch = _session.operationEpoch;
+    if (await missingCount() > 0) throw StateError('请先补齐原件再导出备份');
+    _checkEpoch(epoch);
+    final key = credential.startsWith('LRR1')
+        ? await _session.authenticateRecovery(credential)
+        : await _session.authenticateDaily(credential);
+    T? result;
+    try {
+      _checkEpoch(epoch);
       try {
-        await _session.openWithKey(key);
-        await refreshUnlockedData();
+        await _session.suspendDatabase();
+        _checkEpoch(epoch);
+        result = await create(key);
+        _checkEpoch(epoch);
       } finally {
-        _wipe(key);
+        if (epoch == _session.operationEpoch) {
+          await _session.openWithKey(key);
+          _checkEpoch(epoch);
+          await refresh();
+          _checkEpoch(epoch);
+        }
       }
+      return result as T;
+    } on Object {
+      if (result != null) discard(result);
+      rethrow;
+    } finally {
+      _wipe(key);
     }
   }
 
@@ -69,7 +97,25 @@ class VaultBackupService {
     String backupPassword, {
     required void Function() clearUnlockedData,
     required Future<void> Function() refreshUnlockedData,
+  }) => _consumeInput(
+    bytes,
+    () => _session.exclusiveMaintenance(
+      () => _restore(
+        bytes,
+        backupPassword,
+        clearUnlockedData: clearUnlockedData,
+        refreshUnlockedData: refreshUnlockedData,
+      ),
+    ),
+  );
+
+  Future<void> _restore(
+    Uint8List bytes,
+    String backupPassword, {
+    required void Function() clearUnlockedData,
+    required Future<void> Function() refreshUnlockedData,
   }) async {
+    final epoch = _session.operationEpoch;
     StagedLifeVault? staged;
     Uint8List? importedKey;
     var transactionStarted = false;
@@ -79,25 +125,24 @@ class VaultBackupService {
         archiveBytes: bytes,
         stagingParent: _session.directory.parent,
       );
-      final stagedKeyManager = VaultKeyManager(staged.directory);
-      final metadata = await stagedKeyManager.readMetadata();
+      final metadata = await _session.readStagedHeader(staged.directory);
       if (metadata == null) {
         throw const LifeVaultArchiveException('.lvault 缺少 Vault header');
       }
       if (staged.kind == 'attachments') {
         throw const LifeVaultArchiveException('请选择数据库或完整备份；原件包应在解锁后导入');
       }
-      importedKey = backupPassword.startsWith('LRR1')
-          ? await stagedKeyManager.unlockWithRecovery(backupPassword)
-          : await stagedKeyManager.unlock(
-              _session.canonicalizePassword(backupPassword, metadata),
-            );
+      importedKey = await _session.authenticateStaged(
+        staged.directory,
+        backupPassword,
+        metadata,
+      );
       await _archiveService.verifyAuthentication(
         staged: staged,
         masterKey: importedKey,
       );
       if (metadata.formatVersion == 1) {
-        await stagedKeyManager.setBiometricEnabled(false);
+        await _session.disableStagedLegacyBiometric(staged.directory);
       }
       final testDatabase = await _session.openTemporary(
         staged.directory,
@@ -126,27 +171,33 @@ class VaultBackupService {
         await testDatabase.close();
       }
 
+      _checkEpoch(epoch);
       await _session.close();
+      final installingEpoch = _session.operationEpoch;
       clearUnlockedData();
       transactionStarted = true;
       try {
         recoveryNotice = await _restoreTransaction.install(
           staged.directory,
           verifyInstalled: () async {
+            _checkEpoch(installingEpoch);
             await _session.openWithKey(importedKey!);
             await _session.reloadHeader();
+            _checkEpoch(installingEpoch);
             if (metadata.formatVersion == 1) {
               await VaultSnapshotQuery.inspectRepository(
                 _session.repository,
                 sessionGeneration: _session.sessionGeneration,
               );
             }
+            _checkEpoch(installingEpoch);
           },
           closeInstalled: () async {
             await _session.close();
             clearUnlockedData();
           },
         );
+        _checkEpoch(installingEpoch);
         if (metadata.formatVersion == 3) {
           _session.markRecovering();
         } else {
@@ -167,17 +218,23 @@ class VaultBackupService {
         throw const LifeVaultArchiveException('恢复未完成；资料库已保留，请使用对应密码重新解锁');
       }
     } finally {
-      if (!transactionStarted &&
-          staged != null &&
-          await staged.directory.exists()) {
-        await staged.directory.delete(recursive: true);
+      try {
+        if (!transactionStarted &&
+            staged != null &&
+            await staged.directory.exists()) {
+          await staged.directory.delete(recursive: true);
+        }
+      } finally {
+        if (importedKey != null) _wipe(importedKey);
       }
-      if (importedKey != null) _wipe(importedKey);
-      bytes.fillRange(0, bytes.length, 0);
     }
   }
 
-  Future<BackupPreview> inspect(Uint8List bytes, String password) async {
+  Future<BackupPreview> inspect(Uint8List bytes, String password) =>
+      _session.exclusiveMaintenance(() => _inspect(bytes, password));
+
+  Future<BackupPreview> _inspect(Uint8List bytes, String password) async {
+    final epoch = _session.operationEpoch;
     await _session.directory.parent.create(recursive: true);
     final staged = await _archiveService.stage(
       archiveBytes: bytes,
@@ -186,42 +243,42 @@ class VaultBackupService {
     Uint8List? key;
     VaultRepository? repository;
     try {
-      final manager = VaultKeyManager(staged.directory);
-      final metadata = await manager.readMetadata();
+      final metadata = await _session.readStagedHeader(staged.directory);
       if (metadata == null) throw const LifeVaultArchiveException('备份缺少资料库头');
       if (staged.kind == 'attachments') {
         throw const LifeVaultArchiveException('原件补充包不能单独恢复资料库');
       }
-      key = password.startsWith('LRR1')
-          ? await manager.unlockWithRecovery(password)
-          : await manager.unlock(
-              _session.canonicalizePassword(password, metadata),
-            );
+      key = await _session.authenticateStaged(
+        staged.directory,
+        password,
+        metadata,
+      );
       await _archiveService.verifyAuthentication(
         staged: staged,
         masterKey: key,
       );
       final r = await _session.openTemporary(staged.directory, key);
       repository = r;
-      final archive = ZipDecoder().decodeBytes(bytes);
-      final container = jsonDecode(
-        utf8.decode(archive.findFile('container.json')!.readBytes()!),
-      ) as Map;
-      return BackupPreview(
+      final preview = BackupPreview(
         missingOriginals: staged.omitted.length,
         requiresReset: metadata.formatVersion == 3,
-        createdAt: DateTime.tryParse('${container['createdAt']}'),
+        createdAt: staged.createdAt,
         cards: (await r.listCards()).length,
         credentials: (await r.listCredentials()).length,
         originals: (await r.listBlobs()).length,
         recycledCards: (await r.listCards(recycled: true)).length,
         recycledCredentials: (await r.listCredentials(recycled: true)).length,
       );
+      _checkEpoch(epoch);
+      return preview;
     } finally {
-      await repository?.close();
-      if (key != null) _wipe(key);
-      if (await staged.directory.exists()) {
-        await staged.directory.delete(recursive: true);
+      try {
+        await repository?.close();
+      } finally {
+        if (key != null) _wipe(key);
+        if (await staged.directory.exists()) {
+          await staged.directory.delete(recursive: true);
+        }
       }
     }
   }
@@ -229,42 +286,37 @@ class VaultBackupService {
   Future<({Uint8List database, Uint8List attachments})> exportSplit(
     String credential,
     Future<void> Function() refresh,
-  ) async {
-    if (!_session.isUnlocked) throw StateError('请先解锁');
-    if (await missingCount() > 0) throw StateError('请先补齐原件再导出新的分层备份');
-    final key = credential.startsWith('LRR1')
-        ? await _session.authenticateRecovery(credential)
-        : await _session.authenticateDaily(credential);
-    final snapshot = HeaderEncoding.hex(OwnerCrypto.random(16));
-    try {
-      await _session.suspendDatabase();
-      final database = await _archiveService.create(
-        vaultDirectory: _session.directory,
-        masterKey: key,
-        kind: 'database',
-        snapshotId: snapshot,
-      );
-      try {
-        final attachments = await _archiveService.create(
+  ) => _session.exclusiveMaintenance(
+    () => _exportAuthenticated(
+      credential,
+      refresh,
+      (key) async {
+        final snapshot = HeaderEncoding.hex(OwnerCrypto.random(16));
+        final database = await _archiveService.create(
           vaultDirectory: _session.directory,
           masterKey: key,
-          kind: 'attachments',
+          kind: 'database',
           snapshotId: snapshot,
         );
-        return (database: database, attachments: attachments);
-      } catch (_) {
-        _wipe(database);
-        rethrow;
-      }
-    } finally {
-      try {
-        await _session.openWithKey(key);
-        await refresh();
-      } finally {
-        _wipe(key);
-      }
-    }
-  }
+        try {
+          final attachments = await _archiveService.create(
+            vaultDirectory: _session.directory,
+            masterKey: key,
+            kind: 'attachments',
+            snapshotId: snapshot,
+          );
+          return (database: database, attachments: attachments);
+        } on Object {
+          _wipe(database);
+          rethrow;
+        }
+      },
+      (value) {
+        _wipe(value.database);
+        _wipe(value.attachments);
+      },
+    ),
+  );
 
   Future<int> missingCount() async {
     if (!_session.isUnlocked) return 0;
@@ -272,10 +324,16 @@ class VaultBackupService {
     return value == null ? 0 : (jsonDecode(value) as Map).length;
   }
 
-  Future<void> importSupplement(Uint8List bytes) async {
+  Future<void> importSupplement(Uint8List bytes) => _consumeInput(
+    bytes,
+    () => _session.exclusiveMaintenance(() => _importSupplement(bytes)),
+  );
+
+  Future<void> _importSupplement(Uint8List bytes) async {
     if (!_session.isUnlocked) throw StateError('请先解锁');
     final epoch = _session.operationEpoch;
     final value = await _session.repository.readLocalValue('backup.missing');
+    _checkEpoch(epoch);
     if (value == null || (jsonDecode(value) as Map).isEmpty) {
       throw StateError('当前没有待恢复原件');
     }
@@ -300,9 +358,8 @@ class VaultBackupService {
           if (staged.snapshotId != expected['snapshotId']) {
             throw StateError('此原件包与数据库备份不配对');
           }
-          final store = _session.blobStore;
           for (final entry in missing.entries.toList()) {
-            if (epoch != _session.operationEpoch) throw StateError('导入已取消');
+            _checkEpoch(epoch);
             final descriptor = entry.value as Map;
             final file = File('${staged.directory.path}/${entry.key}');
             if (!await file.exists()) throw StateError('原件包缺少预期文件');
@@ -315,14 +372,14 @@ class VaultBackupService {
             final blob = metadata.singleWhere(
               (b) => b.relativePath == entry.key,
             );
-            await store.copyUnderKey(
+            await _session.copyBlobUnderKey(
               source: staged.directory,
               target: _session.directory,
               oldKey: oldKey,
               newKey: currentKey,
               blob: blob,
             );
-            if (epoch != _session.operationEpoch) throw StateError('导入已取消');
+            _checkEpoch(epoch);
             missing.remove(entry.key);
             await _session.repository.writeLocalValue(
               'backup.missing',
@@ -337,8 +394,22 @@ class VaultBackupService {
       if (await staged.directory.exists()) {
         await staged.directory.delete(recursive: true);
       }
+    }
+  }
+
+  Future<void> _consumeInput(
+    Uint8List bytes,
+    Future<void> Function() action,
+  ) async {
+    try {
+      await action();
+    } finally {
       _wipe(bytes);
     }
+  }
+
+  void _checkEpoch(int epoch) {
+    if (epoch != _session.operationEpoch) throw StateError('资料库操作已取消');
   }
 
   void _wipe(Uint8List bytes) => bytes.fillRange(0, bytes.length, 0);

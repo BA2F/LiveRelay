@@ -7,19 +7,15 @@ import 'package:path/path.dart' as path;
 
 import '../../core/storage/recoverable_file.dart';
 
-class VaultRecoveryException implements Exception {
-  const VaultRecoveryException([
-    this.message = '资料库恢复曾被中断，文件已保留。请保留备份并检查恢复状态。',
-  ]);
-  final String message;
-  @override
-  String toString() => message;
-}
+import '../../core/ports/vault_installation.dart';
+import '../../core/storage/vault_failures.dart';
+
+export '../../core/storage/vault_failures.dart' show VaultRecoveryException;
 
 /// A local write-ahead intent plus an independent commit marker. Neither is a
 /// credential or a public backup format. Startup never recursively deletes a
 /// directory named in a journal; it conservatively rolls back uncommitted work.
-class VaultRestoreTransaction {
+class VaultRestoreTransaction implements VaultInstallation {
   VaultRestoreTransaction(this.vault, {this.checkpoint});
 
   final Directory vault;
@@ -107,6 +103,7 @@ class VaultRestoreTransaction {
   }
 
   /// Returns a notice when encrypted remnants were deliberately retained.
+  @override
   Future<String?> recover() => _recover();
 
   Future<String?> _recover({String? expectedStagingName}) async {
@@ -228,6 +225,7 @@ class VaultRestoreTransaction {
     }
   }
 
+  @override
   Future<String?> install(
     Directory staged, {
     required Future<void> Function() verifyInstalled,

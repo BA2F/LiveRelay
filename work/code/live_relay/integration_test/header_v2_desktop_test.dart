@@ -1,3 +1,5 @@
+import 'package:live_relay/infrastructure/backup/vault_restore_transaction.dart';
+
 import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
@@ -99,6 +101,7 @@ void main() {
       final blob = await prepareVault(vault, info);
       var opens = 0;
       final session = VaultSession(
+        installationFactory: (directory) => VaultRestoreTransaction(directory),
         resolveDirectory: () async => vault,
         loadPassphraseCodec: () async => ChinesePassphraseCodec.parse(
           await File('$project/assets/wordlists/new-default-pinyin.wordlist')

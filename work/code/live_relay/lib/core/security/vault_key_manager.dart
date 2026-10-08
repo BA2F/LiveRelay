@@ -6,6 +6,9 @@ import 'dart:typed_data';
 import 'package:cryptography/cryptography.dart';
 
 import 'vault_password_policy.dart';
+import 'vault_header_metadata.dart';
+
+export 'vault_header_metadata.dart';
 import 'vault_header_v2.dart';
 import 'vault_header_v3.dart';
 import 'recovery_credential.dart';
@@ -20,30 +23,6 @@ class VaultUnlockException implements Exception {
 
   @override
   String toString() => message;
-}
-
-class VaultHeaderMetadata {
-  const VaultHeaderMetadata({
-    required this.passwordKind,
-    required this.wordCount,
-    required this.biometricEnabled,
-    required this.createdAt,
-    this.formatVersion = 1,
-    this.recoveryEnabled = false,
-    this.dailyPolicy = 'any',
-    this.keyFileEnabled = false,
-  });
-
-  final int formatVersion;
-  final bool recoveryEnabled;
-  final String dailyPolicy;
-  final bool keyFileEnabled;
-  final String passwordKind;
-  final int? wordCount;
-  final bool biometricEnabled;
-  final DateTime createdAt;
-
-  bool get usesChinesePassphrase => passwordKind == 'diceware-cn-v1';
 }
 
 /// Owns the small, non-sensitive vault header and the password key slot.

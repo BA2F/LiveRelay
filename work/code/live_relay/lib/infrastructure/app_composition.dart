@@ -51,6 +51,7 @@ AppController createAppController([
   SpeechService? speechService,
 ]) {
   final session = VaultSession(
+    installationFactory: (directory) => VaultRestoreTransaction(directory),
     resolveDirectory: () async {
       final support =
           applicationDirectory ?? await getApplicationSupportDirectory();
