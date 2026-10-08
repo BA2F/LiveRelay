@@ -1,3 +1,4 @@
+import 'package:live_relay/infrastructure/app_composition.dart';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
@@ -7,7 +8,6 @@ import 'package:cryptography/cryptography.dart';
 import 'package:live_relay/core/identity/hpke.dart';
 import 'package:live_relay/core/security/header_encoding.dart';
 import 'package:live_relay/application/local_handoff_service.dart';
-import 'package:live_relay/application/recipient_service.dart';
 import 'package:live_relay/core/domain/entities.dart';
 import 'package:live_relay/core/ai/review_source.dart';
 import 'package:live_relay/core/ai/conversation_attachment.dart';
@@ -25,10 +25,10 @@ void main() {
       directory: Directory('${root.path}/owner'),
       openRepository: (_, _) async => repository,
     );
-    final receiver = RecipientService(
+    final receiver = createRecipientService(
       () async => Directory('${root.path}/recipient'),
     );
-    final restored = RecipientService(
+    final restored = createRecipientService(
       () async => Directory('${root.path}/recipient-restored'),
     );
     try {

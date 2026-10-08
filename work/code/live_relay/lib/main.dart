@@ -6,7 +6,6 @@ import 'dart:io';
 import 'package:path_provider/path_provider.dart';
 
 import 'infrastructure/app_composition.dart';
-import 'application/app_preferences.dart';
 import 'presentation/app.dart';
 import 'presentation/workbench/detached_workbench.dart';
 
@@ -22,7 +21,7 @@ Future<void> main(List<String> arguments) async {
   } on Object {
     // Let the controller's startup failure screen remain reachable.
   }
-  final preferences = AppPreferences(preferenceFile);
+  final preferences = createAppPreferences(preferenceFile);
   await preferences.load(hasExistingVault: controller.header != null);
   runApp(
     MultiProvider(

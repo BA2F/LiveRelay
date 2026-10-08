@@ -7,7 +7,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:live_relay/application/local_handoff_service.dart';
-import 'package:live_relay/application/recipient_service.dart';
 import 'package:live_relay/core/domain/entities.dart';
 import 'package:live_relay/core/identity/local_identity.dart';
 import 'package:live_relay/infrastructure/app_composition.dart';
@@ -31,8 +30,8 @@ void main() {
         RecordingAi(),
         TestAiSettings(),
       );
-      var receiver = RecipientService(() async => recipientRoot);
-      final wrong = RecipientService(
+      var receiver = createRecipientService(() async => recipientRoot);
+      final wrong = createRecipientService(
         () async => Directory('${root.path}/wrong'),
       );
       await tester.pumpWidget(
@@ -177,7 +176,7 @@ void main() {
           ownerFp,
         );
         receiver.dispose();
-        receiver = RecipientService(() async => recipientRoot);
+        receiver = createRecipientService(() async => recipientRoot);
         await receiver.initialize();
         await receiver.unlock('fictional-recipient-password');
         await expectLater(receiver.receive(summary, ownerFp), throwsStateError);

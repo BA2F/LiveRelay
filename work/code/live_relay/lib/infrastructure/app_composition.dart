@@ -5,6 +5,9 @@ import 'package:flutter/services.dart';
 import 'package:path_provider/path_provider.dart';
 
 import '../application/app_controller.dart';
+import '../application/device_preferences_runtime.dart';
+import '../presentation/controllers/app_preferences.dart';
+import 'persistence/file_device_preferences_repository.dart';
 import '../application/agent/agent_settings_service.dart';
 import '../application/agent/agent_service.dart';
 import '../application/agent/agent_review_service.dart';
@@ -16,7 +19,9 @@ import '../application/vault_snapshot_query.dart';
 import '../application/vault_content_service.dart';
 import '../application/vault_security_service.dart';
 import '../application/local_handoff_service.dart';
-import '../application/recipient_service.dart';
+import '../presentation/controllers/recipient_service.dart';
+import '../application/identity/recipient_runtime.dart';
+import 'identity/file_recipient_store.dart';
 import '../core/ports/ai_provider.dart';
 import '../core/ports/biometric_key_store.dart';
 import '../core/ports/device_factor_protection.dart';
@@ -46,6 +51,14 @@ import 'security/android_device_factor_protection.dart';
 
 /// Single composition entry for the app and isolated native verification.
 /// Defaults belong here; the controller never constructs platform services.
+AppPreferences createAppPreferences([File? file]) => AppPreferences(
+  DevicePreferencesRuntime(FileDevicePreferencesRepository(file)),
+);
+
+RecipientService createRecipientService(
+  Future<Directory> Function() resolveDirectory,
+) => RecipientService(RecipientRuntime(FileRecipientStore(resolveDirectory)));
+
 AppController createAppController([
   Directory? applicationDirectory,
   BiometricKeyStore? biometricKeyStore,
@@ -132,7 +145,7 @@ AppController createAppController([
     ),
     session: session,
     handoff: LocalHandoffService(session),
-    recipient: RecipientService(() async {
+    recipient: createRecipientService(() async {
       final support =
           applicationDirectory ?? await getApplicationSupportDirectory();
       return Directory('${support.path}/live_relay/recipient');

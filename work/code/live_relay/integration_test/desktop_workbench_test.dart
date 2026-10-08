@@ -28,7 +28,6 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:provider/provider.dart';
-import 'package:live_relay/application/app_preferences.dart';
 import 'package:live_relay/application/agent/agent_conversation.dart';
 import 'package:live_relay/presentation/workbench/conversation_view.dart';
 import 'package:live_relay/presentation/workbench/relations_view.dart';
@@ -67,7 +66,7 @@ void main() {
         RecordingAi(),
         TestAiSettings(),
       );
-      final p = AppPreferences(File('${root.path}/device-preferences.json'));
+      final p = createAppPreferences(File('${root.path}/device-preferences.json'));
       final screenshotKey = GlobalKey();
       try {
         await c.initialize();
@@ -286,7 +285,7 @@ void main() {
         RecordingAi(),
         TestAiSettings(),
       );
-      final p = AppPreferences();
+      final p = createAppPreferences();
       try {
         await c.initialize();
         await c.setupVault(
@@ -385,7 +384,7 @@ void main() {
         RecordingAi(),
         TestAiSettings(),
       );
-      final p = AppPreferences();
+      final p = createAppPreferences();
       try {
         await c.initialize();
         await c.setupVault(
@@ -488,7 +487,7 @@ void main() {
         ai,
         TestAiSettings()..configured = true,
       );
-      final p = AppPreferences();
+      final p = createAppPreferences();
       final screenshotKey = GlobalKey();
       try {
         await c.initialize();
@@ -706,7 +705,7 @@ void main() {
         ai,
         settings,
       );
-      final p = AppPreferences();
+      final p = createAppPreferences();
       final screenshotKey = GlobalKey();
       try {
         await c.initialize();
@@ -877,7 +876,7 @@ void main() {
         RecordingAi(),
         TestAiSettings(),
       );
-      final p = AppPreferences();
+      final p = createAppPreferences();
       final screenshotKey = GlobalKey();
       try {
         await c.initialize();
@@ -1017,7 +1016,7 @@ void main() {
         RecordingConversationAi(),
         store,
       );
-      final p = AppPreferences();
+      final p = createAppPreferences();
       final screenshotKey = GlobalKey();
       try {
         await c.initialize();
@@ -1648,7 +1647,7 @@ void main() {
         RecordingConversationAi(),
         TestAiSettings(),
       );
-      final p = AppPreferences();
+      final p = createAppPreferences();
       final screenshotKey = GlobalKey();
       try {
         await c.initialize();
@@ -2160,7 +2159,7 @@ void main() {
         ai,
         TestAiSettings()..configured = true,
       );
-      final p = AppPreferences(File('${root.path}/preferences.json'));
+      final p = createAppPreferences(File('${root.path}/preferences.json'));
       final boundary = GlobalKey();
       try {
         await c.initialize();

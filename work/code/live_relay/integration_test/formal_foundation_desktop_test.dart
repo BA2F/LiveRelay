@@ -28,7 +28,7 @@ void main() {
         RecordingAi(),
         TestAiSettings(),
       );
-      final p = AppPreferences(
+      final p = createAppPreferences(
         File('${directory.path}/device-preferences.json'),
       );
       final boundary = GlobalKey();
@@ -111,7 +111,7 @@ void main() {
         await tester.tap(find.text('浅色'));
         await tester.pumpAndSettle();
         await shot('06-my-light');
-        final reloaded = AppPreferences(
+        final reloaded = createAppPreferences(
           File('${directory.path}/device-preferences.json'),
         );
         await reloaded.load(hasExistingVault: true);

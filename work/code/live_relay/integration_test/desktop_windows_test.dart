@@ -112,9 +112,12 @@ Future<void> main(List<String> arguments) async {
           MaterialApp(
             home: Scaffold(
               body: ListenableBuilder(
-                listenable: edits,
-                builder: (context, _) =>
-                    Text(edits.session(c.cards.single).title),
+                listenable: Listenable.merge([c, edits]),
+                builder: (context, _) => Text(
+                  c.cards.isEmpty
+                      ? '资料库已锁定'
+                      : edits.session(c.cards.single).title,
+                ),
               ),
             ),
           ),
@@ -309,6 +312,7 @@ Future<void> main(List<String> arguments) async {
           await tester.pump(const Duration(milliseconds: 100));
         }
         expect(host.sessions, isEmpty);
+        expect(find.text('资料库已锁定'), findsOneWidget);
         await second.window.stop();
         expect(second.window.exited, true);
         await expectLater(

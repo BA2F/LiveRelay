@@ -1,3 +1,4 @@
+import 'package:live_relay/infrastructure/app_composition.dart';
 import 'package:flutter/material.dart' hide SnapshotController;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
@@ -99,7 +100,7 @@ void main() {
     'new user chooses appearance, creates vault once, and finishes only after success',
     (tester) async {
       final c = SetupController();
-      final p = AppPreferences();
+      final p = createAppPreferences();
       await p.load(hasExistingVault: false);
       await tester.pumpWidget(configuredApp(c, p));
       expect(find.text('欢迎使用留灯'), findsOneWidget);
@@ -146,12 +147,12 @@ void main() {
     'unfinished setup resumes after unlock; legacy vault skips setup',
     (tester) async {
       final c = SnapshotController()..sessionState = VaultSessionState.unlocked;
-      final p = AppPreferences();
+      final p = createAppPreferences();
       await p.load(hasExistingVault: true);
       await tester.pumpWidget(configuredApp(c, p));
       await tester.pumpAndSettle();
       expect(find.byType(HomeShell), findsOneWidget);
-      final unfinished = AppPreferences();
+      final unfinished = createAppPreferences();
       await unfinished.beginOnboarding();
       await tester.pumpWidget(configuredApp(c, unfinished));
       await tester.pumpAndSettle();
@@ -210,7 +211,7 @@ void main() {
       addTearDown(tester.view.resetPhysicalSize);
       addTearDown(tester.view.resetDevicePixelRatio);
       final c = SnapshotController();
-      final p = AppPreferences();
+      final p = createAppPreferences();
       await tester.pumpWidget(
         MultiProvider(
           providers: [ChangeNotifierProvider.value(value: p)],

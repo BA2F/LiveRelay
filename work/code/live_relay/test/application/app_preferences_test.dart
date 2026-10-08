@@ -1,3 +1,4 @@
+import 'package:live_relay/infrastructure/app_composition.dart';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -13,21 +14,21 @@ void main() {
   });
   test('appearance and unfinished onboarding survive restart; writes are serialized', () async {
     final file = File('${directory.path}/preferences.json');
-    final p = AppPreferences(file);
+    final p = createAppPreferences(file);
     await p.load(hasExistingVault: false);
     await Future.wait([
       p.setAppearance(mode: AppearanceMode.dark),
       p.setAppearance(size: ReadingSize.large),
       p.beginOnboarding(),
     ]);
-    final reopened = AppPreferences(file);
+    final reopened = createAppPreferences(file);
     await reopened.load(hasExistingVault: true);
     expect(reopened.appearance, AppearanceMode.dark);
     expect(reopened.readingSize, ReadingSize.large);
     expect(reopened.onboardingComplete, isFalse);
     expect(reopened.onboardingStarted, isTrue);
     await reopened.finishOnboarding();
-    final completed = AppPreferences(file);
+    final completed = createAppPreferences(file);
     await completed.load(hasExistingVault: true);
     expect(completed.onboardingComplete, isTrue);
     expect(await File('${file.path}.tmp').exists(), isFalse);
@@ -39,15 +40,15 @@ void main() {
     'legacy vault and corrupt preferences cannot trigger new vault onboarding',
     () async {
       final file = File('${directory.path}/preferences.json');
-      final legacy = AppPreferences(file);
+      final legacy = createAppPreferences(file);
       await legacy.load(hasExistingVault: true);
       expect(legacy.onboardingComplete, isTrue);
       await file.writeAsString('{invalid');
-      final corrupt = AppPreferences(file);
+      final corrupt = createAppPreferences(file);
       await corrupt.load(hasExistingVault: true);
       expect(corrupt.onboardingComplete, isTrue);
       expect(corrupt.appearance, AppearanceMode.system);
-      final fresh = AppPreferences(file);
+      final fresh = createAppPreferences(file);
       await fresh.load(hasExistingVault: false);
       expect(fresh.onboardingComplete, isFalse);
       legacy.dispose();
@@ -60,7 +61,7 @@ void main() {
     () async {
       final blocker = File('${directory.path}/blocker');
       await blocker.writeAsString('not a directory');
-      final p = AppPreferences(File('${blocker.path}/preferences.json'));
+      final p = createAppPreferences(File('${blocker.path}/preferences.json'));
       await p.load(hasExistingVault: false);
       await expectLater(
         p.setAppearance(mode: AppearanceMode.dark),

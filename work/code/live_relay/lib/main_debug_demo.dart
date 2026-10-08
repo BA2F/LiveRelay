@@ -93,7 +93,7 @@ Future<void> main() async {
     package.fillRange(0, package.length, 0);
   }
   receiver.lock();
-  final preferences = AppPreferences(
+  final preferences = createAppPreferences(
     File('${root.path}/demo-preferences.json'),
   );
   await preferences.finishOnboarding();
