@@ -14,7 +14,7 @@
 
 LiveRelay 源码位于 `work/code/live_relay/`。正式版本机软件基础已完成密码库生成、Agent／语音，以及独立恢复、更多解锁／全库换钥、身份／独立接收者、真实限定范围交接、本地分层备份、独立调试演示。主界面新建 Header v3、SQLCipher schema v5；旧库由本人主动升级。小米13实际指纹／恢复和语音、受控Agent以及Linux桌面语音已验证；更多硬件／Windows／低资源设备／正式签名及安全复核仍待完成，云端和语言／视觉优化后置。内部端口和新格式尚未冻结为跨 package 或对外公共契约；模块文档是实现映射，不代表已拆 package。
 
-新聊天从 `memory/当前项目上下文.md` 和 `handoffs/2026-10-04_实际联调修复完成.md` 接续，已确认产品范围见 `docs/20_product/16_正式版演进与已确认范围.md`。先检查Git真实状态；本轮指纹与Linux兼容修复源码已提交为 `6fbee32`，按人类要求推送到main和 `codex/formal-foundation`，MVP0.4预发布提供正常Android／Linux制品，内部1.0.0+3。发布记录见 `docs/60_quality/releases/mvp-0.4.md` 和 `artifacts.json`；后续文档提交不移动Tag，旧MVP0.3及更早附件保持固定，不沿用旧交接的未提交状态。Agent密码录入／转换缺口按本人要求后置。
+2026-10-12 起桌面进入重造：当前分支 `codex/desktop-rebuild`（自 `ea90418` 重造，`codex/desktop-workbench` 冻结不再新增提交），施工基准是 `work/paper/desktop-redesign-2026-10-12/桌面重设计决策单.md`。新聊天从 `memory/当前项目上下文.md` 和 `handoffs/2026-10-12_桌面重建第1步完成.md` 接续，已确认产品范围见 `docs/20_product/16_正式版演进与已确认范围.md`。先检查Git真实状态；本轮指纹与Linux兼容修复源码已提交为 `6fbee32`，按人类要求推送到main和 `codex/formal-foundation`，MVP0.4预发布提供正常Android／Linux制品，内部1.0.0+3。发布记录见 `docs/60_quality/releases/mvp-0.4.md` 和 `artifacts.json`；后续文档提交不移动Tag，旧MVP0.3及更早附件保持固定，不沿用旧交接的未提交状态。Agent密码录入／转换缺口按本人要求后置。
 
 ## 执行环境
 
