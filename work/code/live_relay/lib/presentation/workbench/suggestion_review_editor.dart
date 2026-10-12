@@ -7,8 +7,8 @@ import '../../core/domain/entities.dart';
 import '../model_labels.dart';
 import 'review_actions_editor.dart';
 
-/// Main and detached renderers share the same owner review controls. Commands
-/// are supplied by their respective bindings; this widget never owns a vault.
+/// Owner review controls; commands are supplied by the enclosing binding and
+/// this widget never owns a vault.
 class SuggestionReviewEditor extends StatelessWidget {
   const SuggestionReviewEditor({
     super.key,

@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:io' show FileSystemException;
-import 'dart:ui' show AppExitResponse;
 
 import 'package:collection/collection.dart';
 import 'package:flutter/foundation.dart';
@@ -217,7 +216,6 @@ class AppController extends ChangeNotifier implements PreviewSession {
   @override
   void unregisterPreviewCleanup(Future<void> Function() cleanup) =>
       exitCleanups.remove(cleanup);
-  Future<AppExitResponse> Function()? desktopExitRequested;
   bool _uiBusy = false;
   bool get isBusy => _uiBusy || _session.isWriting || _session.isMaintaining;
   set isBusy(bool value) => _uiBusy = value;

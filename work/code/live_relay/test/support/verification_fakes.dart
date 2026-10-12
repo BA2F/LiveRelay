@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 
@@ -5,6 +6,8 @@ import 'package:live_relay/core/ports/biometric_key_store.dart';
 import 'package:live_relay/core/ports/ai_provider.dart';
 import 'package:live_relay/core/ports/ai_conversation_provider.dart';
 import 'package:live_relay/core/ports/ocr_provider.dart';
+import 'package:live_relay/core/ports/remote_speech_provider.dart';
+import 'package:live_relay/core/ports/speech_provider.dart';
 import 'package:live_relay/core/domain/entities.dart';
 import 'package:live_relay/infrastructure/ai/ai_provider_settings_store.dart';
 
@@ -144,5 +147,32 @@ class RecordingConversationAi extends RecordingAi
         {'role': 'assistant', 'content': content},
       ],
     );
+  }
+}
+
+class FixtureSpeechProvider implements SpeechProvider, RemoteSpeechProvider {
+  int calls = 0;
+  bool delay = false;
+  Uint8List? last;
+  final started = Completer<void>(), release = Completer<void>();
+  @override
+  Future<bool> isModelInstalled() async => true;
+  @override
+  Future<void> downloadModel(SpeechDownloadProgress progress) async {}
+  @override
+  Future<void> installArchive(String path) async {}
+  @override
+  Future<void> removeModel() async {}
+  @override
+  Future<void> cancelDownload() async {}
+  @override
+  Future<String> transcribe(dynamic input) async {
+    calls++;
+    last = input is RemoteSpeechRequest ? input.wav : input as Uint8List;
+    if (delay) {
+      started.complete();
+      await release.future;
+    }
+    return '虚构转写';
   }
 }

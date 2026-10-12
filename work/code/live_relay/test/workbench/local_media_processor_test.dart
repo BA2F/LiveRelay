@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:io';
-import 'dart:typed_data';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:live_relay/application/preview_session.dart';
 import 'package:live_relay/infrastructure/local_media_processor.dart';
@@ -15,7 +15,7 @@ void main() {
     final root = await Directory.systemTemp.createTemp(
       'liverelay-media-convert-',
     );
-    final session = DetachedPreviewSession();
+    final session = _TestPreviewSession();
     final processor = LocalMediaProcessor(session, cacheRoot: () async => root);
     try {
       final wav = await File('${root.path}/fixture.wav').writeAsBytes(wave());
@@ -94,7 +94,7 @@ void main() {
   }, skip: !Platform.isLinux);
   test('revocation waits for a late cache allocation and removes the owned working copy', () async {
     final root = await Directory.systemTemp.createTemp('liverelay-media-late-');
-    final session = DetachedPreviewSession();
+    final session = _TestPreviewSession();
     final gate = Completer<Directory>();
     final processor = LocalMediaProcessor(
       session,
@@ -120,4 +120,22 @@ void main() {
       await root.delete(recursive: true);
     }
   }, skip: !Platform.isLinux);
+}
+
+class _TestPreviewSession extends ChangeNotifier implements PreviewSession {
+  bool _unlocked = true;
+  final _cleanups = <Future<void> Function()>{};
+  @override
+  bool get isUnlocked => _unlocked;
+  @override
+  void registerPreviewCleanup(Future<void> Function() cleanup) =>
+      _cleanups.add(cleanup);
+  @override
+  void unregisterPreviewCleanup(Future<void> Function() cleanup) =>
+      _cleanups.remove(cleanup);
+  Future<void> revoke() async {
+    _unlocked = false;
+    notifyListeners();
+    await Future.wait([for (final cleanup in List.of(_cleanups)) cleanup()]);
+  }
 }

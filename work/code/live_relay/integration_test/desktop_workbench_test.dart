@@ -40,8 +40,6 @@ import 'package:live_relay/presentation/workbench/dock_surface.dart';
 import '../test/support/verification_fakes.dart';
 import '../test/support/pdf_fixture.dart';
 import '../test/workbench/remote_speech_test.dart' show wave;
-import '../test/workbench/window_speech_bridge_test.dart'
-    show FixtureWindowSpeech;
 import '../test/workbench/review_action_proposal_test.dart' show PlanningAi;
 import '../test/workbench/conversation_concurrency_test.dart'
     show PendingConversationAi;
@@ -2341,7 +2339,7 @@ Future<void> _mediaConversionTest(WidgetTester tester) async {
   );
   final originalBytes = await m4a.readAsBytes();
   final provider = RecordingConversationAi();
-  final local = FixtureWindowSpeech();
+  final local = FixtureSpeechProvider();
   final speech = createSpeechService(
     local,
     supported: true,

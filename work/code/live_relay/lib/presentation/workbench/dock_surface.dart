@@ -12,16 +12,12 @@ class DockSurface extends StatelessWidget {
     required this.builder,
     required this.label,
     required this.icon,
-    this.onDetach,
-    this.canDetach,
   });
   final WorkbenchLayout layout;
   final ValueNotifier<String?> dragging;
   final WorkbenchViewBuilder builder;
   final String Function(String) label;
   final IconData Function(String) icon;
-  final ValueChanged<String>? onDetach;
-  final bool Function(String)? canDetach;
 
   Widget draggable(String view, Widget child) => Draggable<String>(
     data: view,
@@ -259,14 +255,6 @@ class DockSurface extends StatelessWidget {
                   ),
                 ),
               ),
-              if (onDetach != null &&
-                  group.selected != null &&
-                  (canDetach?.call(group.selected!) ?? false))
-                IconButton(
-                  tooltip: '移到独立桌面窗口',
-                  icon: const Icon(Icons.launch, size: 18),
-                  onPressed: () => onDetach!(group.selected!),
-                ),
               PopupMenuButton<DockPlacement>(
                 tooltip: '移动当前视图',
                 iconSize: 18,

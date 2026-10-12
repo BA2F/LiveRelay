@@ -1,16 +1,15 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
-import 'dart:ui' show AppExitResponse;
+import 'dart:ui' show AppExitResponse, AppExitType;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
-import 'package:window_manager/window_manager.dart';
 import 'package:live_relay/application/workbench/workbench_runtime.dart';
 import 'package:live_relay/core/domain/entities.dart';
 import 'package:live_relay/infrastructure/app_composition.dart';
-import 'package:live_relay/presentation/workbench/native_close_guard.dart';
 
 import '../test/support/verification_fakes.dart';
 
@@ -24,7 +23,7 @@ Future<void> main(List<String> args) async {
   }
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
   testWidgets(
-    'real GTK main close cancels when blocked, saves before exit; committed data survives SIGKILL',
+    'main close request cancels when blocked, saves before exit; committed data survives SIGKILL',
     (tester) async {
       final root = await Directory.systemTemp.createTemp(
         'liverelay-main-close-',
@@ -67,7 +66,7 @@ Future<void> main(List<String> args) async {
             if (mode == 'close') {
               await File('${dir.path}/command').writeAsString('blocked');
               await waitStatus(dir, 'cancel');
-              // A cancelled native close keeps the real process alive.
+              // A cancelled close request keeps the real process alive.
               var exited = false;
               process.exitCode.then((_) => exited = true);
               await Future<void>.delayed(const Duration(milliseconds: 200));
@@ -129,7 +128,7 @@ Future<void> main(List<String> args) async {
                 jsonEncode({
                   'backend': backend,
                   'fixtureOnly': true,
-                  'realGtkCloseRequest': true,
+                  'frameworkExitRequest': true,
                   'blockedCloseKeepsWindow': true,
                   'savedCloseExits': true,
                   'forcedExitDoesNotGuaranteeUnsavedData': true,
@@ -174,17 +173,17 @@ Future<void> fixture(Directory root, String mode) async {
   Future<void> status(String value) =>
       File('${root.path}/status.json')
           .writeAsString(jsonEncode({'status': value}));
-  c.desktopExitRequested = () async {
+  // The engine delivers a GTK window close to the framework as
+  // System.requestAppExit; handleRequestAppExit() runs the same framework
+  // path (observers, then AppLifecycleListener.onExitRequested).
+  final _ = AppLifecycleListener(onExitRequested: () async {
     final result = await runtime.requestExit();
     await status(result == AppExitResponse.cancel ? 'cancel' : 'exit');
     return result;
-  };
+  });
   runApp(
     MaterialApp(
-      home: NativeCloseGuard(
-        controller: c,
-        child: const Scaffold(body: Text('Public main close fixture')),
-      ),
+      home: const Scaffold(body: Text('Public main close fixture')),
     ),
   );
   await Future<void>.delayed(const Duration(milliseconds: 500));
@@ -202,7 +201,12 @@ Future<void> fixture(Directory root, String mode) async {
         if (command == last) return;
         last = command;
         c.isBusy = command == 'blocked';
-        await windowManager.close();
+        final response = await WidgetsBinding.instance.handleRequestAppExit();
+        if (response == AppExitResponse.exit) {
+          await ServicesBinding.instance.exitApplication(
+            AppExitType.cancelable,
+          );
+        }
       } finally {
         reading = false;
       }

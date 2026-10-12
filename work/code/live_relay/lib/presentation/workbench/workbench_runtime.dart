@@ -9,16 +9,11 @@ import '../../application/workbench/workspace_state_store.dart';
 import '../controllers/agent_conversation.dart';
 import 'state/card_edit_sessions.dart';
 import 'state/extension_registry.dart';
-import 'native_window_host.dart';
 import 'state/workbench_layout.dart';
 
 /// One owner for desktop sessions and persistence, independent of the view tree.
-/// Detached windows remain presentation clients; they never own a vault session.
 class WorkbenchRuntime extends ChangeNotifier {
-  WorkbenchRuntime(
-    this.controller, {
-    Future<bool> Function(String? activationToken)? activateMainWindow,
-  }) {
+  WorkbenchRuntime(this.controller) {
     conversation = AgentConversation(controller);
     extensions = ExtensionRegistry(
       read: () => controller.workspaceState.read(WorkspaceRecord.extensions),
@@ -31,16 +26,6 @@ class WorkbenchRuntime extends ChangeNotifier {
           .then((_) {}),
       canSave: () => controller.isUnlocked && !controller.isBusy,
     );
-    windows = NativeWindowHost(
-      controller: controller,
-      edits: edits,
-      conversation: conversation,
-      extensions: extensions,
-      activateMain: activateMainWindow,
-      onDock: (view) {
-        if (!_disposed && controller.isUnlocked) layout.open(view);
-      },
-    );
     controller.addListener(_controllerChanged);
     extensions.addListener(_extensionsChanged);
     layout.addListener(_layoutChanged);
@@ -51,7 +36,6 @@ class WorkbenchRuntime extends ChangeNotifier {
   late final CardEditSessions edits;
   late final ExtensionRegistry extensions;
   late final AgentConversation conversation;
-  late final NativeWindowHost windows;
   bool loaded = false;
   String? layoutError, exitError;
   bool _disposed = false, _restoring = true, _exiting = false;
@@ -86,12 +70,6 @@ class WorkbenchRuntime extends ChangeNotifier {
       }
     } on Object {
       layoutError = '已恢复默认布局；原有资料保留';
-    }
-    if (!_active) return;
-    try {
-      await windows.restore();
-    } on Object {
-      layoutError = '独立窗口恢复失败；可以重新打开，资料保留';
     }
     if (!_active) return;
     loaded = true;
@@ -147,7 +125,6 @@ class WorkbenchRuntime extends ChangeNotifier {
 
   Future<void> flush() async {
     if (!_active) throw const FormatException('资料库已锁定');
-    await windows.flushChildren();
     await _saveState();
   }
 
@@ -171,7 +148,6 @@ class WorkbenchRuntime extends ChangeNotifier {
     Future<void> Function() savePreset,
   ) async {
     await flush();
-    await windows.shutdown();
     if (!_active) return;
     await savePreset();
     if (!_active) return;
@@ -188,12 +164,10 @@ class WorkbenchRuntime extends ChangeNotifier {
     _exiting = true;
     try {
       controller.cancelAgentTask();
-      await windows.flushChildren();
       for (final cleanup in List.of(controller.exitCleanups)) {
         await cleanup();
       }
       await _saveState();
-      await windows.shutdown(preserve: true);
       return AppExitResponse.exit;
     } on Object {
       exitError = '退出已取消，请重试保存后关闭窗口';
@@ -211,7 +185,6 @@ class WorkbenchRuntime extends ChangeNotifier {
     extensions.removeListener(_extensionsChanged);
     layout.removeListener(_layoutChanged);
     _layoutTimer?.cancel();
-    windows.dispose();
     edits.dispose();
     conversation.dispose();
     extensions.dispose();

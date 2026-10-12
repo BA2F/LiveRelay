@@ -1,15 +1,12 @@
 import '../widgets/liverelay_logo.dart';
 
 import 'dart:async';
-import 'dart:io';
 import 'dart:ui' show AppExitResponse;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:provider/provider.dart';
-
-import '../../infrastructure/desktop_owner_window.dart';
 
 import '../controllers/app_controller.dart';
 import '../../application/app_preferences.dart';
@@ -29,8 +26,6 @@ import 'workbench_card_editor.dart';
 import 'review_source_view.dart';
 import 'relations_view.dart';
 import 'extensions_view.dart';
-import 'native_window_host.dart';
-import 'window_projection.dart';
 import 'workbench_runtime.dart';
 
 class DesktopWorkbench extends StatefulWidget {
@@ -46,7 +41,6 @@ class _DesktopWorkbenchState extends State<DesktopWorkbench> {
   CardEditSessions get _edits => _runtime.edits;
   ExtensionRegistry get _extensions => _runtime.extensions;
   AgentConversation get _conversation => _runtime.conversation;
-  NativeWindowHost get _windows => _runtime.windows;
   late final AppLifecycleListener _lifecycle;
   final _dragging = ValueNotifier<String?>(null);
   final _search = TextEditingController();
@@ -71,16 +65,9 @@ class _DesktopWorkbenchState extends State<DesktopWorkbench> {
   void initState() {
     super.initState();
     _controller = context.read<AppController>();
-    _runtime = WorkbenchRuntime(
-      _controller,
-      activateMainWindow: (token) async {
-        if (!mounted || !_controller.isUnlocked) return false;
-        return await activateOwnerWindow(activationToken: token);
-      },
-    );
+    _runtime = WorkbenchRuntime(_controller);
     _runtime.addListener(_runtimeChanged);
     _lifecycle = AppLifecycleListener(onExitRequested: _requestExit);
-    _controller.desktopExitRequested = _requestExit;
     _controller.addListener(_controllerChanged);
     unawaited(
       _runtime.load(preset: context.read<AppPreferences?>()?.desktopPreset),
@@ -100,7 +87,6 @@ class _DesktopWorkbenchState extends State<DesktopWorkbench> {
   @override
   void dispose() {
     _controller.removeListener(_controllerChanged);
-    _controller.desktopExitRequested = null;
     _runtime.removeListener(_runtimeChanged);
     _runtime.dispose();
     _lifecycle.dispose();
@@ -698,15 +684,6 @@ class _DesktopWorkbenchState extends State<DesktopWorkbench> {
       builder: _view,
       label: _label,
       icon: _icon,
-      onDetach: Platform.isLinux
-          ? (view) => _action(() async {
-              await _edits.flush();
-              if (_edits.hasUnsaved) throw const FormatException('请先保存修改');
-              await _windows.open(view);
-              _layout.close(view);
-            })
-          : null,
-      canDetach: detachableView,
     );
     return CallbackShortcuts(
       bindings: {
@@ -806,33 +783,6 @@ class _DesktopWorkbenchState extends State<DesktopWorkbench> {
                                 ),
                               ),
                             ),
-                            if (Platform.isLinux)
-                              DragTarget<String>(
-                                onWillAcceptWithDetails: (d) =>
-                                    detachableView(d.data),
-                                onAcceptWithDetails: (d) => _action(() async {
-                                  await _edits.flush();
-                                  if (_edits.hasUnsaved) {
-                                    throw const FormatException('请先保存修改');
-                                  }
-                                  await _windows.open(d.data);
-                                  _layout.close(d.data);
-                                }),
-                                builder: (context, candidates, _) => Container(
-                                  color: candidates.isEmpty
-                                      ? null
-                                      : Theme.of(context)
-                                            .colorScheme
-                                            .primaryContainer,
-                                  child: const Padding(
-                                    padding: EdgeInsets.all(12),
-                                    child: Tooltip(
-                                      message: '拖到这里移到独立桌面窗口',
-                                      child: Icon(Icons.launch),
-                                    ),
-                                  ),
-                                ),
-                              ),
                           ],
                         ),
                       ),

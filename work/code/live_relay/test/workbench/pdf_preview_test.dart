@@ -3,9 +3,8 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:live_relay/application/preview_session.dart';
 import 'package:live_relay/presentation/widgets/local_pdf_preview.dart';
-
-import 'window_source_reader_test.dart' show PendingPreviewSession;
 
 void main() {
   testWidgets('disposed PDF waits for pending reads and wipes late bytes', (
@@ -63,4 +62,16 @@ void main() {
     expect(session.cleanups, isEmpty);
     session.dispose();
   });
+}
+
+class PendingPreviewSession extends ChangeNotifier implements PreviewSession {
+  final cleanups = <Future<void> Function()>[];
+  @override
+  bool get isUnlocked => true;
+  @override
+  void registerPreviewCleanup(Future<void> Function() cleanup) =>
+      cleanups.add(cleanup);
+  @override
+  void unregisterPreviewCleanup(Future<void> Function() cleanup) =>
+      cleanups.remove(cleanup);
 }

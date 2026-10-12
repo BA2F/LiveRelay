@@ -76,7 +76,7 @@ void main() {
       }
 
       try {
-        await production.main([]);
+        await production.main();
         await until(() => find.text('欢迎使用留灯').evaluate().isNotEmpty);
         readOwners();
         expect(controller!.supportsModernSecurity, isTrue);
@@ -127,7 +127,7 @@ void main() {
         preferences = null;
 
         // Re-run the actual main composition, not a test controller or snapshot.
-        await production.main([]);
+        await production.main();
         await until(() => find.text('解锁你的加密资料库').evaluate().isNotEmpty);
         readOwners();
         expect(find.text('欢迎使用留灯'), findsNothing);
