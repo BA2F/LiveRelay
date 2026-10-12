@@ -43,6 +43,8 @@ R 独立 CSPRNG 32 bytes。文本精确为 `LRR1-` + Base64url(R，无填充，4
 
 ## 兼容和失败语义
 
+2026-10-12 追加：v2/v3 的指纹设置更新当前在 `VaultKeyManager` 明确拒绝，原因是 `D = SHA256(descriptor)` 含全部分支与 `biometricEnabled`，增删设备分支会让全部分支密文失效、必须逐个重建，而重建恢复分支需要恢复秘密 R。本人 2026-10-12 确认：改指纹只验证当前主密码，不生成也不回输恢复凭证，因此设备因素要从凭证图解耦（独立设备槽或新 suite），做法与验收见 `tasks/specs/2026-10-12_K3设备因素解耦与指纹开关.md`；在这之前的正式行为不变。
+
 VaultKeyManager 的 reader 支持旧 v1 与受限 v2；v1 writer 保持原状。v1 只接受现有 writer 的算法、19 MiB／2／1／32、16-byte salt 和 AES-GCM 的 12-byte nonce／16-byte tag／32-byte ciphertext；异常参数或未知封装算法在 KDF 前拒绝。未知版本／suite 失败关闭。v2 的指纹设置更新不可复用 v1 的裸 bool 写入，在 K2 完成认证重封装前明确拒绝。
 
 `.lvault` v1 导出和暂存读取必须验证 Header 为 v1；不得把新 Header 隐藏在旧外层。新所有者备份另在 K3 设计 v2；K1 不提供新库的生产创建或备份入口。

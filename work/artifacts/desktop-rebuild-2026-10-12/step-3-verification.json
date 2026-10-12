@@ -1,0 +1,44 @@
+{
+  "date": "2026-10-12",
+  "branch": "codex/desktop-rebuild",
+  "step": "3 确认/授权状态模型（跨端）+ 手机采集流收敛",
+  "fixtureOnly": true,
+  "analyze": "flutter analyze 无问题",
+  "unitTests": "flutter test 270 项通过（新增 4 项外发授权：存储往返、写入成功才生效、写/读失败按未授权、未知版本与未知类别拒绝）",
+  "nativeSuites": {
+    "desktop_workbench_test": "16 项通过；对话用例覆盖首次外发确认→记住→第二次直接发送，附件用例覆盖内容确认+附件确认两道",
+    "desktop_startup_test": "2 项通过（production main、隔离根：建库→记录→保存锁定→重开→右键移入回收无确认框→撤销→回收区恢复）",
+    "desktop_close_test": "2 项通过（关闭拒绝/退出前保存契约）"
+  },
+  "consentModel": {
+    "kind": ["content（脱敏文本）", "attachment（原始附件与远程语音音频）"],
+    "destinationKey": ["ai:<profileId>@<host>", "speech@<host>"],
+    "storage": "设备本地 secure storage，version 1；读取或写入失败按未授权处理，不静默放行",
+    "firstSend": "首次各拦一次，按钮为「发送并记住」/「取消」",
+    "dailySend": "常驻「将发送」面板（实际脱敏文本、附件清单与转写、可折叠重发历史），不再每轮弹窗",
+    "revoke": "AI 服务设置与语音页均显示授权状态并可收回；移除服务配置时清掉该服务授权；地址变化视为新服务"
+  },
+  "reversibleActions": {
+    "cardTrash": "桌面卡片移入回收区直接执行 + SnackBar 撤销（恢复卡片）；原件不随卡片回收",
+    "editorSave": "记一条编辑器单个「保存」：新内容存待整理，编辑已确认卡片保持已确认",
+    "irreversibleKept": ["密码条目永久清除", "整库替换恢复"]
+  },
+  "captureFlow": {
+    "phone": "记录页仅「录音」一个语音入口：WAV 16 kHz 单声道、最长 60 秒，保存原件即唯一保存动作；保存后可「转写为文字」",
+    "transcribe": "从已入库原件发起，不另存音频，草稿关联该原件；原件详情新增「转写为文字草稿」",
+    "removed": ["手机语音页默认且不可见地另存音频", "「暂不自动转写」提示", "记录页独立「语音输入」按钮（我的页改名为「语音识别与转写」）"]
+  },
+  "knownDebt": [
+    "手机套件（ux_flow、麦克风）本轮未运行：只在 Linux 工作区施工、不安装手机；改动过的手机用例仅静态更新",
+    "原件自身没有回收入口：引擎能力保留、界面无入口（capture/00 的开放问题）",
+    "长录音（>60 秒）与时间片转写仍是开放问题",
+    "指纹开关改为「只验主密码」需要设备因素解耦（Header v3 的 D 覆盖全部分支），本轮不动引擎，记为 K3：tasks/specs/2026-10-12_K3设备因素解耦与指纹开关.md",
+    "人工走查仍未做"
+  ],
+  "incident": {
+    "symptom": "desktop_workbench 对话用例卡死，终端只有 Null check operator，driver 断连",
+    "cause": "新常驻面板把「发送」按钮挤出 1280×720 测试窗口（按钮 y=808），tap 报 would not receive pointer events；集成绑定格式化该错误时又崩在渲染树诊断",
+    "fix": "编辑区改为内容可滚动、发送行固定可见",
+    "method": "应用内 print 不回传，写文件诊断；打印 FlutterError 用 diagnostics.take(n) 逐节点 try，不用 exceptionAsString()"
+  }
+}
