@@ -181,8 +181,9 @@ void main() {
           }
         }
 
-        // 通过真实列表右键菜单走一遍回收：确认框、取消保留、恢复。
-        // 鼠标右键按真实序列模拟：add → down → up → remove，避免测试鼠标状态残留。
+        // 通过真实列表右键菜单走一遍回收：直接移入、撤销恢复，再从回收区恢复。
+        // 移入回收区是可撤销动作，不再弹确认框。鼠标右键按真实序列模拟：
+        // add → down → up → remove，避免测试鼠标状态残留。
         await tap(find.text('全部卡片'));
         Finder inventoryRow() => find.descendant(
           of: find.byType(WorkbenchSidebar),
@@ -205,23 +206,13 @@ void main() {
 
         await rightClick(inventoryRow());
         await tap(find.text('移入回收区'));
-        expect(find.text('将 1 张卡片移入回收区？'), findsOneWidget);
-        expect(
-          tester
-              .widget<CheckboxListTile>(
-                find.descendant(
-                  of: find.byType(AlertDialog),
-                  matching: find.byType(CheckboxListTile),
-                ),
-              )
-              .value,
-          isFalse,
-        );
-        await tap(find.text('取消'));
-        expect(controller!.cards.length, 1);
+        expect(find.byType(AlertDialog), findsNothing);
+        await until(() => controller!.cards.isEmpty);
+        expect(controller!.recycledCards, hasLength(1));
+        await tap(find.text('撤销'));
+        await until(() => controller!.cards.length == 1);
         expect(controller!.recycledCards, isEmpty);
         await rightClick(inventoryRow());
-        await tap(find.text('移入回收区'));
         await tap(find.text('移入回收区'));
         await until(() => controller!.cards.isEmpty);
         expect(controller!.recycledCards, hasLength(1));

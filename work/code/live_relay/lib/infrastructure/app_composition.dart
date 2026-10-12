@@ -11,6 +11,9 @@ import '../presentation/controllers/app_preferences.dart';
 import 'persistence/file_device_preferences_repository.dart';
 import '../application/agent/agent_settings_service.dart';
 import '../application/agent/agent_service.dart';
+import '../application/ai/outbound_consent_service.dart';
+import '../core/ports/outbound_consent_repository.dart';
+import 'ai/outbound_consent_store.dart';
 import '../application/agent/agent_review_service.dart';
 import '../application/agent/conversation_application.dart';
 import '../core/ports/ai_settings_repository.dart';
@@ -85,6 +88,7 @@ AppController createAppController([
   DeviceFactorProtection? deviceFactorProtection,
   DateTime Function()? clock,
   SpeechService? speechService,
+  OutboundConsentRepository? outboundConsentStore,
 ]) {
   final session = VaultSession(
     installationFactory: (directory) => VaultRestoreTransaction(directory),
@@ -138,6 +142,9 @@ AppController createAppController([
   final agentSettings = AgentSettingsService(
     aiSettingsStore ?? AiProviderSettingsStore(),
   );
+  final outboundConsent = OutboundConsentService(
+    outboundConsentStore ?? OutboundConsentStore(),
+  );
   final agent = AgentService(
     vault: session,
     configuration: agentSettings,
@@ -180,6 +187,7 @@ AppController createAppController([
     backup: backup,
     content: content,
     agentSettings: agentSettings,
+    outboundConsent: outboundConsent,
     agent: agent,
     agentReview: review,
     snapshotQuery: snapshots,

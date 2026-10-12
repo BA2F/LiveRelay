@@ -14,6 +14,7 @@ import '../dialogs/ai_privacy_dialogs.dart';
 import '../dialogs/card_dialogs.dart';
 import '../dialogs/media_viewer.dart';
 import '../widgets/local_pdf_preview.dart';
+import 'speech_input_page.dart';
 
 String mediaLabel(BlobMediaKind kind) => switch (kind) {
   BlobMediaKind.image => '照片',
@@ -296,6 +297,27 @@ class _OriginalWorkspaceState extends State<_OriginalWorkspace> {
                                 await controller.runOcr(blob.id);
                                 _reloadLinked();
                               }, success: '识别文字已保存为待整理草稿');
+                            },
+                    ),
+                  if (blob.mediaKind == BlobMediaKind.audio ||
+                      blob.mediaKind == BlobMediaKind.video)
+                    OutlinedButton.icon(
+                      icon: const Icon(Icons.transcribe),
+                      label: const Text('转写为文字草稿'),
+                      onPressed: controller.isBusy
+                          ? null
+                          : () async {
+                              await Navigator.of(context).push<void>(
+                                MaterialPageRoute(
+                                  builder: (_) => SpeechInputPage(
+                                    readAudio: () =>
+                                        controller.readOriginal(blob.id),
+                                    audioName: blob.originalName,
+                                    sourceBlobId: blob.id,
+                                  ),
+                                ),
+                              );
+                              _reloadLinked();
                             },
                     ),
                   if (blob.ocrText != null) ...[

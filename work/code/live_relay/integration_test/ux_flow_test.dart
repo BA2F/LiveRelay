@@ -57,6 +57,11 @@ void main() {
       null,
       ai,
       settings,
+      null,
+      null,
+      null,
+      null,
+      TestOutboundConsent(),
     );
     await c.initialize();
     await tester.pumpWidget(
@@ -119,7 +124,7 @@ void main() {
       await tapText('记一条');
       await tester.enterText(find.byType(TextField).first, '备用钥匙在鞋柜第二层');
       await shot('03-quick-editor-keyboard');
-      await tapText('先保存');
+      await tapText('保存');
       await until(() => c.cards.isNotEmpty);
       final id = c.cards.single.id;
       expect(c.cards.single.status, CardStatus.draft);
@@ -144,9 +149,11 @@ void main() {
       await until(() => c.cards.single.status == CardStatus.confirmed);
       await tapText('编辑这条信息');
       await tester.enterText(find.byType(TextField).first, '备用钥匙已移到书房抽屉');
-      await tapText('内容已核对，确认保存');
+      await tapText('保存');
       await until(() => c.cards.single.revisionNumber == 3);
       expect(c.cards.single.id, id);
+      // 采集只留一个保存动作：编辑已确认卡片不会把它退回待整理。
+      expect(c.cards.single.status, CardStatus.confirmed);
       expect((await c.cardHistory(id)).last.content, '备用钥匙在鞋柜第二层');
       await shot('07-detail-edited');
       await tapText('查看完整修订历史');
@@ -176,7 +183,7 @@ void main() {
       await tapText('整理内容');
       await tapText('手工整理关联说明');
       await tester.enterText(find.byType(TextField).first, '这张照片对应书房抽屉，手工填写');
-      await tapText('先保存');
+      await tapText('保存');
       await until(() => c.cards.any((v) => v.content.contains('手工填写')));
       final manual = c.cards.firstWhere((v) => v.content.contains('手工填写'));
       expect(
@@ -213,13 +220,14 @@ void main() {
       await pop();
       await tapText('检查 AI 外发内容');
       await shot('13-ai-check');
-      await tapText('检查并授权本次 AI 整理');
+      // 首次向该服务发送内容拦一次；取消不发送，也不记录授权。
+      await tapText('用 AI 整理');
       expect(ai.requests, isEmpty);
-      await shot('14-ai-single-consent');
-      await tapText('拒绝');
+      await shot('14-ai-first-consent');
+      await tapText('取消');
       expect(ai.requests, isEmpty);
-      await tapText('检查并授权本次 AI 整理');
-      await tapText('仅允许本次');
+      await tapText('用 AI 整理');
+      await tapText('发送并记住');
       await until(() => ai.requests.length == 1 && !c.isBusy);
       expect(ai.requests.single.redactedText, isNot(contains('私密备注')));
       expect(ai.requests.single.redactedText, contains('[[NOTE_01]]'));
@@ -227,6 +235,9 @@ void main() {
       final generated = c.cards.firstWhere((v) => v.title == '识别资料整理');
       expect(generated.status, CardStatus.draft);
       expect(generated.content, contains('私密备注'));
+      // 授权已记住：再次整理直接发送，不再弹窗。
+      await tapText('用 AI 整理');
+      await until(() => ai.requests.length == 2 && !c.isBusy);
       await pop();
       await pop();
       await c.saveCredential(

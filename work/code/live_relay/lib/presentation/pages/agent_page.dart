@@ -3,8 +3,10 @@ import 'package:provider/provider.dart';
 
 import '../controllers/app_controller.dart';
 import '../../application/draft_agent_service.dart';
+import '../../core/ai/outbound_consent.dart';
 import '../../core/domain/entities.dart';
 import '../dialogs/ai_settings_dialog.dart';
+import '../dialogs/outbound_consent_dialog.dart';
 
 class AgentPage extends StatefulWidget {
   const AgentPage({super.key});
@@ -46,6 +48,15 @@ class _AgentPageState extends State<AgentPage> {
     super.dispose();
   }
 
+  OutboundDestination get _destination {
+    final settings = _controller.aiSettings;
+    return OutboundDestination.ai(
+      profileId: settings.id,
+      endpoint: settings.endpoint,
+      name: settings.name,
+    );
+  }
+
   Future<void> _runAgent() async {
     final generation = _generation;
     final text = _text.text;
@@ -53,49 +64,20 @@ class _AgentPageState extends State<AgentPage> {
       for (final e in _marks.entries)
         SensitiveMark(lineOrder: e.key, kind: e.value),
     ];
-    late String disclosure;
     try {
-      disclosure = _controller.previewAgentDisclosure(text, marks);
+      _controller.previewAgentDisclosure(text, marks);
     } on Object catch (e) {
       setState(() => _error = e is FormatException ? e.message : '无法准备资料');
       return;
     }
-    final allowed = await showDialog<bool>(
-      context: context,
-      builder: (c) => AlertDialog(
-        title: const Text('仅允许本次 Agent 整理？'),
-        content: SizedBox(
-          width: 520,
-          child: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text('以下内容将发送给已配置的 AI 服务。敏感行仅以占位符发送；Agent 不会读取密码库或其他记录。'),
-                const SizedBox(height: 12),
-                SelectableText(disclosure),
-                if (_allowCommands)
-                  const Text('本次还允许隔离命令处理这些内容；无网络，不能访问本机资料库或个人文件。'),
-              ],
-            ),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(c, false),
-            child: const Text('拒绝'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(c, true),
-            child: const Text('仅允许本次'),
-          ),
-        ],
-      ),
+    // 首次向该服务发送内容拦一次；之后按输入区上方的“将发送”面板直接整理。
+    final allowed = await ensureOutboundConsent(
+      context,
+      _controller,
+      destination: _destination,
+      kind: OutboundKind.content,
     );
-    if (allowed != true ||
-        !mounted ||
-        !_controller.isUnlocked ||
-        generation != _generation) {
+    if (!allowed || !mounted || !_controller.isUnlocked || generation != _generation) {
       return;
     }
     setState(() {
@@ -138,6 +120,53 @@ class _AgentPageState extends State<AgentPage> {
     } finally {
       if (mounted) setState(() => _working = false);
     }
+  }
+
+  /// 输入区旁边的“将发送”面板：实际外发文字就放在整理按钮上方，
+  /// 不再靠每轮的授权弹窗展示发送范围。
+  Widget _previewPanel(AppController controller) {
+    if (_text.text.trim().isEmpty) return const SizedBox.shrink();
+    final settings = controller.aiSettings;
+    final service =
+        '${settings.model} · ${Uri.tryParse(settings.endpoint)?.host ?? "尚未配置"}';
+    String? disclosure;
+    String? error;
+    try {
+      disclosure = controller.previewAgentDisclosure(_text.text, [
+        for (final e in _marks.entries)
+          SensitiveMark(lineOrder: e.key, kind: e.value),
+      ]);
+    } on Object catch (e) {
+      error = e is FormatException ? e.message : '无法准备资料';
+    }
+    final granted = controller.outboundConsent.granted(
+      _destination,
+      OutboundKind.content,
+    );
+    return OutboundPreviewPanel(
+      service: service,
+      children: [
+        if (error != null)
+          Text(error, style: TextStyle(color: Theme.of(context).colorScheme.error))
+        else ...[
+          const Text('实际发送的文字（未标记行原样发送）：'),
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxHeight: 160),
+            child: SingleChildScrollView(child: SelectableText(disclosure!)),
+          ),
+          if (_allowCommands)
+            const Padding(
+              padding: EdgeInsets.only(top: 8),
+              child: Text('本次还允许隔离命令处理这些内容；无网络，不能访问本机资料库或个人文件。'),
+            ),
+          if (!granted)
+            const Padding(
+              padding: EdgeInsets.only(top: 8),
+              child: Text('首次向这个服务发送会先确认一次；之后按本面板的范围直接整理。'),
+            ),
+        ],
+      ],
+    );
   }
 
   @override
@@ -264,13 +293,15 @@ class _AgentPageState extends State<AgentPage> {
                   ),
                 ],
                 const SizedBox(height: 12),
+                _previewPanel(controller),
+                const SizedBox(height: 12),
                 FilledButton.icon(
                   onPressed:
                       _working || controller.isBusy || controller.isAgentBusy
                       ? null
                       : _runAgent,
                   icon: const Icon(Icons.auto_awesome),
-                  label: const Text('预览外发范围并整理'),
+                  label: const Text('用 AI 整理'),
                 ),
                 if (_batch != null) ...[
                   const SizedBox(height: 20),

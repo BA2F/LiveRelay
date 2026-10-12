@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import 'package:live_relay/application/app_controller.dart';
 import 'package:live_relay/application/agent/agent_service.dart';
 import 'package:live_relay/application/agent/agent_settings_service.dart';
+import 'package:live_relay/application/ai/outbound_consent_service.dart';
 import 'package:live_relay/application/agent/agent_review_service.dart';
 import 'package:live_relay/application/vault_session.dart';
 import 'package:live_relay/application/vault_snapshot_query.dart';
@@ -63,6 +64,7 @@ class SnapshotController extends AppController {
           provider: RecordingAi(),
         ),
         agentSettings: settings,
+        outboundConsent: OutboundConsentService(TestOutboundConsent()),
         agentReview: AgentReviewService(session),
         snapshotQuery: snapshots,
         prepareEnvironment: () async {},

@@ -3,6 +3,8 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:live_relay/core/ports/biometric_key_store.dart';
+import 'package:live_relay/core/ai/outbound_consent.dart';
+import 'package:live_relay/core/ports/outbound_consent_repository.dart';
 import 'package:live_relay/core/ports/ai_provider.dart';
 import 'package:live_relay/core/ports/ai_conversation_provider.dart';
 import 'package:live_relay/core/ports/ocr_provider.dart';
@@ -174,5 +176,22 @@ class FixtureSpeechProvider implements SpeechProvider, RemoteSpeechProvider {
       await release.future;
     }
     return '虚构转写';
+  }
+}
+
+/// 内存版外发授权记录：验证首次确认与收回授权，不触碰真实设备存储。
+class TestOutboundConsent implements OutboundConsentRepository {
+  TestOutboundConsent({Map<String, Set<OutboundKind>>? grants})
+    : grants = grants ?? {};
+  Map<String, Set<OutboundKind>> grants;
+  @override
+  Future<Map<String, Set<OutboundKind>>> read() async => {
+    for (final entry in grants.entries) entry.key: {...entry.value},
+  };
+  @override
+  Future<void> write(Map<String, Set<OutboundKind>> next) async {
+    grants = {
+      for (final entry in next.entries) entry.key: {...entry.value},
+    };
   }
 }

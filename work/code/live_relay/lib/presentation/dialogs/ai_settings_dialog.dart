@@ -1,6 +1,8 @@
+import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
 
 import '../controllers/app_controller.dart';
+import '../../core/ai/outbound_consent.dart';
 import '../../core/ports/ai_provider.dart';
 import '../../core/ai/ai_service_endpoint.dart';
 import '../../core/ai/ai_provider_settings.dart';
@@ -93,6 +95,49 @@ class AiSettingsDialogState extends State<AiSettingsDialog> {
     _model.dispose();
     _apiKey.dispose();
     super.dispose();
+  }
+
+  /// 外发授权状态与收回入口。授权按“服务 + 本机地址”记录在设备上，
+  /// 首次确认后日常发送不再弹窗，这里给本人留反悔的入口。
+  Widget _grantSection(AppController controller) {
+    final profile = controller.aiProfiles
+        .where((p) => p.id == _profileId)
+        .firstOrNull;
+    if (profile == null) return const SizedBox.shrink();
+    final destination = OutboundDestination.ai(
+      profileId: profile.id,
+      endpoint: profile.endpoint,
+      name: profile.name,
+    );
+    final kinds = controller.outboundConsent.grantedKinds(destination.id);
+    final labels = [
+      for (final kind in OutboundKind.values)
+        if (kinds.contains(kind))
+          kind == OutboundKind.attachment ? '附件' : '内容',
+    ];
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SizedBox(height: 16),
+        const Divider(),
+        const Text('外发授权'),
+        Text(
+          labels.isEmpty
+              ? '首次向本服务发送内容或附件时会先确认一次；确认后默认直接发送。'
+              : '已记住：${labels.join("、")}默认直接发送，不再每次询问。',
+        ),
+        if (labels.isNotEmpty)
+          TextButton(
+            onPressed: _busy
+                ? null
+                : () async {
+                    await controller.revokeOutbound(destination.id);
+                    if (mounted) setState(() {});
+                  },
+            child: const Text('收回授权，下次重新确认'),
+          ),
+      ],
+    );
   }
 
   Future<void> _save() async {
@@ -271,6 +316,7 @@ class AiSettingsDialogState extends State<AiSettingsDialog> {
               ),
             ),
           ),
+          if (!_create) _grantSection(widget.controller),
           if (_error != null) ...[
             const SizedBox(height: 12),
             Text(

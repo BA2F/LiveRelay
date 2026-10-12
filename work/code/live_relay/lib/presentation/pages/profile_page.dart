@@ -134,7 +134,7 @@ class _ProfilePageState extends State<ProfilePage> {
         const Divider(),
         for (final item in [
           (AppFeature.agent, 'Agent', Icons.auto_awesome_outlined),
-          (AppFeature.speechInput, '语音输入', Icons.keyboard_voice_outlined),
+          (AppFeature.speechInput, '语音识别与转写', Icons.keyboard_voice_outlined),
           (AppFeature.checkIn, '报平安与自动交接', Icons.favorite_outline),
           (AppFeature.partialBackup, '拆分备份', Icons.inventory_2_outlined),
         ])

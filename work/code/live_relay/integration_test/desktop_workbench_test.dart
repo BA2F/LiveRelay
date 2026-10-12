@@ -430,6 +430,7 @@ void main() {
   testWidgets(
     'native continuous conversation edits, consent, confirmation and encrypted recovery',
     (tester) async {
+      FlutterSecureStorage.setMockInitialValues({});
       final root = await Directory.systemTemp.createTemp(
         'liverelay-conversation-test-',
       );
@@ -489,15 +490,15 @@ void main() {
         await tester.pumpAndSettle();
         await tester.tap(find.text('发送'));
         await tester.pumpAndSettle();
-        expect(ai.requests, isEmpty); // UI consent precedes any request.
+        expect(ai.requests, isEmpty); // 首次发送先确认，确认前不发请求。
         expect(find.textContaining('[[TURN1_SECRET_01]]'), findsWidgets);
         expect(
-          find.text('允许本次发送'),
+          find.text('发送并记住'),
           findsOneWidget,
           reason:
               '输入=${conversation.draft}; 错误=${conversation.error}; 提示=${tester.widgetList<Text>(find.descendant(of: find.byType(SnackBar), matching: find.byType(Text))).map((t) => t.data).join()}',
         );
-        await tester.tap(find.text('允许本次发送'));
+        await tester.tap(find.text('发送并记住'));
         await tester.pump(const Duration(milliseconds: 100));
         await settleConversation();
         expect(ai.requests.single.redactedText, '[[TURN1_SECRET_01]]');
@@ -522,14 +523,8 @@ void main() {
         expect(conversation.working, false);
         await tester.tap(find.text('发送'));
         await tester.pumpAndSettle();
-        expect(
-          find.text('允许本次发送'),
-          findsOneWidget,
-          reason:
-              '输入=${conversation.draft}; 错误=${conversation.error}; 提示=${tester.widgetList<Text>(find.descendant(of: find.byType(SnackBar), matching: find.byType(Text))).map((t) => t.data).join()}',
-        );
-        await tester.tap(find.text('允许本次发送'));
-        await tester.pump(const Duration(milliseconds: 100));
+        // 授权已记住：日常发送不再弹窗，按常驻预览直接发送。
+        expect(find.text('发送并记住'), findsNothing);
         await settleConversation();
         expect(ai.turns.last, hasLength(2));
         expect(jsonEncode(ai.turns.last), isNot(contains('虚构秘密')));
@@ -643,6 +638,7 @@ void main() {
   testWidgets(
     'native attachment drop handler previews removes encrypts and sends real content',
     (tester) async {
+      FlutterSecureStorage.setMockInitialValues({});
       final root = await Directory.systemTemp.createTemp(
         'liverelay-attachment-test-',
       );
@@ -769,11 +765,12 @@ void main() {
         await tester.tap(find.text('发送'));
         await tester.pumpAndSettle();
         expect(ai.requests, isEmpty);
-        expect(
-          find.text('请核对每个附件的实际发送范围。敏感行标记仅适用于主输入，附件及核对转写不会自动替换敏感内容：'),
-          findsOneWidget,
-        );
-        await tester.tap(find.text('允许本次发送'));
+        // 首次向该服务发送：先确认内容，再确认附件；面板常驻显示发送范围。
+        expect(find.textContaining('附件按原始内容发送'), findsOneWidget);
+        await tester.tap(find.text('发送并记住'));
+        await tester.pumpAndSettle();
+        expect(ai.requests, isEmpty);
+        await tester.tap(find.text('发送并记住'));
         await tester.pump(const Duration(milliseconds: 100));
         await settle(() => !q.working && ai.requests.isNotEmpty);
         expect(q.error, isNull);
@@ -1186,15 +1183,16 @@ void main() {
         await tester.tap(find.text('识别音频／视频音轨'));
         for (
           var i = 0;
-          i < 100 && find.text('允许上传本次音频？').evaluate().isEmpty;
+          i < 100 && find.text('发送并记住').evaluate().isEmpty;
           i++
         ) {
           await tester.pump(const Duration(milliseconds: 100));
         }
         await tester.pump(const Duration(milliseconds: 300));
+        // 首次向该远程语音服务上传音频拦一次；取消不发送也不记录授权。
         expect(
-          find.text('允许上传本次音频？'),
-          findsOneWidget,
+          find.text('取消'),
+          findsWidgets,
           reason: tester
               .widgetList<Text>(find.byType(Text))
               .map((w) => w.data)
@@ -1207,13 +1205,13 @@ void main() {
         await tester.tap(find.text('识别音频／视频音轨'));
         for (
           var i = 0;
-          i < 100 && find.text('允许上传本次音频？').evaluate().isEmpty;
+          i < 100 && find.text('发送并记住').evaluate().isEmpty;
           i++
         ) {
           await tester.pump(const Duration(milliseconds: 100));
         }
         await tester.pump(const Duration(milliseconds: 300));
-        await tester.tap(find.text('允许本次音频上传'));
+        await tester.tap(find.text('发送并记住'));
         final transcript = find.byWidgetPredicate(
           (w) => w is TextField && w.decoration?.labelText == '检查或修改识别文字',
         );
@@ -1455,6 +1453,7 @@ void main() {
   testWidgets(
     'native Agent audio preview and video frame selection send reviewed multimodal content',
     (tester) async {
+      FlutterSecureStorage.setMockInitialValues({});
       final root = await Directory.systemTemp.createTemp(
         'liverelay-multimodal-native-',
       );
@@ -1854,6 +1853,7 @@ void main() {
   testWidgets(
     'native structured Agent proposals need owner adoption and show selected target scope',
     (tester) async {
+      FlutterSecureStorage.setMockInitialValues({});
       final root = await Directory.systemTemp.createTemp(
         'liverelay-native-proposal-',
       );
@@ -1910,7 +1910,11 @@ void main() {
         await tester.pumpAndSettle();
         expect(find.textContaining('供模型提出收纳/引用草案'), findsOneWidget);
         expect(find.textContaining(bundle.id), findsOneWidget);
-        await tester.tap(find.text('允许本次发送'));
+        // 首次发送：先确认内容，再确认附件（两个所选卡片）。
+        await tester.tap(find.text('发送并记住'));
+        await tester.pumpAndSettle();
+        expect(q.messages, isEmpty);
+        await tester.tap(find.text('发送并记住'));
         await tester.pumpAndSettle();
         final message = q.messages.last;
         expect(message.actions.single.hasChanges, isFalse);
@@ -2116,6 +2120,7 @@ void main() {
   testWidgets(
     'native workbench autosaves local edits while Agent waits and save-lock cancels reply',
     (tester) async {
+      FlutterSecureStorage.setMockInitialValues({});
       final root = await Directory.systemTemp.createTemp(
         'liverelay-native-network-',
       );
@@ -2164,7 +2169,7 @@ void main() {
         await tester.pumpAndSettle();
         await tester.tap(find.text('发送'));
         await tester.pumpAndSettle();
-        await tester.tap(find.text('允许本次发送'));
+        await tester.tap(find.text('发送并记住'));
         for (var i = 0; i < 100 && !ai.entered.isCompleted; i++) {
           await tester.pump(const Duration(milliseconds: 100));
         }

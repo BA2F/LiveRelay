@@ -1,20 +1,17 @@
 import 'package:flutter/material.dart';
 
 import '../controllers/app_controller.dart';
+import '../../core/ai/outbound_consent.dart';
 import '../../core/domain/entities.dart';
 import 'card_dialogs.dart';
 import 'ai_settings_dialog.dart';
+import 'outbound_consent_dialog.dart';
 
 Future<void> showAiPrivacyWorkspace(
   BuildContext context,
   AppController controller,
   VaultBlob blob,
 ) async {
-  if (blob.ocrLines.isEmpty) {
-    ScaffoldMessenger.of(context)
-        .showSnackBar(const SnackBar(content: Text('请先在本机识别文字，也可以直接手工整理')));
-    return;
-  }
   await showModalBottomSheet<void>(
     context: context,
     useSafeArea: true,
@@ -40,6 +37,15 @@ class _AiPrivacyWorkspaceState extends State<_AiPrivacyWorkspace> {
   };
   bool _working = false;
 
+  OutboundDestination get _destination {
+    final settings = widget.controller.aiSettings;
+    return OutboundDestination.ai(
+      profileId: settings.id,
+      endpoint: settings.endpoint,
+      name: settings.name,
+    );
+  }
+
   List<SensitiveMark> get _markList => _marks.entries
       .map((entry) => SensitiveMark(lineOrder: entry.key, kind: entry.value))
       .toList(growable: false);
@@ -64,12 +70,8 @@ class _AiPrivacyWorkspaceState extends State<_AiPrivacyWorkspace> {
   }
 
   Future<void> _organize() async {
-    String disclosure;
     try {
-      disclosure = widget.controller.previewAiDisclosure(
-        widget.blob.id,
-        _markList,
-      );
+      widget.controller.previewAiDisclosure(widget.blob.id, _markList);
     } on Object catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(context)
@@ -78,51 +80,14 @@ class _AiPrivacyWorkspaceState extends State<_AiPrivacyWorkspace> {
       return;
     }
     if (!mounted) return;
-    final settings = widget.controller.aiSettings;
-    final allowed = await showDialog<bool>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        icon: const Icon(Icons.cloud_upload_outlined),
-        title: const Text('允许这一次云 AI 整理？'),
-        content: SingleChildScrollView(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text('AI 服务：${Uri.parse(settings.endpoint).host}'),
-              Text('模型：${settings.model}'),
-              Text('范围：仅此图片的识别文字，标记行会在本地替换'),
-              Text('隐藏处理：${_marks.length} 行'),
-              const SizedBox(height: 12),
-              const Text(
-                '不上传原图、替换对应表、资料库其他内容或密码库原文。'
-                '不保存“始终允许”。',
-              ),
-              const SizedBox(height: 8),
-              const Text('实际发送的文字（未标记行会原样发送）'),
-              const SizedBox(height: 8),
-              SelectableText(disclosure),
-              ExpansionTile(
-                tilePadding: EdgeInsets.zero,
-                title: const Text('对照识别原文'),
-                children: [SelectableText(widget.blob.ocrText ?? '')],
-              ),
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext, false),
-            child: const Text('拒绝'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(dialogContext, true),
-            child: const Text('仅允许本次'),
-          ),
-        ],
-      ),
+    // 首次向该服务发送内容拦一次；之后按下方常驻的“将发送”预览直接整理。
+    final allowed = await ensureOutboundConsent(
+      context,
+      widget.controller,
+      destination: _destination,
+      kind: OutboundKind.content,
     );
-    if (allowed != true || !mounted) return;
+    if (!allowed || !mounted) return;
     setState(() => _working = true);
     try {
       final count = await widget.controller.organizeWithAi(
@@ -222,15 +187,7 @@ class _AiPrivacyWorkspaceState extends State<_AiPrivacyWorkspace> {
             ),
           ),
         const SizedBox(height: 12),
-        ExpansionTile(
-          tilePadding: EdgeInsets.zero,
-          title: const Text('对照实际发送文本'),
-          children: [
-            SelectableText(
-              widget.controller.previewAiDisclosure(widget.blob.id, _markList),
-            ),
-          ],
-        ),
+        _previewPanel(),
         OutlinedButton(
           onPressed: _working ? null : _save,
           child: const Text('仅保存隐藏标记'),
@@ -241,11 +198,55 @@ class _AiPrivacyWorkspaceState extends State<_AiPrivacyWorkspace> {
           onPressed: _working || !widget.controller.aiSettings.isConfigured
               ? null
               : _organize,
-          label: Text(_working ? '正在整理…' : '检查并授权本次 AI 整理'),
+          label: Text(_working ? '正在整理…' : '用 AI 整理'),
         ),
       ],
     ),
   );
+
+  /// 常驻的“将发送”预览：正文常驻在整理按钮上方，所见即所发；
+  /// 只有首次向该服务发送时才在按钮按下后确认一次。
+  Widget _previewPanel() {
+    final settings = widget.controller.aiSettings;
+    final service =
+        '${settings.model} · ${Uri.tryParse(settings.endpoint)?.host ?? "尚未配置"}';
+    final granted = widget.controller.outboundConsent.granted(
+      _destination,
+      OutboundKind.content,
+    );
+    String? disclosure;
+    String? error;
+    try {
+      disclosure = widget.controller.previewAiDisclosure(
+        widget.blob.id,
+        _markList,
+      );
+    } on Object catch (e) {
+      error = e is FormatException ? e.message : '无法准备外发内容';
+    }
+    return OutboundPreviewPanel(
+      service: service,
+      children: [
+        Text('实际发送的文字（${_marks.length} 行隐藏，未标记行原样发送）：'),
+        if (error != null)
+          Text(error, style: TextStyle(color: Theme.of(context).colorScheme.error))
+        else
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxHeight: 160),
+            child: SingleChildScrollView(
+              child: SelectableText(disclosure ?? ''),
+            ),
+          ),
+        ExpansionTile(
+          tilePadding: EdgeInsets.zero,
+          title: const Text('对照识别原文'),
+          children: [SelectableText(widget.blob.ocrText ?? '')],
+        ),
+        if (!granted)
+          const Text('首次向这个服务发送会先确认一次；之后按本预览直接整理。'),
+      ],
+    );
+  }
 
   String _label(SensitiveFieldKind kind) => switch (kind) {
     SensitiveFieldKind.account => '账号',

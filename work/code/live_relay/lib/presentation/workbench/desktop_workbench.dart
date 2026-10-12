@@ -168,86 +168,37 @@ class _DesktopWorkbenchState extends State<DesktopWorkbench> {
 
   // ---- 移入回收与恢复 ----
 
-  Future<void> _deleteCards(List<LifeCard> cards) async {
-    CardDeletionPreview? preview;
-    await _action(() async {
-      await _edits.flush();
-      if (_edits.hasUnsaved) throw const FormatException('请先处理未保存的修改');
-      preview = await _controller.previewCardDeletion(
-        cards.map((c) => c.id).toList(),
-      );
-    });
-    if (preview == null || !mounted) return;
-    var recycleOriginals = false;
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => StatefulBuilder(
-        builder: (context, refresh) => AlertDialog(
-          title: Text('将 ${cards.length} 张卡片移入回收区？'),
-          content: SizedBox(
-            width: 480,
-            child: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  for (final card in cards) Text('• ${card.title}'),
-                  const SizedBox(height: 12),
-                  const Text('卡片移入回收区，历史保留，可恢复。'),
-                  CheckboxListTile(
-                    contentPadding: EdgeInsets.zero,
-                    value: recycleOriginals,
-                    title: Text(
-                      '同时回收 ${preview!.recyclableOriginals.length} 个未共享原件',
-                    ),
-                    subtitle: const Text('原件保留，可随卡片恢复；其他卡片及其历史引用的原件受保护'),
-                    onChanged: preview!.recyclableOriginals.isEmpty
-                        ? null
-                        : (v) => refresh(() => recycleOriginals = v ?? false),
-                  ),
-                  for (final blob in preview!.recyclableOriginals)
-                    Text('可回收：${blob.originalName}'),
-                  for (final blob in preview!.protectedOriginals)
-                    Text('共享/历史保护：${blob.originalName}'),
-                ],
-              ),
-            ),
+  /// 移入回收区是可撤销动作：直接做，给撤销，不弹确认框。
+  /// 原件不随卡片走：卡片移入回收区只影响卡片本身。
+  Future<void> _deleteCards(List<LifeCard> cards) => _action(() async {
+    await _edits.flush();
+    if (_edits.hasUnsaved) throw const FormatException('请先处理未保存的修改');
+    await _controller.trashCards(cards.map((c) => c.id).toList());
+    for (final card in cards) {
+      _tabs.close('card/${card.id}');
+    }
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          cards.length == 1
+              ? '已移入回收区：${cards.single.title}'
+              : '已把 ${cards.length} 张卡片移入回收区',
+        ),
+        action: SnackBarAction(
+          label: '撤销',
+          onPressed: () => unawaited(
+            _action(() async {
+              for (final card in cards) {
+                await _controller.restoreCard(card.id);
+              }
+              if (mounted) _snack('已撤销，卡片已恢复');
+            }),
           ),
-          actions: [
-            if (_controller.isBusy)
-              const Padding(
-                padding: EdgeInsets.all(14),
-                child: SizedBox.square(
-                  dimension: 18,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                ),
-              ),
-            TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text('取消'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.pop(context, true),
-              child: const Text('移入回收区'),
-            ),
-          ],
         ),
       ),
     );
-    if (confirmed != true) return;
-    await _action(() async {
-      await _edits.flush();
-      if (_edits.hasUnsaved) throw const FormatException('请先处理未保存的修改');
-      await _controller.trashCards(
-        cards.map((c) => c.id).toList(),
-        recycleUnsharedOriginals: recycleOriginals,
-      );
-      for (final card in cards) {
-        _tabs.close('card/${card.id}');
-      }
-      if (mounted) _snack('已移入回收区，可在回收区恢复');
-    });
-  }
+  });
 
   Future<void> _trashCredential(CredentialEntry entry) => _action(() async {
     await _controller.trashCredential(entry.id);

@@ -15,7 +15,10 @@ import 'package:record/record.dart';
 import '../controllers/app_controller.dart';
 import '../controllers/speech_input_binding.dart';
 import '../controllers/speech_service.dart';
+import '../../core/ai/outbound_consent.dart';
+import '../../core/speech/remote_speech_settings.dart';
 import '../../infrastructure/speech/local_sense_voice_provider.dart';
+import '../dialogs/outbound_consent_dialog.dart';
 import '../dialogs/speech_settings_dialog.dart';
 
 class SpeechInputPage extends StatefulWidget {
@@ -26,6 +29,7 @@ class SpeechInputPage extends StatefulWidget {
     this.onSettings,
     this.readAudio,
     this.audioName,
+    this.sourceBlobId,
     this.transcriptActionLabel = '填入助手输入',
   });
   final SpeechInputBinding? binding;
@@ -33,6 +37,10 @@ class SpeechInputPage extends StatefulWidget {
   final Future<Uint8List> Function()? readAudio;
   final String transcriptActionLabel;
   final String? audioName;
+
+  /// 转写一张已入库的录音原件：识别后保存的草稿直接关联它，
+  /// 不再另存一份音频；此模式下不提供重新录音，避免文本与原件错配。
+  final String? sourceBlobId;
   final ValueChanged<String>? onTranscript;
   @override
   State<SpeechInputPage> createState() => SpeechInputPageState();
@@ -48,14 +56,15 @@ class SpeechInputPageState extends State<SpeechInputPage> {
     active: () => mounted && _cleaning == null,
   );
   Future<void>? _cleaning;
-  BuildContext? _consentContext;
   Timer? _limit, _meterTimer;
   StreamSubscription<Amplitude>? _amplitude;
   final _recordClock = Stopwatch();
   final _levels = <double>[];
-  late bool _saveOriginal = widget.onTranscript == null;
+  late bool _saveOriginal =
+      widget.onTranscript == null && widget.sourceBlobId == null;
+  bool get _transcribingExisting => widget.sourceBlobId != null;
   String? _recordPath;
-  String? _sourceBlobId;
+  late String? _sourceBlobId = widget.sourceBlobId;
   int _generation = 0;
   bool _recording = false;
   bool _working = false;
@@ -82,11 +91,8 @@ class SpeechInputPageState extends State<SpeechInputPage> {
   Future<void> _cleanup() => _cleaning ??= (() async {
     _generation++;
     _binding.speech?.cancelTranscription();
-    final dialog = _consentContext;
-    _consentContext = null;
-    if (dialog != null && dialog.mounted) Navigator.of(dialog).pop(false);
     _text.clear();
-    _sourceBlobId = null;
+    _sourceBlobId = widget.sourceBlobId;
     await _processor.close();
     await _discardRecording();
     if (_working) await _binding.speech?.cancel();
@@ -327,31 +333,22 @@ class SpeechInputPageState extends State<SpeechInputPage> {
               generation != _generation) {
             return;
           }
-          final allowed = await showDialog<bool>(
-            context: context,
-            builder: (context) {
-              _consentContext = context;
-              return AlertDialog(
-                title: const Text('允许上传本次音频？'),
-                content: Text(
-                  '${prepared!.name} · ${prepared.model}\n${prepared.host}\n'
-                  '将上传完整转换WAV音轨（${bytes.length} 字节），音频不做敏感内容替换。文字回填不会自动发送给对话服务。',
-                ),
-                actions: [
-                  TextButton(
-                    onPressed: () => Navigator.pop(context, false),
-                    child: const Text('取消'),
-                  ),
-                  FilledButton(
-                    onPressed: () => Navigator.pop(context, true),
-                    child: const Text('允许本次音频上传'),
-                  ),
-                ],
-              );
-            },
+          // 首次向该远程语音服务上传音频拦一次；之后按页面显示的
+          // 服务与范围直接上传。
+          final allowed = await ensureOutboundConsent(
+            context,
+            _binding.controller,
+            destination: OutboundDestination.speech(
+              endpoint: prepared.endpoint,
+              name: prepared.name,
+            ),
+            kind: OutboundKind.attachment,
+            attachmentLines: [
+              '${prepared.model} · ${prepared.host}',
+              '完整转换WAV音轨（${bytes.length} 字节），音频不做敏感内容替换',
+            ],
           );
-          _consentContext = null;
-          if (allowed != true) return;
+          if (!allowed) return;
         }
         if (!mounted ||
             !_binding.session.isUnlocked ||
@@ -365,7 +362,7 @@ class SpeechInputPageState extends State<SpeechInputPage> {
         if (mounted &&
             _binding.session.isUnlocked &&
             generation == _generation) {
-          _sourceBlobId = result.blobId;
+          _sourceBlobId = widget.sourceBlobId ?? result.blobId;
           _text.text = result.text;
         }
       } finally {
@@ -380,13 +377,51 @@ class SpeechInputPageState extends State<SpeechInputPage> {
     }
   }
 
+  /// 远程音频上传的授权状态与收回入口：首次确认后默认上传，
+  /// 想恢复“每次先问”就在这里收回。
+  Widget _uploadConsentRow(RemoteSpeechSettings settings) {
+    final controller = _binding.controller;
+    final destination = OutboundDestination.speech(
+      endpoint: settings.endpoint,
+      name: settings.name,
+    );
+    final granted = controller.outboundConsent.granted(
+      destination,
+      OutboundKind.attachment,
+    );
+    return ListTile(
+      contentPadding: EdgeInsets.zero,
+      leading: const Icon(Icons.outbox_outlined),
+      title: Text(granted ? '音频上传已授权' : '首次上传前会确认一次'),
+      subtitle: Text(
+        granted
+            ? '向上面显示的服务上传音频会直接进行；可在这里收回。'
+            : '确认后，向这个服务上传音频默认直接进行。',
+      ),
+      trailing: granted
+          ? TextButton(
+              onPressed: () => _action(
+                () => controller.revokeOutbound(destination.id),
+              ),
+              child: const Text('收回授权'),
+            )
+          : null,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final service = _binding.speech;
     final busy = _working || (service?.busy ?? false);
     return Scaffold(
       appBar: AppBar(
-        title: Text(service?.usingRemote == true ? '远程语音输入' : '本地语音输入'),
+        title: Text(
+          _transcribingExisting
+              ? '转写录音'
+              : service?.usingRemote == true
+              ? '远程语音输入'
+              : '本地语音输入',
+        ),
       ),
       body: !_binding.session.isUnlocked
           ? const Center(child: Text('请先解锁资料库'))
@@ -395,7 +430,7 @@ class SpeechInputPageState extends State<SpeechInputPage> {
               children: [
                 Text(
                   service?.usingRemote == true
-                      ? '音频将发送给独立配置的语音服务，每次上传前确认；最长 60 秒，核对文字后回填或保存。'
+                      ? '音频将发送给独立配置的语音服务：首次上传前确认一次，之后按上面显示的地址与模型直接上传；最长 60 秒，核对文字后回填或保存。'
                       : widget.onTranscript == null
                       ? '录音原件加密保留，识别在本机完成，不上传音频。每次最长 60 秒，核对文字后保存关联草稿。'
                       : '识别在本机完成，不上传音频。每次最长 60 秒；核对后可填入助手，发送时另行确认。',
@@ -454,7 +489,7 @@ class SpeechInputPageState extends State<SpeechInputPage> {
                       ),
                     ],
                   ),
-                  if (service.usingRemote)
+                  if (service.usingRemote) ...[
                     ListTile(
                       contentPadding: EdgeInsets.zero,
                       leading: const Icon(Icons.cloud_outlined),
@@ -462,7 +497,9 @@ class SpeechInputPageState extends State<SpeechInputPage> {
                       subtitle: Text(
                         '${service.remoteSettings.model} · ${Uri.tryParse(service.remoteSettings.endpoint)?.host ?? ""}',
                       ),
-                    )
+                    ),
+                    _uploadConsentRow(service.remoteSettings),
+                  ]
                   else if (!service.supported)
                     const Text('当前平台尚未支持本地语音')
                   else ...[
@@ -526,29 +563,33 @@ class SpeechInputPageState extends State<SpeechInputPage> {
                                 );
                               }),
                         icon: const Icon(Icons.transcribe),
-                        label: const Text('转写当前附件音轨'),
+                        label: Text(
+                          _transcribingExisting ? '转写这段录音' : '转写当前附件音轨',
+                        ),
                       ),
                     Wrap(
                       spacing: 8,
                       runSpacing: 8,
                       children: [
-                        FilledButton.icon(
-                          onPressed: _recording
-                              ? _stop
-                              : busy
-                              ? null
-                              : _start,
-                          icon: Icon(_recording ? Icons.stop : Icons.mic),
-                          label: Text(_recording ? '停止并识别' : '开始录音'),
-                        ),
-                        OutlinedButton(
-                          onPressed: busy || _recording
-                              ? null
-                              : () => _pick(false),
-                          child: Text(
-                            Platform.isLinux ? '识别音频／视频音轨' : '识别 WAV 文件',
+                        if (!_transcribingExisting)
+                          FilledButton.icon(
+                            onPressed: _recording
+                                ? _stop
+                                : busy
+                                ? null
+                                : _start,
+                            icon: Icon(_recording ? Icons.stop : Icons.mic),
+                            label: Text(_recording ? '停止并识别' : '开始录音'),
                           ),
-                        ),
+                        if (!_transcribingExisting)
+                          OutlinedButton(
+                            onPressed: busy || _recording
+                                ? null
+                                : () => _pick(false),
+                            child: Text(
+                              Platform.isLinux ? '识别音频／视频音轨' : '识别 WAV 文件',
+                            ),
+                          ),
                         if (!service.usingRemote)
                           TextButton(
                             onPressed: busy || _recording

@@ -13,9 +13,10 @@ class SpeechPreparation {
     required this.name,
     required this.model,
     required this.host,
+    required this.endpoint,
     required this.length,
   });
-  final String ticket, name, model, host;
+  final String ticket, name, model, host, endpoint;
   final bool remote;
   final int length;
 }
@@ -28,6 +29,10 @@ class SpeechRecognition {
 
 abstract class SpeechInputBinding {
   PreviewSession get session;
+
+  /// 外发首次确认等跨端状态由主控制器持有；绑定已包着它，
+  /// 页面不额外依赖 Provider 查找。
+  AppController get controller;
   SpeechAccess? get speech;
   Future<SpeechPreparation> prepare(
     Uint8List wav, {
@@ -45,6 +50,7 @@ abstract class SpeechInputBinding {
 /// Main/mobile composition. Bytes remain owned by the page until recognition.
 class LocalSpeechInputBinding implements SpeechInputBinding {
   LocalSpeechInputBinding(this.controller);
+  @override
   final AppController controller;
   Uint8List? _wav;
   ConversationAttachment? _original;
@@ -82,6 +88,7 @@ class LocalSpeechInputBinding implements SpeechInputBinding {
       name: settings.name,
       model: settings.model,
       host: Uri.tryParse(settings.endpoint)?.host ?? '',
+      endpoint: settings.endpoint,
       length: wav.length,
     );
   }

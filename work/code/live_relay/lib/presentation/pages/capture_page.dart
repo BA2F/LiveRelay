@@ -74,17 +74,6 @@ class CapturePage extends StatelessWidget {
                 onPressed: controller.isBusy
                     ? null
                     : () => Navigator.of(context).push<void>(
-                        MaterialPageRoute(
-                          builder: (_) => const SpeechInputPage(),
-                        ),
-                      ),
-                icon: const Icon(Icons.keyboard_voice_outlined),
-                label: const Text('语音输入'),
-              ),
-              OutlinedButton.icon(
-                onPressed: controller.isBusy
-                    ? null
-                    : () => Navigator.of(context).push<void>(
                         MaterialPageRoute(builder: (_) => const AgentPage()),
                       ),
                 icon: const Icon(Icons.auto_awesome_outlined),
@@ -304,19 +293,43 @@ class CapturePage extends StatelessWidget {
       enableDrag: false,
       builder: (_) => const _AudioRecorderSheet(),
     );
-    if (recordedPath == null) return;
+    if (recordedPath == null || !context.mounted) return;
     final file = File(recordedPath);
+    final navigator = Navigator.of(context);
+    final messenger = ScaffoldMessenger.of(context);
+    final name = '录音-${_captureStamp()}.wav';
     try {
-      await controller.importOriginal(
+      final saved = await controller.importOriginal(
         bytes: await file.readAsBytes(),
-        originalName: '录音-${_captureStamp()}.m4a',
-        mimeType: 'audio/mp4',
+        originalName: name,
+        mimeType: 'audio/wav',
         mediaKind: BlobMediaKind.audio,
       );
-      if (context.mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(const SnackBar(content: Text('录音已加密保存，并建立来源卡片')));
-      }
+      if (!controller.isUnlocked) return;
+      final sources = await controller.cardSources(saved.id);
+      final blobId = sources.isEmpty ? null : sources.first.blobId;
+      // 采集只有这一次保存；转写是保存之后的独立动作，识别结果再单独存草稿。
+      messenger.showSnackBar(
+        SnackBar(
+          content: const Text('录音已加密保存，并建立来源卡片'),
+          action: controller.speech == null || blobId == null
+              ? null
+              : SnackBarAction(
+                  label: '转写为文字',
+                  onPressed: () {
+                    navigator.push<void>(
+                      MaterialPageRoute(
+                        builder: (_) => SpeechInputPage(
+                          readAudio: () => controller.readOriginal(blobId),
+                          audioName: name,
+                          sourceBlobId: blobId,
+                        ),
+                      ),
+                    );
+                  },
+                ),
+        ),
+      );
     } on Object {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -375,6 +388,9 @@ class _AudioRecorderSheetState extends State<_AudioRecorderSheet> {
   bool _busy = false;
   String? _error;
 
+  /// 与语音识别一致的上限：16 kHz 单声道 WAV，最长 60 秒。
+  static const _maxSeconds = 60;
+
   @override
   void dispose() {
     _timer?.cancel();
@@ -395,18 +411,20 @@ class _AudioRecorderSheetState extends State<_AudioRecorderSheet> {
       final directory = await privateCacheDirectory();
       final output = path.join(
         directory.path,
-        'recording-${DateTime.now().microsecondsSinceEpoch}.m4a',
+        'recording-${DateTime.now().microsecondsSinceEpoch}.wav',
       );
       await _recorder.start(
         const RecordConfig(
-          encoder: AudioEncoder.aacLc,
-          bitRate: 128000,
-          sampleRate: 44100,
+          encoder: AudioEncoder.wav,
+          sampleRate: 16000,
+          numChannels: 1,
         ),
         path: output,
       );
       _timer = Timer.periodic(const Duration(seconds: 1), (_) {
-        if (mounted) setState(() => _elapsed += const Duration(seconds: 1));
+        if (!mounted) return;
+        setState(() => _elapsed += const Duration(seconds: 1));
+        if (_elapsed.inSeconds >= _maxSeconds) unawaited(_finish());
       });
       if (mounted) setState(() => _recording = true);
     } on Object catch (error) {
@@ -417,6 +435,7 @@ class _AudioRecorderSheetState extends State<_AudioRecorderSheet> {
   }
 
   Future<void> _finish() async {
+    if (!_recording || _busy) return;
     setState(() => _busy = true);
     _timer?.cancel();
     final recordedPath = await _recorder.stop();
@@ -452,7 +471,7 @@ class _AudioRecorderSheetState extends State<_AudioRecorderSheet> {
             style: Theme.of(context).textTheme.headlineSmall,
           ),
           const SizedBox(height: 8),
-          const Text('录音会加密保存，暂不自动转写。'),
+          const Text('录音会加密保存，最长 60 秒；保存后可转写为文字。'),
           if (_error != null) ...[
             const SizedBox(height: 12),
             Text(

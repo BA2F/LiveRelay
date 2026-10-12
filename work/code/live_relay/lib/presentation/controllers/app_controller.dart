@@ -32,7 +32,9 @@ import '../../core/security/chinese_passphrase.dart';
 import '../../core/storage/vault_failures.dart';
 import '../../core/security/vault_key_manager.dart';
 import '../../core/ai/ai_provider_settings.dart';
+import '../../core/ai/outbound_consent.dart';
 import '../../application/agent/agent_settings_service.dart';
+import '../../application/ai/outbound_consent_service.dart';
 import '../../application/agent/agent_service.dart';
 import '../../application/agent/conversation_application.dart';
 import '../../application/workbench/workspace_state_store.dart';
@@ -49,6 +51,7 @@ class AppController extends ChangeNotifier implements PreviewSession {
     required this._backup,
     required this._content,
     required this._agentSettings,
+    required this._outboundConsent,
     required this._agent,
     required this._agentReview,
     required this._snapshotQuery,
@@ -62,6 +65,7 @@ class AppController extends ChangeNotifier implements PreviewSession {
     _agentSubscriptions = [
       _agent.activity.listen((_) => notifyListeners()),
       _agentSettings.changes.listen((_) => notifyListeners()),
+      _outboundConsent.changes.listen((_) => notifyListeners()),
       _session.changes.listen((_) {
         if (!_disposed) {
           if (!_session.isUnlocked) _clearUnlockedData();
@@ -185,6 +189,7 @@ class AppController extends ChangeNotifier implements PreviewSession {
   final VaultBackupService _backup;
   final VaultContentService _content;
   final AgentSettingsService _agentSettings;
+  final OutboundConsentService _outboundConsent;
   final AgentService _agent;
   final AgentReviewService _agentReview;
   final VaultSnapshotQuery _snapshotQuery;
@@ -220,6 +225,11 @@ class AppController extends ChangeNotifier implements PreviewSession {
   bool get isBusy => _uiBusy || _session.isWriting || _session.isMaintaining;
   set isBusy(bool value) => _uiBusy = value;
   bool agentCommandsAvailable = false;
+  OutboundConsentService get outboundConsent => _outboundConsent;
+  Future<void> grantOutbound(OutboundDestination destination, OutboundKind kind) =>
+      _run(() => _outboundConsent.grant(destination, kind));
+  Future<void> revokeOutbound(String destinationId) =>
+      _run(() => _outboundConsent.revoke(destinationId));
   AiProviderSettings get aiSettings => _agentSettings.settings;
   List<AiProviderSettings> get aiProfiles => _agentSettings.profiles;
   int get aiConfigurationGeneration => _agentSettings.generation;
@@ -288,6 +298,7 @@ class AppController extends ChangeNotifier implements PreviewSession {
     try {
       await _prepareEnvironment();
       await _agentSettings.initialize();
+      await _outboundConsent.initialize();
       try {
         await _speechService?.refresh();
         agentCommandsAvailable = await _agent.commandAvailable();
@@ -602,8 +613,20 @@ class AppController extends ChangeNotifier implements PreviewSession {
 
   Future<void> selectAiProfile(String id, String model) =>
       _run(() => _agentSettings.select(id, model));
-  Future<void> removeAiProfile(String id) =>
-      _run(() => _agentSettings.remove(id));
+  Future<void> removeAiProfile(String id) => _run(() async {
+    // 服务配置移除后，它的外发授权不再有意义；重新添加时按首次处理。
+    final profile = aiProfiles.where((p) => p.id == id).firstOrNull;
+    if (profile != null) {
+      await _outboundConsent.revoke(
+        OutboundDestination.ai(
+          profileId: profile.id,
+          endpoint: profile.endpoint,
+          name: profile.name,
+        ).id,
+      );
+    }
+    await _agentSettings.remove(id);
+  });
   Future<void> clearAiSettings() => _run(_agentSettings.clear);
 
   String previewAgentDisclosure(String text, List<SensitiveMark> marks) =>
@@ -861,6 +884,7 @@ class AppController extends ChangeNotifier implements PreviewSession {
     _snapshotQuery.dispose();
     _agent.dispose();
     _agentSettings.dispose();
+    _outboundConsent.dispose();
     _securityService?.dispose();
     recipient?.dispose();
     _speechService?.removeListener(notifyListeners);

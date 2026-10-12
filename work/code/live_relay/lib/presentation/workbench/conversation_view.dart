@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 
 import '../controllers/agent_conversation.dart';
+import '../../core/ai/outbound_consent.dart';
 import '../../core/domain/entities.dart';
 import '../dialogs/ai_settings_dialog.dart';
+import '../dialogs/outbound_consent_dialog.dart';
 import 'attachment_strip.dart';
 import 'review_actions_editor.dart';
 import 'suggestion_review_editor.dart';
@@ -60,7 +62,9 @@ class ConversationView extends StatelessWidget {
     }
   }
 
-  Future<void> sendWithConsent(BuildContext context) async {
+  /// 日常发送：内容常驻在输入区上方，所见即所发；只有首次向该服务
+  /// 发送内容、首次发送附件时各拦一次。
+  Future<void> send(BuildContext context) async {
     final c = conversation;
     final generationText = c.draft;
     try {
@@ -68,69 +72,30 @@ class ConversationView extends StatelessWidget {
         for (final e in c.marks.entries)
           SensitiveMark(lineOrder: e.key, kind: e.value),
       ]);
-      final settings = c.controller.aiSettings;
-      final allowed = await showDialog<bool>(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: const Text('允许发送本轮对话？'),
-          content: SizedBox(
-            width: 560,
-            child: SingleChildScrollView(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    '${settings.model} · ${Uri.tryParse(settings.endpoint)?.host ?? "尚未配置"}',
-                  ),
-                  const SizedBox(height: 12),
-                  const Text('将发送以下本轮内容和已有对话历史。已标记的敏感行以占位符发送。'),
-                  const SizedBox(height: 12),
-                  SelectableText(turn.payload.redactedText),
-                  if (turn.reviewTargets.isNotEmpty) ...[
-                    const SizedBox(height: 8),
-                    const Text('同时发送以下所选卡片标识，供模型提出收纳/引用草案；草案仍需本人采用、核对并确认：'),
-                    for (final target in turn.reviewTargets)
-                      SelectableText(
-                        '${target.id}${target.bundle ? "（组合）" : "（卡片）"}',
-                      ),
-                  ],
-                  if (turn.attachments.isNotEmpty) ...[
-                    const Text(
-                      '请核对每个附件的实际发送范围。敏感行标记仅适用于主输入，附件及核对转写不会自动替换敏感内容：',
-                    ),
-                    for (final a in turn.attachments) ...[
-                      Text('${a.name} · ${a.sendDescription}'),
-                      if (a.transcript != null) SelectableText(a.transcript!),
-                    ],
-                    Wrap(
-                      children: [
-                        for (final a in turn.attachments)
-                          AttachmentTile(attachment: a, conversation: c),
-                      ],
-                    ),
-                  ],
-                  if (c.disclosureHistory.isNotEmpty) ...[
-                    const Divider(),
-                    const Text('将重发的对话历史'),
-                    SelectableText(c.disclosureHistory),
-                  ],
-                ],
-              ),
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text('取消'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.pop(context, true),
-              child: const Text('允许本次发送'),
-            ),
+      final destination = outboundDestination(c);
+      if (!await ensureOutboundConsent(
+        context,
+        c.controller,
+        destination: destination,
+        kind: OutboundKind.content,
+      )) {
+        return;
+      }
+      if (turn.attachments.isNotEmpty) {
+        if (!context.mounted) return;
+        if (!await ensureOutboundConsent(
+          context,
+          c.controller,
+          destination: destination,
+          kind: OutboundKind.attachment,
+          attachmentLines: [
+            for (final a in turn.attachments) '${a.name} · ${a.sendDescription}',
           ],
-        ),
-      );
-      if (allowed == true &&
+        )) {
+          return;
+        }
+      }
+      if (context.mounted &&
           c.controller.isUnlocked &&
           c.draft == generationText) {
         await c.send(turn);
@@ -142,6 +107,102 @@ class ConversationView extends StatelessWidget {
         );
       }
     }
+  }
+
+  static OutboundDestination outboundDestination(AgentConversation c) {
+    final settings = c.controller.aiSettings;
+    return OutboundDestination.ai(
+      profileId: settings.id,
+      endpoint: settings.endpoint,
+      name: settings.name,
+    );
+  }
+
+  ({PreparedConversationTurn? turn, String? error}) _preview(
+    AgentConversation c,
+  ) {
+    if (c.draft.trim().isEmpty && c.attachments.isEmpty) {
+      return (turn: null, error: null);
+    }
+    try {
+      return (
+        turn: c.prepare(c.draft, [
+          for (final e in c.marks.entries)
+            SensitiveMark(lineOrder: e.key, kind: e.value),
+        ]),
+        error: null,
+      );
+    } on Object catch (e) {
+      return (turn: null, error: e is FormatException ? e.message : '无法准备对话');
+    }
+  }
+
+  Widget _previewPanel(BuildContext context, AgentConversation c) {
+    if (c.draft.trim().isEmpty && c.attachments.isEmpty) {
+      return const SizedBox.shrink();
+    }
+    final preview = _preview(c);
+    final settings = c.controller.aiSettings;
+    final service = Uri.tryParse(settings.endpoint)?.host ?? '尚未配置';
+    final granted = c.controller.outboundConsent.granted(
+      outboundDestination(c),
+      OutboundKind.content,
+    );
+    return Padding(
+      padding: const EdgeInsets.only(top: 8),
+      child: OutboundPreviewPanel(
+        service: '${settings.model} · $service',
+        children: [
+          if (preview.error != null)
+            Text(
+              preview.error!,
+              style: TextStyle(color: Theme.of(context).colorScheme.error),
+            )
+          else if (preview.turn != null) ...[
+            const Text('对话内容（已标记敏感行以占位符发送）'),
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxHeight: 160),
+              child: SingleChildScrollView(
+                child: SelectableText(preview.turn!.payload.redactedText),
+              ),
+            ),
+            if (preview.turn!.reviewTargets.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              const Text('随本轮发送所选卡片标识，供模型提出收纳/引用草案：'),
+              for (final target in preview.turn!.reviewTargets)
+                SelectableText(
+                  '${target.id}${target.bundle ? "（组合）" : "（卡片）"}',
+                ),
+            ],
+            if (preview.turn!.attachments.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              const Text('附件按原始内容发送，不做敏感内容替换：'),
+              for (final a in preview.turn!.attachments) ...[
+                Text('${a.name} · ${a.sendDescription}'),
+                if (a.transcript != null) SelectableText(a.transcript!),
+              ],
+              Wrap(
+                children: [
+                  for (final a in preview.turn!.attachments)
+                    AttachmentTile(attachment: a, conversation: c),
+                ],
+              ),
+            ],
+            if (c.disclosureHistory.isNotEmpty)
+              ExpansionTile(
+                tilePadding: EdgeInsets.zero,
+                title: const Text('将重发的对话历史'),
+                children: [SelectableText(c.disclosureHistory)],
+              ),
+            if (!granted)
+              const Padding(
+                padding: EdgeInsets.only(top: 8),
+                child: Text('首次向这个服务发送会先确认一次；之后按本面板的范围直接发送。'),
+              ),
+          ],
+        ],
+      ),
+    );
   }
 
   @override
@@ -313,96 +374,113 @@ class ConversationView extends StatelessWidget {
               ),
             ),
           Flexible(
-            child: SingleChildScrollView(
-              child: Padding(
-                padding: const EdgeInsets.all(12),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    AttachmentStrip(conversation: c),
-                    const SizedBox(height: 8),
-                    _SharedField(
-                      label: '对话输入',
-                      value: c.draft,
-                      maxLines: 5,
-                      enabled: !c.working,
-                      onChanged: c.updateDraft,
-                    ),
-                    if (c.draft.isNotEmpty)
-                      ExpansionTile(
-                        title: const Text('标记敏感行'),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // 输入、标记与“将发送”面板可以滚动；发送行始终留在窗口内。
+                Flexible(
+                  child: SingleChildScrollView(
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        mainAxisSize: MainAxisSize.min,
                         children: [
-                          for (var i = 0; i < c.draft.split('\n').length; i++)
-                            Row(
+                          AttachmentStrip(conversation: c),
+                          const SizedBox(height: 8),
+                          _SharedField(
+                            label: '对话输入',
+                            value: c.draft,
+                            maxLines: 5,
+                            enabled: !c.working,
+                            onChanged: c.updateDraft,
+                          ),
+                          if (c.draft.isNotEmpty)
+                            ExpansionTile(
+                              title: const Text('标记敏感行'),
                               children: [
-                                Expanded(
-                                  child: Text(
-                                    '${i + 1}. ${c.draft.split('\n')[i]}',
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
+                                for (
+                                  var i = 0;
+                                  i < c.draft.split('\n').length;
+                                  i++
+                                )
+                                  Row(
+                                    children: [
+                                      Expanded(
+                                        child: Text(
+                                          '${i + 1}. ${c.draft.split('\n')[i]}',
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
+                                      DropdownButton<SensitiveFieldKind?>(
+                                        value: c.marks[i],
+                                        items: const [
+                                          DropdownMenuItem(
+                                            value: null,
+                                            child: Text('公开'),
+                                          ),
+                                          DropdownMenuItem(
+                                            value: SensitiveFieldKind.account,
+                                            child: Text('账号'),
+                                          ),
+                                          DropdownMenuItem(
+                                            value: SensitiveFieldKind.secret,
+                                            child: Text('秘密'),
+                                          ),
+                                          DropdownMenuItem(
+                                            value: SensitiveFieldKind.money,
+                                            child: Text('金额'),
+                                          ),
+                                          DropdownMenuItem(
+                                            value: SensitiveFieldKind.note,
+                                            child: Text('私密备注'),
+                                          ),
+                                        ],
+                                        onChanged: c.working
+                                            ? null
+                                            : (value) => c.mark(i, value),
+                                      ),
+                                    ],
                                   ),
-                                ),
-                                DropdownButton<SensitiveFieldKind?>(
-                                  value: c.marks[i],
-                                  items: const [
-                                    DropdownMenuItem(
-                                      value: null,
-                                      child: Text('公开'),
-                                    ),
-                                    DropdownMenuItem(
-                                      value: SensitiveFieldKind.account,
-                                      child: Text('账号'),
-                                    ),
-                                    DropdownMenuItem(
-                                      value: SensitiveFieldKind.secret,
-                                      child: Text('秘密'),
-                                    ),
-                                    DropdownMenuItem(
-                                      value: SensitiveFieldKind.money,
-                                      child: Text('金额'),
-                                    ),
-                                    DropdownMenuItem(
-                                      value: SensitiveFieldKind.note,
-                                      child: Text('私密备注'),
-                                    ),
-                                  ],
-                                  onChanged: c.working
-                                      ? null
-                                      : (value) => c.mark(i, value),
-                                ),
                               ],
                             ),
+                          _previewPanel(context, c),
                         ],
                       ),
-                    Wrap(
-                      spacing: 8,
-                      children: [
-                        FilledButton.icon(
-                          onPressed:
-                              c.working ||
-                                  (c.draft.trim().isEmpty &&
-                                      c.attachments.isEmpty)
-                              ? null
-                              : () => sendWithConsent(context),
-                          icon: const Icon(Icons.send_outlined),
-                          label: const Text('发送'),
-                        ),
-                        IconButton(
-                          tooltip: '语音输入',
-                          onPressed: c.working ? null : openSpeech,
-                          icon: const Icon(Icons.mic_none),
-                        ),
-                        if (c.working)
-                          TextButton(
-                            onPressed: c.controller.cancelAgentTask,
-                            child: const Text('停止'),
-                          ),
-                      ],
                     ),
-                  ],
+                  ),
                 ),
-              ),
+                Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Wrap(
+                    spacing: 8,
+                    children: [
+                      FilledButton.icon(
+                        onPressed:
+                            c.working ||
+                                (c.draft.trim().isEmpty &&
+                                    c.attachments.isEmpty)
+                            ? null
+                            : () => send(context),
+                        icon: const Icon(Icons.send_outlined),
+                        label: const Text('发送'),
+                      ),
+                      IconButton(
+                        tooltip: '语音输入',
+                        onPressed: c.working ? null : openSpeech,
+                        icon: const Icon(Icons.mic_none),
+                      ),
+                      if (c.working)
+                        TextButton(
+                          onPressed: c.controller.cancelAgentTask,
+                          child: const Text('停止'),
+                        ),
+                    ],
+                  ),
+                ),
+              ],
             ),
           ),
         ],

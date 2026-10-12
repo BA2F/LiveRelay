@@ -13,7 +13,6 @@ Future<void> showCardEditor(
   BuildContext context,
   AppController controller, {
   LifeCard? card,
-  CardStatus initialStatus = CardStatus.draft,
   String? sourceBlobId,
   String? initialContent,
 }) async {
@@ -22,7 +21,6 @@ Future<void> showCardEditor(
       builder: (_) => _CardEditorSheet(
         controller: controller,
         card: card,
-        initialStatus: initialStatus,
         sourceBlobId: sourceBlobId,
         initialContent: initialContent,
       ),
@@ -34,13 +32,11 @@ class _CardEditorSheet extends StatefulWidget {
   const _CardEditorSheet({
     required this.controller,
     required this.card,
-    required this.initialStatus,
     this.sourceBlobId,
     this.initialContent,
   });
   final AppController controller;
   final LifeCard? card;
-  final CardStatus initialStatus;
   final String? sourceBlobId;
   final String? initialContent;
   @override
@@ -79,7 +75,9 @@ class _CardEditorSheetState extends State<_CardEditorSheet> {
     super.dispose();
   }
 
-  Future<void> _save(CardStatus status) async {
+  /// 采集只有这一个保存动作：新内容存为待整理；编辑已有卡片保留它
+  /// 原来的确认状态（与桌面自动保存一致），确认动作在卡片详情里单独进行。
+  Future<void> _save() async {
     if (_saving) return;
     final content = _content.text.trim();
     if (content.isEmpty) {
@@ -90,6 +88,7 @@ class _CardEditorSheetState extends State<_CardEditorSheet> {
     final title = _title.text.trim().isNotEmpty
         ? _title.text.trim()
         : String.fromCharCodes(firstLine.runes.take(28));
+    final status = widget.card?.status ?? CardStatus.draft;
     final draft = CardDraft(
       title: title,
       content: content,
@@ -106,7 +105,9 @@ class _CardEditorSheetState extends State<_CardEditorSheet> {
         await widget.controller.updateCard(
           widget.card!.id,
           draft,
-          changeNote: status == CardStatus.confirmed ? '本人修改并确认' : '本人修改，保存待整理',
+          changeNote: status == CardStatus.confirmed
+              ? '本人修改并保存，卡片保持已确认'
+              : '本人修改，保存待整理',
         );
       } else if (widget.sourceBlobId != null) {
         await widget.controller.createCardFromOriginal(
@@ -124,7 +125,7 @@ class _CardEditorSheetState extends State<_CardEditorSheet> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              status == CardStatus.confirmed ? '已加密保存，本人已确认' : '已加密保存在本机，进入待整理',
+              status == CardStatus.confirmed ? '已加密保存，卡片保持已确认' : '已加密保存在本机，进入待整理',
             ),
           ),
         );
@@ -166,7 +167,7 @@ class _CardEditorSheetState extends State<_CardEditorSheet> {
     );
     if (!mounted) return;
     if (action == 'save') {
-      await _save(CardStatus.draft);
+      await _save();
     }
     if (action == 'discard') {
       setState(() {
@@ -204,7 +205,7 @@ class _CardEditorSheetState extends State<_CardEditorSheet> {
             const SizedBox(height: 12),
             Text(
               widget.card == null
-                  ? '先保存为待整理内容，默认仅本人可见。'
+                  ? '保存为待整理内容，默认仅本人可见；核对后可在卡片详情里确认。'
                   : '保存会生成同一卡片的新修订，旧内容和来源保留。',
             ),
             const SizedBox(height: 16),
@@ -252,13 +253,8 @@ class _CardEditorSheetState extends State<_CardEditorSheet> {
               const SizedBox(height: 12),
             ],
             FilledButton(
-              onPressed: _saving ? null : () => _save(CardStatus.draft),
-              child: Text(_saving ? '加密保存中…' : '先保存'),
-            ),
-            const SizedBox(height: 8),
-            OutlinedButton(
-              onPressed: _saving ? null : () => _save(CardStatus.confirmed),
-              child: const Text('内容已核对，确认保存'),
+              onPressed: _saving ? null : _save,
+              child: Text(_saving ? '加密保存中…' : '保存'),
             ),
           ],
         ),
