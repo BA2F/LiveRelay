@@ -1,0 +1,21 @@
+{
+  "productionEntrypoint": "lib/main.dart",
+  "injectedBusinessServices": false,
+  "isolatedXdgAndTemporaryDirectory": true,
+  "secureStorageInMemoryFixture": true,
+  "privateVaultOrCredentialsRead": false,
+  "microphoneStarted": false,
+  "upstreamRequested": false,
+  "nativeOnboardingAndRecoveryConfirmation": true,
+  "headerVersion": 3,
+  "immediateSaveAndLockPreservedDraft": true,
+  "mainCompositionRecreatedAndPasswordUnlocked": true,
+  "tabsRestoredAfterUnlock": true,
+  "preferencesContainOnlyDeviceOptions": true,
+  "nativeRecycleMenuReviewAndCancel": true,
+  "originalRecycleDefaultUnchecked": true,
+  "nativeRecycleAndRestorePreserveDrafts": true,
+  "quickOpenShortcutFromFocusedInput": true,
+  "sidebarCollapseToggle": true,
+  "wholeGoalComplete": false
+}

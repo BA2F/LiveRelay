@@ -1,0 +1,27 @@
+{
+  "date": "2026-10-12",
+  "branch": "codex/desktop-rebuild",
+  "step": "2 桌面骨架重构（左栏导航 + 标签页 + 状态条）",
+  "fixtureOnly": true,
+  "analyze": "flutter analyze 无问题",
+  "unitTests": "flutter test 266 项通过",
+  "nativeSuites": {
+    "desktop_workbench_test": "16 项通过（含解锁→待整理→打开卡片→编辑→待保存→已保存→确认→保存并锁定→标签恢复→回收恢复）",
+    "desktop_close_test": "2 项通过（GTK 关闭拒绝/正常退出保存契约）",
+    "desktop_startup_test": "2 项通过（production main 隔离根、真实组合、右键回收与 Ctrl+P）"
+  },
+  "shellFacts": {
+    "zones": ["左栏：搜索/新建 + 五项导航 + 纯列表", "中央：标签条 + 对象编辑区", "底部：本地加密资料库 + 保存状态"],
+    "shortcuts": ["Ctrl+N 新建卡片", "Ctrl+F 聚焦搜索", "Ctrl+P 按标题打开卡片", "Ctrl+S 立即保存", "Ctrl+W 关闭标签", "Ctrl+L 保存并锁定", "Ctrl+B 折叠左栏"],
+    "contextMenus": ["列表行（打开/确认/移入回收/恢复/复制文件名）", "标签（关闭/关闭其他/关闭全部）", "卡片编辑区（立即保存/修订历史/关系图/移入回收）"],
+    "persistence": "desktop.workbench.v1 写 version 2（tabs/active/section/collapsed），旧版停靠布局记录解析失败时静默回到默认标签",
+    "removed": ["停靠画布与四向分屏", "浮动面板", "工作台预设与启动选择", "命令面板 Ctrl+Shift+P", "拖拽图标栏", "列表行内嵌编辑器", "扩展界面的一级入口（收进设置的“扩展”项）", "卡片批量勾选删除（改右键单个操作）"]
+  },
+  "knownDebt": [
+    "人工走查未做：建议本人按验收路径现场过一遍新 UI",
+    "标签拖拽排序只有状态层单测覆盖，未用真实鼠标拖动验证",
+    "右键菜单由合成鼠标事件（add→down→up→remove）驱动，物理鼠标未人工确认",
+    "卡片右键移入回收仍走带原件回收选项的确认框（第 3 步统一确认模型时再收敛）",
+    "Windows/macOS 桌面外壳未验证"
+  ]
+}
