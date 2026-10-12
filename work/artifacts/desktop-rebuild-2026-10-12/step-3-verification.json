@@ -11,8 +11,14 @@
     "desktop_close_test": "2 项通过（关闭拒绝/退出前保存契约）"
   },
   "consentModel": {
-    "kind": ["content（脱敏文本）", "attachment（原始附件与远程语音音频）"],
-    "destinationKey": ["ai:<profileId>@<host>", "speech@<host>"],
+    "kind": [
+      "content（脱敏文本）",
+      "attachment（原始附件与远程语音音频）"
+    ],
+    "destinationKey": [
+      "ai:<profileId>@<host>",
+      "speech@<host>"
+    ],
     "storage": "设备本地 secure storage，version 1；读取或写入失败按未授权处理，不静默放行",
     "firstSend": "首次各拦一次，按钮为「发送并记住」/「取消」",
     "dailySend": "常驻「将发送」面板（实际脱敏文本、附件清单与转写、可折叠重发历史），不再每轮弹窗",
@@ -21,15 +27,22 @@
   "reversibleActions": {
     "cardTrash": "桌面卡片移入回收区直接执行 + SnackBar 撤销（恢复卡片）；原件不随卡片回收",
     "editorSave": "记一条编辑器单个「保存」：新内容存待整理，编辑已确认卡片保持已确认",
-    "irreversibleKept": ["密码条目永久清除", "整库替换恢复"]
+    "irreversibleKept": [
+      "密码条目永久清除",
+      "整库替换恢复"
+    ]
   },
   "captureFlow": {
     "phone": "记录页仅「录音」一个语音入口：WAV 16 kHz 单声道、最长 60 秒，保存原件即唯一保存动作；保存后可「转写为文字」",
     "transcribe": "从已入库原件发起，不另存音频，草稿关联该原件；原件详情新增「转写为文字草稿」",
-    "removed": ["手机语音页默认且不可见地另存音频", "「暂不自动转写」提示", "记录页独立「语音输入」按钮（我的页改名为「语音识别与转写」）"]
+    "removed": [
+      "手机语音页默认且不可见地另存音频",
+      "「暂不自动转写」提示",
+      "记录页独立「语音输入」按钮（我的页改名为「语音识别与转写」）"
+    ]
   },
   "knownDebt": [
-    "手机套件（ux_flow、麦克风）本轮未运行：只在 Linux 工作区施工、不安装手机；改动过的手机用例仅静态更新",
+    "手机套件本轮未跑通：Linux 工作区施工、不装真机；模拟器 flutter_chain_demo（API 36 x86_64）可启动并执行套件，但 ux_flow 第一条在建库等待（until isUnlocked）处失败，早于本轮改动，疑似模拟器建库超时（未做 A/B），经本人指示停止",
     "原件自身没有回收入口：引擎能力保留、界面无入口（capture/00 的开放问题）",
     "长录音（>60 秒）与时间片转写仍是开放问题",
     "指纹开关改为「只验主密码」需要设备因素解耦（Header v3 的 D 覆盖全部分支），本轮不动引擎，记为 K3：tasks/specs/2026-10-12_K3设备因素解耦与指纹开关.md",
@@ -40,5 +53,10 @@
     "cause": "新常驻面板把「发送」按钮挤出 1280×720 测试窗口（按钮 y=808），tap 报 would not receive pointer events；集成绑定格式化该错误时又崩在渲染树诊断",
     "fix": "编辑区改为内容可滚动、发送行固定可见",
     "method": "应用内 print 不回传，写文件诊断；打印 FlutterError 用 diagnostics.take(n) 逐节点 try，不用 exceptionAsString()"
+  },
+  "phoneEmulator": {
+    "device": "flutter_chain_demo (API 36, x86_64, google_apis)",
+    "result": "可启动、可装包、套件可执行；ux_flow 首条失败于 until(c.isUnlocked)（建库等待窗口），早于本轮改动",
+    "followUp": "如需结论需 A/B：改动前提交在同机重跑，或放宽等待窗口"
   }
 }
