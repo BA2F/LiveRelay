@@ -508,10 +508,6 @@ class AppController extends ChangeNotifier implements PreviewSession {
       workspaceState.read(WorkspaceRecord.layout);
   Future<void> writeWorkbenchState(String value) =>
       workspaceState.write(WorkspaceRecord.layout, value);
-  Future<String?> readWorkbenchWindows() =>
-      workspaceState.read(WorkspaceRecord.windows);
-  Future<void> writeWorkbenchWindows(String value) =>
-      workspaceState.write(WorkspaceRecord.windows, value);
   Future<String?> readWorkbenchExtensions() =>
       workspaceState.read(WorkspaceRecord.extensions);
   Future<void> writeWorkbenchExtensions(String value) =>

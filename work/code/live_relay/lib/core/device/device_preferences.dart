@@ -9,12 +9,10 @@ class DevicePreferences {
     this.readingSize = ReadingSize.medium,
     this.onboardingStarted = false,
     this.onboardingComplete = false,
-    this.desktopPreset,
   });
   final AppearanceMode appearance;
   final ReadingSize readingSize;
   final bool onboardingStarted, onboardingComplete;
-  final String? desktopPreset;
   factory DevicePreferences.fromJson(Map<String, Object?> data) {
     if (data['version'] != 1) throw const FormatException('偏好版本不支持');
     return DevicePreferences(
@@ -28,9 +26,6 @@ class DevicePreferences {
       ),
       onboardingStarted: data['onboardingStarted'] == true,
       onboardingComplete: data['onboardingComplete'] == true,
-      desktopPreset: ['library', 'assistant'].contains(data['desktopPreset'])
-          ? data['desktopPreset'] as String
-          : null,
     );
   }
   Map<String, Object?> toJson() => {
@@ -39,6 +34,5 @@ class DevicePreferences {
     'readingSize': readingSize.name,
     'onboardingStarted': onboardingStarted,
     'onboardingComplete': onboardingComplete,
-    'desktopPreset': desktopPreset,
   };
 }

@@ -1,5 +1,3 @@
-import '../widgets/liverelay_logo.dart';
-
 import 'dart:async';
 import 'dart:ui' show AppExitResponse;
 
@@ -9,24 +7,28 @@ import 'package:file_picker/file_picker.dart';
 import 'package:provider/provider.dart';
 
 import '../controllers/app_controller.dart';
-import '../../application/app_preferences.dart';
 import 'state/card_edit_sessions.dart';
-import 'state/workbench_layout.dart';
+import 'state/workbench_tabs.dart';
 import 'state/extension_registry.dart';
 import '../../core/domain/entities.dart';
 import '../controllers/agent_conversation.dart';
-import 'conversation_view.dart';
-import '../pages/profile_page.dart';
-import '../pages/passwords_page.dart';
+import '../model_labels.dart';
+import '../dialogs/card_dialogs.dart';
+import '../dialogs/credential_dialogs.dart';
+import '../widgets/credential_secret_actions.dart';
+import '../widgets/liverelay_logo.dart';
 import '../pages/handoff_page.dart';
+import '../pages/identity_page.dart';
+import '../pages/profile_page.dart';
 import '../pages/speech_input_page.dart';
-import '../pages/recycle_page.dart';
-import 'dock_surface.dart';
-import 'workbench_card_editor.dart';
-import 'review_source_view.dart';
-import 'relations_view.dart';
+import 'conversation_view.dart';
 import 'extensions_view.dart';
+import 'relations_view.dart';
+import 'review_source_view.dart';
+import 'workbench_card_editor.dart';
 import 'workbench_runtime.dart';
+import 'workbench_sidebar.dart';
+import 'workbench_tab_strip.dart';
 
 class DesktopWorkbench extends StatefulWidget {
   const DesktopWorkbench({super.key});
@@ -37,30 +39,15 @@ class DesktopWorkbench extends StatefulWidget {
 class _DesktopWorkbenchState extends State<DesktopWorkbench> {
   late final AppController _controller;
   late final WorkbenchRuntime _runtime;
-  WorkbenchLayout get _layout => _runtime.layout;
+  WorkbenchTabs get _tabs => _runtime.tabs;
   CardEditSessions get _edits => _runtime.edits;
   ExtensionRegistry get _extensions => _runtime.extensions;
   AgentConversation get _conversation => _runtime.conversation;
   late final AppLifecycleListener _lifecycle;
-  final _dragging = ValueNotifier<String?>(null);
   final _search = TextEditingController();
-  final _selected = <String>{};
+  final _searchFocus = FocusNode();
   bool get _loaded => _runtime.loaded;
-  String? get _layoutError => _runtime.layoutError;
-  int _tabSerial = DateTime.now().microsecondsSinceEpoch;
-  static const _views = [
-    'cards',
-    'agent',
-    'relations',
-    'changes',
-    'originals',
-    'speech',
-    'passwords',
-    'handoff',
-    'settings',
-    'recycle',
-    'extensions',
-  ];
+
   @override
   void initState() {
     super.initState();
@@ -68,167 +55,75 @@ class _DesktopWorkbenchState extends State<DesktopWorkbench> {
     _runtime = WorkbenchRuntime(_controller);
     _runtime.addListener(_runtimeChanged);
     _lifecycle = AppLifecycleListener(onExitRequested: _requestExit);
-    _controller.addListener(_controllerChanged);
-    unawaited(
-      _runtime.load(preset: context.read<AppPreferences?>()?.desktopPreset),
-    );
+    unawaited(_runtime.load());
   }
 
   void _runtimeChanged() {
     if (mounted) setState(() {});
   }
 
-  void _controllerChanged() {
-    if (!_controller.isUnlocked) _selected.clear();
-  }
-
-  Future<void> _persistLayout() => _runtime.persistLayout();
-
   @override
   void dispose() {
-    _controller.removeListener(_controllerChanged);
     _runtime.removeListener(_runtimeChanged);
     _runtime.dispose();
     _lifecycle.dispose();
-    _dragging.dispose();
     _search.dispose();
+    _searchFocus.dispose();
     super.dispose();
   }
 
-  Future<AppExitResponse> _requestExit() async {
-    final response = await _runtime.requestExit();
-    if (mounted && _runtime.exitError != null) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(_runtime.exitError!)));
-    }
-    return response;
-  }
+  // ---- 通用动作 ----
+
+  void _snack(String message) => ScaffoldMessenger.of(
+    context,
+  ).showSnackBar(SnackBar(content: Text(message)));
 
   Future<void> _action(Future<void> Function() operation) async {
     try {
       await operation();
     } on Object catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              e is FormatException
-                  ? e.message
-                  : _controller.lastError ?? '操作失败，请重试',
-            ),
-          ),
+        _snack(
+          e is FormatException
+              ? e.message
+              : _controller.lastError ?? '操作失败，请重试',
         );
       }
     }
   }
 
-  Future<void> _preset(String preset) => _action(
-    () => _runtime.resetLayout(preset, () async {
-      if (mounted) {
-        await context.read<AppPreferences?>()?.setDesktopPreset(preset);
-      }
-    }),
-  );
-  Future<void> _commands() async {
-    final entries = [
-      for (final view in _views)
-        (id: 'core.open.$view', title: '打开${_label(view)}', view: view),
-      (id: 'core.layout.reset', title: '恢复默认布局', view: '#reset'),
-      ..._extensions.commands,
-    ];
-    var query = '';
-    final selected = await showDialog<String>(
-      context: context,
-      builder: (context) => StatefulBuilder(
-        builder: (context, refresh) => Dialog(
-          child: SizedBox(
-            width: 560,
-            height: 400,
-            child: Column(
-              children: [
-                Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: TextField(
-                    autofocus: true,
-                    decoration: const InputDecoration(
-                      hintText: '搜索命令',
-                      prefixIcon: Icon(Icons.search),
-                    ),
-                    onChanged: (v) => refresh(() => query = v.toLowerCase()),
-                  ),
-                ),
-                Expanded(
-                  child: ListView(
-                    children: [
-                      for (final entry in entries.where(
-                        (e) => e.title.toLowerCase().contains(query),
-                      ))
-                        ListTile(
-                          title: Text(entry.title),
-
-                          onTap: () => Navigator.pop(context, entry.view),
-                        ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-    if (selected == null || !mounted) return;
-    if (selected == '#reset') {
-      await _preset(_layout.assistant ? 'assistant' : 'library');
-    } else {
-      _layout.open(selected);
-    }
+  Future<AppExitResponse> _requestExit() async {
+    final response = await _runtime.requestExit();
+    if (mounted && _runtime.exitError != null) _snack(_runtime.exitError!);
+    return response;
   }
 
-  String _cardId(String view) => view.split('/')[1];
-  String _label(String view) => switch (view) {
-    'cards' => '我的资料',
-    'agent' => '助手',
-    'relations' => '关系',
-    'changes' => '变更',
-    'originals' => '原始资料',
-    'speech' => '语音输入',
-    'passwords' => '密码库',
-    'handoff' => '交接',
-    'settings' => '设置',
-    'recycle' => '回收区',
-    'extensions' => '扩展',
-    _ =>
-      _extensions.views[view]?.title ??
-          (view.startsWith('card/')
-              ? _controller.cards
-                        .where((c) => c.id == _cardId(view))
-                        .firstOrNull
-                        ?.title ??
-                    '卡片'
-              : view.startsWith('source/')
-              ? '来源'
-              : view.startsWith('review/')
-              ? '确认来源'
-              : '修订历史'),
-  };
-  IconData _icon(String view) => switch (view) {
-    'cards' => Icons.dashboard_outlined,
-    'agent' => Icons.auto_awesome_outlined,
-    'relations' => Icons.hub_outlined,
-    'changes' => Icons.history,
-    'originals' => Icons.perm_media_outlined,
-    'speech' => Icons.mic_none,
-    'passwords' => Icons.key_outlined,
-    'handoff' => Icons.how_to_reg_outlined,
-    'settings' => Icons.settings_outlined,
-    'recycle' => Icons.delete_outline,
-    'extensions' => Icons.extension_outlined,
-    _ => Icons.description_outlined,
-  };
-  void _openCard(String id, {String? group}) =>
-      _layout.open('card/$id/${_tabSerial++}', groupId: group);
-  Future<void> _newCard(String group) => _action(() async {
+  Future<String?> _menuAt(Offset position, List<(String, String)> entries) async {
+    final overlay = Overlay.of(context).context.findRenderObject() as RenderBox;
+    final selected = await showMenu<String>(
+      context: context,
+      position: RelativeRect.fromRect(
+        position & const Size(1, 1),
+        Offset.zero & overlay.size,
+      ),
+      items: [
+        for (final entry in entries)
+          PopupMenuItem(value: entry.$1, child: Text(entry.$2)),
+      ],
+    );
+    if (!mounted) return null;
+    return selected;
+  }
+
+  // ---- 打开与创建 ----
+
+  void _open(String view) => _tabs.open(view);
+  void _openCard(String id) => _tabs.open('card/$id');
+  static String _segment(String view) => view.split('/')[1];
+  LifeCard? _card(String id) =>
+      _controller.cards.where((c) => c.id == id).firstOrNull;
+
+  Future<void> _newCard() => _action(() async {
     final existing = _controller.cards.map((c) => c.id).toSet();
     await _controller.createCard(
       const CardDraft(
@@ -237,12 +132,10 @@ class _DesktopWorkbenchState extends State<DesktopWorkbench> {
         status: CardStatus.draft,
       ),
     );
-    _openCard(
-      _controller.cards.firstWhere((c) => !existing.contains(c.id)).id,
-      group: group,
-    );
+    _openCard(_controller.cards.firstWhere((c) => !existing.contains(c.id)).id);
   });
-  Future<void> _import(String group) => _action(() async {
+
+  Future<void> _import() => _action(() async {
     final files = await FilePicker.pickFiles(dialogTitle: '添加本地资料');
     for (final file in files) {
       if (!_controller.isUnlocked) return;
@@ -269,10 +162,13 @@ class _DesktopWorkbenchState extends State<DesktopWorkbench> {
         mimeType: mime,
         mediaKind: kind,
       );
-      _openCard(card.id, group: group);
+      _openCard(card.id);
     }
   });
-  Future<void> _delete(List<LifeCard> cards) async {
+
+  // ---- 移入回收与恢复 ----
+
+  Future<void> _deleteCards(List<LifeCard> cards) async {
     CardDeletionPreview? preview;
     await _action(() async {
       await _edits.flush();
@@ -287,7 +183,7 @@ class _DesktopWorkbenchState extends State<DesktopWorkbench> {
       context: context,
       builder: (context) => StatefulBuilder(
         builder: (context, refresh) => AlertDialog(
-          title: Text('删除 ${cards.length} 张卡片？'),
+          title: Text('将 ${cards.length} 张卡片移入回收区？'),
           content: SizedBox(
             width: 480,
             child: SingleChildScrollView(
@@ -346,141 +242,292 @@ class _DesktopWorkbenchState extends State<DesktopWorkbench> {
         cards.map((c) => c.id).toList(),
         recycleUnsharedOriginals: recycleOriginals,
       );
-      _selected.removeAll(cards.map((c) => c.id));
-      if (mounted) setState(() {});
+      for (final card in cards) {
+        _tabs.close('card/${card.id}');
+      }
+      if (mounted) _snack('已移入回收区，可在回收区恢复');
     });
   }
 
-  Widget _recycle() => Column(
-    crossAxisAlignment: CrossAxisAlignment.stretch,
-    children: [
-      if (_controller.recycledBlobIds.isNotEmpty)
-        SizedBox(
-          height: 170,
-          child: ListView(
-            padding: const EdgeInsets.all(12),
-            children: [
-              const Text('回收原件（历史与加密文件保留）'),
-              for (final blob in _controller.blobs.where(
-                (b) => _controller.recycledBlobIds.contains(b.id),
-              ))
-                ListTile(
-                  title: Text(blob.originalName),
-                  trailing: IconButton(
-                    tooltip: '恢复原件',
-                    icon: const Icon(Icons.restore),
-                    onPressed: _controller.isBusy
-                        ? null
-                        : () => _action(
-                            () => _controller.restoreOriginal(blob.id),
-                          ),
-                  ),
-                ),
-            ],
-          ),
+  Future<void> _trashCredential(CredentialEntry entry) => _action(() async {
+    await _controller.trashCredential(entry.id);
+    _tabs.close('credential/${entry.id}');
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('已移入回收区：${entry.title}'),
+        action: SnackBarAction(
+          label: '撤销',
+          onPressed: () =>
+              unawaited(_action(() => _controller.restoreCredential(entry.id))),
         ),
-      const Expanded(child: RecyclePage()),
-    ],
-  );
-  WorkbenchCardEditor _editor(LifeCard card, String group) =>
-      WorkbenchCardEditor(
-        key: ValueKey(card.id),
-        card: card,
-        controller: _controller,
-        edits: _edits,
-        onNewTab: () => _openCard(card.id, group: group),
-        onHistory: () => _layout.open('history/${card.id}', groupId: group),
-        onReviewSource: () => _layout.open('review/${card.id}', groupId: group),
-        onSource: (id) => _layout.open('source/$id', groupId: group),
-        onCard: (id) => _openCard(id, group: group),
-        onDelete: () => _delete([card]),
-      );
-  Widget _library(String group) {
-    final cards = _controller.findCards(_search.text);
-    return Column(
-      children: [
-        Padding(
-          padding: const EdgeInsets.all(12),
-          child: Column(
-            children: [
-              TextField(
-                controller: _search,
-                decoration: const InputDecoration(
-                  hintText: '搜索资料',
-                  prefixIcon: Icon(Icons.search),
-                ),
-                onChanged: (_) => setState(() {}),
-              ),
-              const SizedBox(height: 8),
-              Wrap(
-                spacing: 8,
-                crossAxisAlignment: WrapCrossAlignment.center,
-                children: [
-                  FilledButton.tonalIcon(
-                    onPressed: _controller.isBusy
-                        ? null
-                        : () => _newCard(group),
-                    icon: const Icon(Icons.add),
-                    label: const Text('新建卡片'),
-                  ),
-                  OutlinedButton.icon(
-                    onPressed: _controller.isBusy ? null : () => _import(group),
-                    icon: const Icon(Icons.attach_file),
-                    label: const Text('添加资料'),
-                  ),
-                  if (_selected.isNotEmpty)
-                    TextButton.icon(
-                      onPressed: () => _delete(
-                        _controller.cards
-                            .where((c) => _selected.contains(c.id))
-                            .toList(),
-                      ),
-                      icon: const Icon(Icons.delete_outline),
-                      label: Text('删除 ${_selected.length} 张'),
-                    ),
-                  Text('${cards.length} 张卡片'),
-                ],
-              ),
-            ],
-          ),
-        ),
-        Expanded(
-          child: ListView.builder(
-            padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
-            itemCount: cards.length,
-            itemBuilder: (context, index) {
-              final card = cards[index];
-              return Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(12),
-                  child: Column(
-                    children: [
-                      Row(
-                        children: [
-                          Checkbox(
-                            value: _selected.contains(card.id),
-                            onChanged: (v) => setState(() {
-                              if (v == true) {
-                                _selected.add(card.id);
-                              } else {
-                                _selected.remove(card.id);
-                              }
-                            }),
-                          ),
-                          const Text('选择卡片'),
-                        ],
-                      ),
-                      _editor(card, group),
-                    ],
-                  ),
-                ),
-              );
-            },
-          ),
-        ),
-      ],
+      ),
     );
+  });
+
+  // ---- 标签操作 ----
+
+  Future<void> _closeTab(String view) async {
+    final session = view.startsWith('card/')
+        ? _edits.values
+              .where((s) => s.card.id == _segment(view))
+              .firstOrNull
+        : null;
+    if (session != null && session.state != CardSaveState.saved) {
+      await _action(() => _edits.flush());
+      if (!mounted) return;
+      if (session.state != CardSaveState.saved) {
+        _snack('还有修改没有保存，标签保持打开');
+        return;
+      }
+    }
+    _tabs.close(view);
   }
+
+  Future<void> _closeAllTabs({String? except}) async {
+    if (_edits.hasUnsaved) {
+      await _action(() => _edits.flush());
+      if (!mounted || _edits.hasUnsaved) {
+        _snack('还有修改没有保存，标签保持打开');
+        return;
+      }
+    }
+    if (except == null) {
+      _tabs.closeAll();
+    } else {
+      _tabs.closeOthers(except);
+    }
+  }
+
+  Future<void> _tabMenu(String view, Offset position) async {
+    final selection = await _menuAt(position, const [
+      ('close', '关闭标签'),
+      ('others', '关闭其他标签'),
+      ('all', '关闭全部标签'),
+    ]);
+    switch (selection) {
+      case 'close':
+        await _closeTab(view);
+      case 'others':
+        await _closeAllTabs(except: view);
+      case 'all':
+        await _closeAllTabs();
+    }
+  }
+
+  // ---- 右键菜单 ----
+
+  Future<void> _rowMenu(
+    WorkbenchRowKind kind,
+    String id,
+    Offset position,
+  ) async {
+    final card = _card(id);
+    final selection = await _menuAt(position, switch (kind) {
+      WorkbenchRowKind.card => [
+        ('open', '打开'),
+        if (card?.status == CardStatus.draft) ('confirm', '确认卡片'),
+        ('trash', '移入回收区'),
+      ],
+      WorkbenchRowKind.original => [
+        ('open', '查看原件'),
+        ('copy-name', '复制文件名'),
+      ],
+      WorkbenchRowKind.credential => [('open', '打开'), ('trash', '移入回收区')],
+      WorkbenchRowKind.recycledCard => [
+        ('details', '查看详情'),
+        ('restore', '恢复卡片'),
+      ],
+      WorkbenchRowKind.recycledCredential => [
+        ('details', '查看详情'),
+        ('restore', '恢复密码'),
+      ],
+    });
+    if (selection == null || !mounted) return;
+    switch (selection) {
+      case 'open':
+        switch (kind) {
+          case WorkbenchRowKind.card:
+            _openCard(id);
+          case WorkbenchRowKind.original:
+            _open('source/$id');
+          case WorkbenchRowKind.credential:
+            _open('credential/$id');
+          case WorkbenchRowKind.recycledCard:
+          case WorkbenchRowKind.recycledCredential:
+            break;
+        }
+      case 'copy-name':
+        final name = _controller.blobs
+            .where((b) => b.id == id)
+            .firstOrNull
+            ?.originalName;
+        if (name != null) {
+          await Clipboard.setData(ClipboardData(text: name));
+          if (mounted) _snack('已复制文件名');
+        }
+      case 'confirm':
+        await _action(() => _controller.confirmCard(id));
+      case 'trash':
+        switch (kind) {
+          case WorkbenchRowKind.card:
+            if (card != null) await _deleteCards([card]);
+          case WorkbenchRowKind.credential:
+            final entry = _controller.credentials
+                .where((c) => c.id == id)
+                .firstOrNull;
+            if (entry != null) await _trashCredential(entry);
+          case WorkbenchRowKind.original:
+          case WorkbenchRowKind.recycledCard:
+          case WorkbenchRowKind.recycledCredential:
+            break;
+        }
+      case 'restore':
+        switch (kind) {
+          case WorkbenchRowKind.recycledCard:
+            await _action(() => _controller.restoreCard(id));
+            if (mounted) _snack('已恢复卡片');
+          case WorkbenchRowKind.recycledCredential:
+            await _action(() => _controller.restoreCredential(id));
+            if (mounted) _snack('已恢复密码');
+          case WorkbenchRowKind.card:
+          case WorkbenchRowKind.original:
+          case WorkbenchRowKind.credential:
+            break;
+        }
+      case 'details':
+        if (!mounted) return;
+        switch (kind) {
+          case WorkbenchRowKind.recycledCard:
+            final recycled = _controller.recycledCards
+                .where((c) => c.id == id)
+                .firstOrNull;
+            if (recycled != null) {
+              await showCardDetails(context, _controller, recycled);
+            }
+          case WorkbenchRowKind.recycledCredential:
+            final recycled = _controller.recycledCredentials
+                .where((c) => c.id == id)
+                .firstOrNull;
+            if (recycled != null) {
+              await showCredentialDetails(context, _controller, recycled);
+            }
+          case WorkbenchRowKind.card:
+          case WorkbenchRowKind.original:
+          case WorkbenchRowKind.credential:
+            break;
+        }
+    }
+  }
+
+  Future<void> _editorMenu(LifeCard card, Offset position) async {
+    final selection = await _menuAt(position, const [
+      ('save', '立即保存 (Ctrl+S)'),
+      ('history', '修订历史'),
+      ('relations', '关系图'),
+      ('trash', '移入回收区'),
+    ]);
+    switch (selection) {
+      case 'save':
+        await _action(() => _edits.flush());
+        if (mounted && !_edits.hasUnsaved) _snack('修改已保存');
+      case 'history':
+        _open('history/${card.id}');
+      case 'relations':
+        _open('relations');
+      case 'trash':
+        await _deleteCards([card]);
+    }
+  }
+
+  // ---- 快捷键与快速打开 ----
+
+  Future<void> _saveNow() => _action(() async {
+    final had = _edits.hasUnsaved;
+    await _runtime.flush();
+    if (mounted && had) _snack('修改已保存');
+  });
+
+  void _toggleSidebar() => _tabs.setCollapsed(!_tabs.collapsed);
+
+  void _focusSearch() {
+    if (_tabs.collapsed) _tabs.setCollapsed(false);
+    _search.selection = TextSelection(
+      baseOffset: 0,
+      extentOffset: _search.text.length,
+    );
+    _searchFocus.requestFocus();
+  }
+
+  Future<void> _quickOpen() async {
+    final selected = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) =>
+          _QuickOpenDialog(cards: (query) => _controller.findCards(query)),
+    );
+    if (selected != null && mounted) _openCard(selected);
+  }
+
+  // ---- 视图 ----
+
+  String _label(String view) {
+    if (view.startsWith('extension/')) {
+      return _extensions.views[view]?.title ?? '扩展视图';
+    }
+    if (view.startsWith('card/') ||
+        view.startsWith('history/') ||
+        view.startsWith('review/')) {
+      final title = _card(_segment(view))?.title ?? '卡片';
+      return switch (view.split('/').first) {
+        'history' => '修订历史 · $title',
+        'review' => '确认来源 · $title',
+        _ => title,
+      };
+    }
+    if (view.startsWith('source/')) {
+      return _controller.blobs
+              .where((b) => b.id == _segment(view))
+              .firstOrNull
+              ?.originalName ??
+          '原件';
+    }
+    if (view.startsWith('credential/')) {
+      return _controller.credentials
+              .where((c) => c.id == _segment(view))
+              .firstOrNull
+              ?.title ??
+          '密码';
+    }
+    return switch (view) {
+      'agent' => '助手',
+      'speech' => '语音输入',
+      'settings' => '设置',
+      'handoff' => '交接准备',
+      'relations' => '关系图',
+      'extensions' => '扩展',
+      _ => '标签页',
+    };
+  }
+
+  IconData _icon(String view) => switch (view.split('/').first) {
+    'card' => Icons.description_outlined,
+    'history' => Icons.history,
+    'review' => Icons.fact_check_outlined,
+    'source' => Icons.attach_file,
+    'credential' => Icons.key_outlined,
+    'extension' => Icons.extension_outlined,
+    _ => switch (view) {
+      'agent' => Icons.auto_awesome_outlined,
+      'speech' => Icons.mic_none,
+      'settings' => Icons.settings_outlined,
+      'handoff' => Icons.how_to_reg_outlined,
+      'relations' => Icons.hub_outlined,
+      'extensions' => Icons.extension_outlined,
+      _ => Icons.tab,
+    },
+  };
+
+  Widget _missing(String message) => Center(child: Text(message));
 
   Widget _history(String id) => FutureBuilder<List<CardRevision>>(
     future: _controller.cardHistory(id),
@@ -514,10 +561,7 @@ class _DesktopWorkbenchState extends State<DesktopWorkbench> {
                               if (_edits.hasUnsaved) {
                                 throw const FormatException('请先处理未保存的修改');
                               }
-                              final card = _controller.cards
-                                  .where((c) => c.id == id)
-                                  .firstOrNull;
-                              if (card == null) {
+                              if (_card(id) == null) {
                                 throw const FormatException('卡片已移入回收区');
                               }
                               await _controller.restoreCardRevision(
@@ -535,58 +579,78 @@ class _DesktopWorkbenchState extends State<DesktopWorkbench> {
       );
     },
   );
-  Widget _view(String view, String group) {
+
+  Widget _editor(LifeCard card) => WorkbenchCardEditor(
+    key: ValueKey(card.id),
+    card: card,
+    controller: _controller,
+    edits: _edits,
+    onHistory: () => _open('history/${card.id}'),
+    onReviewSource: () => _open('review/${card.id}'),
+    onRelations: () => _open('relations'),
+    onSource: (id) => _open('source/$id'),
+    onCard: _openCard,
+    onDelete: () => _deleteCards([card]),
+  );
+
+  Widget _view(String view) {
     if (view.startsWith('extension/')) {
       return ContributedCardsView(
         registry: _extensions,
         viewId: view,
         controller: _controller,
-        onOpen: (id) => _openCard(id, group: group),
+        onOpen: _openCard,
       );
     }
     if (view.startsWith('card/')) {
-      final card = _controller.cards
-          .where((c) => c.id == _cardId(view))
-          .firstOrNull;
-      return card == null
-          ? const Center(child: Text('卡片已移入回收区'))
-          : ListView(
-              padding: const EdgeInsets.all(20),
-              children: [_editor(card, group)],
-            );
+      final card = _card(_segment(view));
+      if (card == null) return _missing('卡片已移入回收区');
+      return GestureDetector(
+        onSecondaryTapDown: (details) =>
+            _editorMenu(card, details.globalPosition),
+        child: ListView(
+          padding: const EdgeInsets.all(20),
+          children: [_editor(card)],
+        ),
+      );
     }
-    if (view.startsWith('history/')) return _history(_cardId(view));
+    if (view.startsWith('history/')) return _history(_segment(view));
     if (view.startsWith('review/')) {
       return ReviewSourceView(
         key: ValueKey(view),
         session: _controller,
         loadSource: _controller.cardReviewSource,
-        cardTitle: (id) =>
-            _controller.cards.where((c) => c.id == id).firstOrNull?.title ??
-            '目标已失效',
-        cardId: _cardId(view),
-        onCard: (id) => _openCard(id, group: group),
-        onOriginal: (id) => _layout.open('source/$id', groupId: group),
+        cardTitle: (id) => _card(id)?.title ?? '目标已失效',
+        cardId: _segment(view),
+        onCard: _openCard,
+        onOriginal: (id) => _open('source/$id'),
       );
     }
     if (view.startsWith('source/')) {
       return ListView(
         padding: const EdgeInsets.all(20),
         children: [
-          InlineOriginal(controller: _controller, blobId: _cardId(view)),
+          InlineOriginal(controller: _controller, blobId: _segment(view)),
         ],
       );
     }
+    if (view.startsWith('credential/')) {
+      final entry = _controller.credentials
+          .where((c) => c.id == _segment(view))
+          .firstOrNull;
+      if (entry == null) return _missing('密码已移入回收区');
+      return _CredentialTab(
+        controller: _controller,
+        entry: entry,
+        onTrash: () => _trashCredential(entry),
+      );
+    }
     return switch (view) {
-      'cards' => _library(group),
       'agent' => ConversationView(
         conversation: _conversation,
-        openManual: () => _layout.open('cards'),
-        openSpeech: () => _layout.open('speech'),
+        openManual: () => unawaited(_newCard()),
+        openSpeech: () => _open('speech'),
       ),
-      'settings' => const ProfilePage(),
-      'passwords' => const PasswordsPage(active: true),
-      'handoff' => const HandoffPage(),
       'speech' => SpeechInputPage(
         onTranscript: (text) {
           _conversation.updateDraft(
@@ -594,148 +658,166 @@ class _DesktopWorkbenchState extends State<DesktopWorkbench> {
                 ? text
                 : '${_conversation.draft}\n$text',
           );
-          _layout.open('agent');
+          _open('agent');
         },
       ),
-      'recycle' => _recycle(),
-      'extensions' => ExtensionsView(
-        registry: _extensions,
-        onOpen: (view) => _layout.open(view, groupId: group),
-      ),
-      'originals' => ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          for (final b in _controller.blobs.where(
-            (b) => !_controller.recycledBlobIds.contains(b.id),
-          ))
-            ListTile(
-              leading: Icon(_icon(view)),
-              title: Text(b.originalName),
-              subtitle: Text('${b.byteLength} 字节'),
-              onTap: () => _layout.open('source/${b.id}', groupId: group),
-            ),
-        ],
-      ),
-      'changes' => ListView(
-        children: [
-          for (final c in _controller.cards)
-            ListTile(
-              title: Text(c.title),
-              subtitle: Text(
-                '修订 ${c.revisionNumber} · ${c.updatedAt.toLocal()}',
-              ),
-              trailing: const Icon(Icons.history),
-              onTap: () => _layout.open('history/${c.id}', groupId: group),
-            ),
-        ],
-      ),
+      'settings' => ProfilePage(onOpenExtensions: () => _open('extensions')),
+      'handoff' => const HandoffPage(),
       'relations' => RelationsView(
         controller: _controller,
-        onCard: (id) => _openCard(id, group: group),
-        onSource: (id) => _layout.open('source/$id', groupId: group),
+        onCard: _openCard,
+        onSource: (id) => _open('source/$id'),
       ),
-      _ => const Center(child: Text('视图不可用')),
+      'extensions' => ExtensionsView(registry: _extensions, onOpen: _open),
+      _ => _missing('视图不可用'),
     };
   }
+
+  // ---- 框架 ----
+
+  Widget _emptyTabs() => Center(
+    child: Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(
+          Icons.tab_outlined,
+          size: 40,
+          color: Theme.of(context).colorScheme.onSurfaceVariant,
+        ),
+        const SizedBox(height: 12),
+        Text('没有打开的标签', style: Theme.of(context).textTheme.titleMedium),
+        const SizedBox(height: 6),
+        Text(
+          '从左侧选择内容，或用 Ctrl+P 按标题打开卡片',
+          style: TextStyle(
+            fontSize: 13,
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+          ),
+        ),
+      ],
+    ),
+  );
+
+  Widget _saveStatus() {
+    final states = _edits.values.map((s) => s.state).toSet();
+    if (states.contains(CardSaveState.failed)) {
+      return TextButton(
+        onPressed: () => _action(() => _edits.flush()),
+        child: const Text('保存失败，点击重试', style: TextStyle(fontSize: 11)),
+      );
+    }
+    final label = states.contains(CardSaveState.saving)
+        ? '正在保存…'
+        : states.contains(CardSaveState.pending)
+        ? '待保存…'
+        : '修改已保存';
+    return Text(label, style: const TextStyle(fontSize: 11));
+  }
+
+  Widget _statusBar() => Container(
+    height: 28,
+    color: Theme.of(context).colorScheme.surfaceContainerLow,
+    padding: const EdgeInsets.only(left: 12, right: 4),
+    child: Row(
+      children: [
+        const Icon(Icons.lock, size: 13),
+        const SizedBox(width: 6),
+        const Text('本地加密资料库', style: TextStyle(fontSize: 11)),
+        const Spacer(),
+        if (_runtime.notice != null)
+          Padding(
+            padding: const EdgeInsets.only(right: 8),
+            child: Text(
+              _runtime.notice!,
+              style: TextStyle(
+                fontSize: 11,
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ),
+        if (_runtime.persistError != null)
+          TextButton(
+            onPressed: () => _action(() => _runtime.persistTabs()),
+            child: Text(
+              _runtime.persistError!,
+              style: const TextStyle(fontSize: 11),
+            ),
+          ),
+        ListenableBuilder(
+          listenable: _edits,
+          builder: (context, _) => _saveStatus(),
+        ),
+      ],
+    ),
+  );
 
   @override
   Widget build(BuildContext context) {
     context.watch<AppController>();
-    final preferences = context.watch<AppPreferences?>();
     if (!_loaded) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
-    if (preferences != null && preferences.desktopPreset == null) {
-      return Scaffold(
-        body: Center(
-          child: SizedBox(
-            width: 600,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  '选择你的工作台',
-                  style: Theme.of(context).textTheme.headlineMedium,
-                ),
-                const SizedBox(height: 12),
-                const Text('两种布局使用同一份资料，随时可以切换或重新选择。'),
-                const SizedBox(height: 24),
-                ListTile(
-                  leading: const Icon(Icons.dashboard_outlined),
-                  title: const Text('资料工作台'),
-                  subtitle: const Text('以卡片、来源和关系为中心'),
-                  onTap: () => _preset('library'),
-                ),
-                ListTile(
-                  leading: const Icon(Icons.auto_awesome_outlined),
-                  title: const Text('助手工作台'),
-                  subtitle: const Text('从对话开始，整理资料并核对建议'),
-                  onTap: () => _preset('assistant'),
-                ),
-              ],
-            ),
-          ),
-        ),
-      );
-    }
-    final surface = DockSurface(
-      layout: _layout,
-      dragging: _dragging,
-      builder: _view,
-      label: _label,
-      icon: _icon,
-    );
+    final tabs = _tabs;
     return CallbackShortcuts(
       bindings: {
-        const SingleActivator(
-          LogicalKeyboardKey.keyP,
-          control: true,
-          shift: true,
-        ): _commands,
+        const SingleActivator(LogicalKeyboardKey.keyN, control: true):
+            () => unawaited(_newCard()),
+        const SingleActivator(LogicalKeyboardKey.keyF, control: true):
+            _focusSearch,
+        const SingleActivator(LogicalKeyboardKey.keyP, control: true):
+            () => unawaited(_quickOpen()),
+        const SingleActivator(LogicalKeyboardKey.keyS, control: true):
+            () => unawaited(_saveNow()),
+        const SingleActivator(LogicalKeyboardKey.keyW, control: true): () {
+          final active = tabs.active;
+          if (active != null) unawaited(_closeTab(active));
+        },
+        const SingleActivator(LogicalKeyboardKey.keyL, control: true):
+            () => unawaited(_action(() => _runtime.saveAndLock())),
+        const SingleActivator(LogicalKeyboardKey.keyB, control: true):
+            _toggleSidebar,
       },
       child: Focus(
         autofocus: true,
         child: Scaffold(
           appBar: AppBar(
-            leading: const Center(child: LiveRelayLogo(size: 28)),
-            title: const Text('留灯 · 工作台'),
-            toolbarHeight: 48,
+            leading: IconButton(
+              tooltip: tabs.collapsed ? '展开左栏 (Ctrl+B)' : '收起左栏 (Ctrl+B)',
+              icon: Icon(tabs.collapsed ? Icons.menu : Icons.menu_open),
+              onPressed: _toggleSidebar,
+            ),
+            title: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const LiveRelayLogo(size: 24),
+                const SizedBox(width: 8),
+                Text('留灯 · 工作台', style: Theme.of(context).textTheme.titleSmall),
+              ],
+            ),
+            toolbarHeight: 44,
             actions: [
               IconButton(
-                tooltip: '命令面板 · Ctrl+Shift+P',
-                onPressed: _commands,
-                icon: const Icon(Icons.terminal),
-              ),
-              TextButton(
-                onPressed: () => _preset('library'),
-                child: const Text('资料'),
-              ),
-              TextButton(
-                onPressed: () => _preset('assistant'),
-                child: const Text('助手'),
-              ),
-              PopupMenuButton<String>(
-                tooltip: '工作台布局',
-                onSelected: (v) => _action(() async {
-                  if (v == 'choose') {
-                    await preferences?.setDesktopPreset(null);
-                  } else {
-                    await _preset(preferences?.desktopPreset ?? 'library');
-                  }
-                }),
-                itemBuilder: (_) => const [
-                  PopupMenuItem(value: 'reset', child: Text('恢复默认布局')),
-                  PopupMenuItem(value: 'choose', child: Text('重新选择起始工作台')),
-                ],
-              ),
-              IconButton(
-                tooltip: '保存并锁定',
+                tooltip: '保存并锁定 (Ctrl+L)',
                 icon: const Icon(Icons.lock_outline),
                 onPressed: _controller.isBusy
                     ? null
-                    : () => _action(() async {
-                        await _runtime.saveAndLock();
-                      }),
+                    : () => _action(() => _runtime.saveAndLock()),
+              ),
+              PopupMenuButton<String>(
+                tooltip: '更多',
+                onSelected: (value) => switch (value) {
+                  'handoff' => _open('handoff'),
+                  'identity' => Navigator.of(context).push<void>(
+                    MaterialPageRoute(builder: (_) => const IdentityPage()),
+                  ),
+                  'settings' => _open('settings'),
+                  _ => null,
+                },
+                itemBuilder: (_) => const [
+                  PopupMenuItem(value: 'handoff', child: Text('交接准备')),
+                  PopupMenuItem(value: 'identity', child: Text('身份与接收者')),
+                  PopupMenuItem(value: 'settings', child: Text('设置')),
+                ],
               ),
             ],
           ),
@@ -745,86 +827,190 @@ class _DesktopWorkbenchState extends State<DesktopWorkbench> {
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    SizedBox(
-                      width: 52,
-                      child: SingleChildScrollView(
-                        child: Column(
-                          children: [
-                            for (final view in [
-                              ..._views,
-                              ..._extensions.views.keys,
-                            ])
-                              surface.draggable(
-                                view,
-                                IconButton(
-                                  tooltip: _label(view),
-                                  icon: Icon(_icon(view)),
-                                  onPressed: () => _layout.open(view),
-                                ),
-                              ),
-                            DragTarget<String>(
-                              onAcceptWithDetails: (d) => _layout.move(
-                                d.data,
-                                '',
-                                DockPlacement.floating,
-                              ),
-                              builder: (context, candidates, _) => Container(
-                                color: candidates.isNotEmpty
-                                    ? Theme.of(context)
-                                          .colorScheme
-                                          .primaryContainer
-                                    : null,
-                                child: const Padding(
-                                  padding: EdgeInsets.all(12),
-                                  child: Tooltip(
-                                    message: '拖到这里在工作台内浮动',
-                                    child: Icon(Icons.picture_in_picture_alt),
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ],
+                    if (!tabs.collapsed) ...[
+                      SizedBox(
+                        width: 288,
+                        child: WorkbenchSidebar(
+                          controller: _controller,
+                          section: tabs.section,
+                          search: _search,
+                          searchFocus: _searchFocus,
+                          activeView: tabs.active,
+                          onSection: tabs.selectSection,
+                          onOpenView: _open,
+                          onNewCard: () => unawaited(_newCard()),
+                          onNewCredential: () =>
+                              showCredentialEditor(context, _controller),
+                          onImport: () => unawaited(_import()),
+                          onRowMenu: _rowMenu,
+                          onRecycledCard: (card) =>
+                              showCardDetails(context, _controller, card),
+                          onRecycledCredential: (entry) =>
+                              showCredentialDetails(context, _controller, entry),
                         ),
                       ),
+                      const VerticalDivider(width: 1),
+                    ],
+                    Expanded(
+                      child: Column(
+                        children: [
+                          WorkbenchTabStrip(
+                            tabs: tabs.tabs,
+                            active: tabs.active,
+                            label: _label,
+                            icon: _icon,
+                            onActivate: tabs.activate,
+                            onClose: (view) => unawaited(_closeTab(view)),
+                            onMove: tabs.move,
+                            onMenu: (view, position) =>
+                                unawaited(_tabMenu(view, position)),
+                          ),
+                          Expanded(
+                            child: tabs.active == null
+                                ? _emptyTabs()
+                                : _view(tabs.active!),
+                          ),
+                        ],
+                      ),
                     ),
-                    const VerticalDivider(width: 1),
-                    Expanded(child: surface),
                   ],
                 ),
               ),
-              Container(
-                height: 28,
-                color: Theme.of(context).colorScheme.surfaceContainerLow,
-                child: Row(
-                  children: [
-                    const SizedBox(width: 12),
-                    const Icon(Icons.lock, size: 13),
-                    const SizedBox(width: 6),
-                    const Text('本地加密资料库', style: TextStyle(fontSize: 11)),
-                    const Spacer(),
-                    if (_layoutError != null)
-                      TextButton(
-                        onPressed: _persistLayout,
-                        child: Text(
-                          _layoutError!,
-                          style: const TextStyle(fontSize: 11),
-                        ),
-                      ),
-                    ListenableBuilder(
-                      listenable: _edits,
-                      builder: (context, _) => Text(
-                        _edits.hasUnsaved ? '有修改正在保存或需要处理' : '修改已保存',
-                        style: const TextStyle(fontSize: 11),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                  ],
-                ),
-              ),
+              _statusBar(),
             ],
           ),
         ),
       ),
     );
   }
+}
+
+/// 按标题快速打开卡片（Ctrl+P）。控制器随对话框生命周期释放。
+class _QuickOpenDialog extends StatefulWidget {
+  const _QuickOpenDialog({required this.cards});
+  final List<LifeCard> Function(String query) cards;
+  @override
+  State<_QuickOpenDialog> createState() => _QuickOpenDialogState();
+}
+
+class _QuickOpenDialogState extends State<_QuickOpenDialog> {
+  final _query = TextEditingController();
+
+  @override
+  void dispose() {
+    _query.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final matches = widget.cards(_query.text).take(50).toList();
+    return Dialog(
+      child: SizedBox(
+        width: 520,
+        height: 420,
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.all(12),
+              child: TextField(
+                controller: _query,
+                autofocus: true,
+                decoration: const InputDecoration(
+                  hintText: '按标题打开卡片',
+                  prefixIcon: Icon(Icons.search),
+                  isDense: true,
+                  border: OutlineInputBorder(),
+                ),
+                onChanged: (_) => setState(() {}),
+                onSubmitted: (_) => Navigator.pop(
+                  context,
+                  matches.isEmpty ? null : matches.first.id,
+                ),
+              ),
+            ),
+            Expanded(
+              child: matches.isEmpty
+                  ? const Padding(
+                      padding: EdgeInsets.all(16),
+                      child: Text('没有匹配的卡片'),
+                    )
+                  : ListView(
+                      children: [
+                        for (final card in matches)
+                          ListTile(
+                            dense: true,
+                            leading: Icon(card.kind.icon, size: 18),
+                            title: Text(card.title),
+                            subtitle: Text(card.status.label),
+                            onTap: () => Navigator.pop(context, card.id),
+                          ),
+                      ],
+                    ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _CredentialTab extends StatelessWidget {
+  const _CredentialTab({
+    required this.controller,
+    required this.entry,
+    required this.onTrash,
+  });
+  final AppController controller;
+  final CredentialEntry entry;
+  final VoidCallback onTrash;
+
+  @override
+  Widget build(BuildContext context) => ListView(
+    padding: const EdgeInsets.all(20),
+    children: [
+      Row(
+        children: [
+          Expanded(
+            child: Text(
+              entry.title,
+              style: Theme.of(context).textTheme.titleLarge,
+            ),
+          ),
+          IconButton(
+            tooltip: '编辑密码条目',
+            icon: const Icon(Icons.edit_outlined),
+            onPressed: controller.isBusy
+                ? null
+                : () => showCredentialEditor(context, controller, entry: entry),
+          ),
+          IconButton(
+            tooltip: '移入回收区',
+            icon: const Icon(Icons.delete_outline),
+            onPressed: controller.isBusy ? null : onTrash,
+          ),
+        ],
+      ),
+      const SizedBox(height: 8),
+      if (entry.username.isNotEmpty) Text('账号：${entry.username}'),
+      if (entry.website.isNotEmpty) Text('网址：${entry.website}'),
+      if (entry.tags.isNotEmpty) Text('标签：${entry.tags.join('、')}'),
+      const SizedBox(height: 12),
+      Text('密码', style: Theme.of(context).textTheme.titleSmall),
+      CredentialSecretActions(secret: entry.secret),
+      if (entry.notes.isNotEmpty) ...[
+        const SizedBox(height: 12),
+        Text('备注', style: Theme.of(context).textTheme.titleSmall),
+        SelectableText(entry.notes),
+      ],
+      const SizedBox(height: 12),
+      Text(
+        '修订 ${entry.revisionNumber} · ${entry.updatedAt.toLocal()}',
+        style: TextStyle(
+          fontSize: 12,
+          color: Theme.of(context).colorScheme.onSurfaceVariant,
+        ),
+      ),
+    ],
+  );
 }

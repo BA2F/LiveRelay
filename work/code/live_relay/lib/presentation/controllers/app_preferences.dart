@@ -16,15 +16,12 @@ class AppPreferences extends ChangeNotifier {
   ReadingSize get readingSize => runtime.state.readingSize;
   bool get onboardingStarted => runtime.state.onboardingStarted;
   bool get onboardingComplete => runtime.state.onboardingComplete;
-  String? get desktopPreset => runtime.state.desktopPreset;
   Future<void> load({required bool hasExistingVault}) =>
       runtime.load(hasExistingVault: hasExistingVault);
   Future<void> setAppearance({AppearanceMode? mode, ReadingSize? size}) =>
       runtime.setAppearance(mode: mode, size: size);
   Future<void> beginOnboarding() => runtime.beginOnboarding();
   Future<void> finishOnboarding() => runtime.finishOnboarding();
-  Future<void> setDesktopPreset(String? preset) =>
-      runtime.setDesktopPreset(preset);
   @override
   void dispose() {
     unawaited(_subscription.cancel());

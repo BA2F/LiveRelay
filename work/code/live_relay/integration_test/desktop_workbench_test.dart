@@ -31,11 +31,13 @@ import 'package:provider/provider.dart';
 import 'package:live_relay/application/agent/agent_conversation.dart';
 import 'package:live_relay/presentation/workbench/conversation_view.dart';
 import 'package:live_relay/presentation/workbench/relations_view.dart';
-import 'package:live_relay/application/workbench/workbench_layout.dart';
 import 'package:live_relay/core/domain/entities.dart';
 import 'package:live_relay/infrastructure/app_composition.dart';
 import 'package:live_relay/presentation/app.dart';
-import 'package:live_relay/presentation/workbench/dock_surface.dart';
+import 'package:live_relay/presentation/pages/profile_page.dart';
+import 'package:live_relay/presentation/workbench/extensions_view.dart';
+import 'package:live_relay/presentation/workbench/workbench_sidebar.dart';
+import 'package:live_relay/presentation/workbench/workbench_tab_strip.dart';
 
 import '../test/support/verification_fakes.dart';
 import '../test/support/pdf_fixture.dart';
@@ -43,6 +45,14 @@ import '../test/workbench/remote_speech_test.dart' show wave;
 import '../test/workbench/review_action_proposal_test.dart' show PlanningAi;
 import '../test/workbench/conversation_concurrency_test.dart'
     show PendingConversationAi;
+
+/// 桌面外壳：通过左栏“新建”菜单打开标签（助手、语音输入等入口都收在里面）。
+Future<void> openViaNewMenu(WidgetTester tester, String entry) async {
+  await tester.tap(find.byTooltip('新建 (Ctrl+N)'));
+  await tester.pumpAndSettle();
+  await tester.tap(find.text(entry).last);
+  await tester.pumpAndSettle();
+}
 
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
@@ -52,7 +62,7 @@ void main() {
     _mediaConversionTest,
   );
   testWidgets(
-    'native desktop edits and layout persist in encrypted vault without confirming drafts',
+    'native desktop inbox, tab editing, autosave and lock pass end to end',
     (tester) async {
       final root = await Directory.systemTemp.createTemp(
         'liverelay-workbench-test-',
@@ -94,125 +104,66 @@ void main() {
           ),
         );
         await tester.pumpAndSettle();
-        expect(find.text('选择你的工作台'), findsOneWidget);
-        await tester.tap(find.text('资料工作台'));
+        // 左栏默认落在待整理，草稿直接出现在列表里。
+        expect(find.byType(WorkbenchSidebar), findsOneWidget);
+        final listRow = find.descendant(
+          of: find.byType(WorkbenchSidebar),
+          matching: find.text('虚构资料位置'),
+        );
+        expect(listRow, findsOneWidget);
+        await tester.tap(listRow);
         await tester.pumpAndSettle();
+        expect(find.byType(WorkbenchTabStrip), findsOneWidget);
         final summary = find.byWidgetPredicate(
           (w) => w is TextField && w.decoration?.labelText == '总结',
         );
-        await tester.enterText(summary.first, '编辑后仍待确认');
+        expect(summary, findsOneWidget);
+        await tester.enterText(summary, '编辑后仍待确认');
+        // 防抖保存未完成时，状态条先显示待保存。
+        await tester.pump();
+        expect(find.text('待保存…'), findsOneWidget);
         await tester.pump(const Duration(seconds: 1));
         await tester.pumpAndSettle();
         expect(c.cards.single.content, '编辑后仍待确认');
         expect(c.cards.single.status, CardStatus.draft);
         expect(await c.cardHistory(id), hasLength(2));
-        await tester.ensureVisible(find.byTooltip('在新标签编辑').first);
-        await tester.tap(find.byTooltip('在新标签编辑').first);
-        await tester.pumpAndSettle();
-        final surface = tester.widget<DockSurface>(find.byType(DockSurface));
-        final cardTab = surface.layout.groups
-            .expand((g) => g.tabs)
-            .firstWhere((v) => v.startsWith('card/'));
-        surface.layout.move(
-          cardTab,
-          surface.layout.groups.last.id,
-          DockPlacement.center,
-        );
-        await tester.pumpAndSettle();
-        expect(summary, findsNWidgets(2));
-        await tester.enterText(summary.last, '两个视图一致');
-        await tester.pump(const Duration(seconds: 1));
-        await tester.pumpAndSettle();
-        for (final field in tester.widgetList<TextField>(summary)) {
-          expect(field.controller!.text, '两个视图一致');
-        }
-        await tester.tap(find.byTooltip('确认当前卡片').last);
+        expect(find.text('修改已保存'), findsOneWidget);
+        await tester.tap(find.byTooltip('确认当前卡片'));
         await tester.pumpAndSettle();
         expect(c.cards.single.status, CardStatus.confirmed);
         expect(
           (await c.releasePolicy('card', id)).visibleAt(LifeState.deceased),
           VisibilityLevel.hidden,
         );
-        final targetGroup = surface.layout.containing('cards')!;
-        final originalGroups = surface.layout.groups.length;
-        Future<void> dockDrag(Finder source, DockPlacement placement) async {
-          await tester.ensureVisible(source);
-          final gesture = await tester.startGesture(tester.getCenter(source));
-          await gesture.moveBy(const Offset(40, 0));
-          await tester.pump();
-          final target = find.byKey(
-            ValueKey('dock-target-${targetGroup.id}-${placement.name}'),
-          );
-          expect(target, findsOneWidget);
-          await gesture.moveTo(tester.getCenter(target));
-          await tester.pump();
-          final highlight = tester.widget<Container>(
-            find.descendant(of: target, matching: find.byType(Container)).first,
-          );
-          expect(
-            (highlight.decoration! as BoxDecoration).color,
-            Theme.of(tester.element(target)).colorScheme.primaryContainer,
-          );
-          await gesture.up();
-          await tester.pumpAndSettle();
-        }
-
-        Finder viewDrag(bool tab) => find
-            .byWidgetPredicate(
-              (w) => w is Draggable<String> && w.data == 'changes',
-            )
-            .at(tab ? 1 : 0);
-        for (final placement in [
-          DockPlacement.left,
-          DockPlacement.right,
-          DockPlacement.top,
-          DockPlacement.bottom,
-        ]) {
-          await dockDrag(viewDrag(false), placement);
-          expect(surface.layout.groups.length, originalGroups + 1);
-          expect(
-            surface.layout.containing('changes')!.id,
-            isNot(targetGroup.id),
-          );
-          await dockDrag(viewDrag(true), DockPlacement.center);
-          expect(surface.layout.containing('changes')!.id, targetGroup.id);
-          expect(surface.layout.groups.length, originalGroups);
-        }
-        final split = surface.layout.root as DockSplit;
-        final fraction = split.fraction;
-        await tester.drag(find.byKey(ObjectKey(split)), const Offset(35, 0));
-        await tester.pumpAndSettle();
-        expect(split.fraction, greaterThan(fraction));
-        await tester.tap(find.byTooltip('移动当前视图').first);
-        await tester.pumpAndSettle();
-        await tester.tap(find.text('工作台内浮动').last);
-        await tester.pumpAndSettle();
-        final floating = surface.layout.floating.single;
-        final oldPosition = Offset(floating.x, floating.y);
-        await tester.drag(
-          find.byKey(ValueKey('dock-floating-move-${floating.group.id}')),
-          const Offset(35, 25),
-        );
-        await tester.pumpAndSettle();
-        expect(floating.x, greaterThan(oldPosition.dx));
-        expect(floating.y, greaterThan(oldPosition.dy));
-        final oldSize = Size(floating.width, floating.height);
-        await tester.drag(
-          find.byKey(ValueKey('dock-floating-resize-${floating.group.id}')),
-          const Offset(-45, -35),
-        );
-        await tester.pumpAndSettle();
-        expect(floating.width, lessThan(oldSize.width));
-        expect(floating.height, lessThan(oldSize.height));
         await tester.pump(const Duration(seconds: 1));
         await tester.pumpAndSettle();
         final state = await c.readWorkbenchState();
-        expect(state, contains('floating'));
+        expect(state, contains('card/$id'));
+        await tester.tap(find.byTooltip('保存并锁定 (Ctrl+L)'));
+        await tester.pumpAndSettle();
+        expect(c.isUnlocked, isFalse);
+        // 重开：标签随加密库恢复，内容与保存状态一致。
+        await c.unlockWithPassword('fictional-workbench-2026');
+        await tester.pumpAndSettle();
+        expect(
+          find.descendant(
+            of: find.byType(WorkbenchTabStrip),
+            matching: find.text('虚构资料位置'),
+          ),
+          findsOneWidget,
+        );
+        expect(tester.widget<TextField>(summary).controller!.text, '编辑后仍待确认');
+        expect(await c.readWorkbenchState(), state);
+        expect(await c.cardHistory(id), hasLength(3));
+        await c.trashCard(id);
+        await c.restoreCard(id);
+        expect(c.cards.single.content, '编辑后仍待确认');
         final evidencePath =
             Platform.environment['LIVERELAY_WORKBENCH_EVIDENCE'];
         if (evidencePath != null) {
           final dir = Directory(evidencePath);
           await dir.create(recursive: true);
+          await tester.pumpAndSettle();
           final boundary =
               screenshotKey.currentContext!.findRenderObject()
                   as RenderRepaintBoundary;
@@ -222,41 +173,24 @@ void main() {
               .writeAsBytes(bytes!.buffer.asUint8List());
           image.dispose();
         }
-        await tester.pumpWidget(const SizedBox());
-        await c.lock();
-        await c.unlockWithPassword('fictional-workbench-2026');
-        expect(c.cards.single.content, '两个视图一致');
-        expect(await c.readWorkbenchState(), state);
-        expect(await c.cardHistory(id), hasLength(4));
-        await c.trashCard(id);
-        await c.restoreCard(id);
-        expect(c.cards.single.content, '两个视图一致');
         final deviceText = await File('${root.path}/device-preferences.json')
             .readAsString();
         expect(deviceText, isNot(contains(id)));
-        expect(deviceText, isNot(contains('两个视图一致')));
+        expect(deviceText, isNot(contains('编辑后仍待确认')));
         if (evidencePath != null) {
           await File('$evidencePath/verification.json').writeAsString(
             jsonEncode({
               'platform': Platform.operatingSystem,
               'fixture': true,
+              'inboxFirst': true,
+              'tabEditing': true,
               'autosaveDraft': true,
-              'sharedEdit': true,
+              'pendingIndicatorBeforeSave': true,
               'confirmationDoesNotGrantRelease': true,
               'encryptedReopen': true,
-              'layoutPersistence': true,
-              'nativePointerDocking': [
-                'left',
-                'right',
-                'top',
-                'bottom',
-                'center',
-              ],
-              'dropHighlight': true,
-              'iconAndTabDrag': true,
-              'splitResize': true,
-              'floatingMoveResize': true,
-              'revisions': 4,
+              'tabRestoreAfterUnlock': true,
+              'tabsPersistedInVault': true,
+              'revisions': 3,
               'recycleRestore': true,
             }),
           );
@@ -301,7 +235,6 @@ void main() {
           const CardDraft(title: '扩展已确认卡片', content: '虚构已确认摘要'),
         );
         await p.finishOnboarding();
-        await p.setDesktopPreset('library');
         await tester.pumpWidget(
           MultiProvider(
             providers: [
@@ -312,7 +245,24 @@ void main() {
           ),
         );
         await tester.pumpAndSettle();
-        await tester.tap(find.byTooltip('扩展'));
+        // 扩展入口收进设置。
+        await tester.tap(find.byTooltip('更多'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('设置'));
+        await tester.pumpAndSettle();
+        expect(find.byType(ProfilePage), findsOneWidget);
+        await tester.scrollUntilVisible(
+          find.text('扩展'),
+          200,
+          scrollable: find
+              .descendant(
+                of: find.byType(ProfilePage),
+                matching: find.byType(Scrollable),
+              )
+              .first,
+        );
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('扩展'));
         await tester.pumpAndSettle();
         await tester.ensureVisible(find.text('安装'));
         await tester.tap(find.text('安装'));
@@ -326,26 +276,29 @@ void main() {
         expect(await c.readWorkbenchExtensions(), contains('"enabled":false'));
         await tester.tap(find.byType(Switch).first);
         await tester.pumpAndSettle();
-        await tester.tap(find.byTooltip('命令面板 · Ctrl+Shift+P'));
+        await tester.ensureVisible(find.text('打开待确认审阅'));
+        await tester.tap(find.text('打开待确认审阅'));
         await tester.pumpAndSettle();
-        await tester.enterText(
+        expect(
           find.descendant(
-            of: find.byType(Dialog),
-            matching: find.byType(TextField),
+            of: find.byType(ContributedCardsView),
+            matching: find.text('扩展待确认卡片'),
           ),
-          '待确认审阅',
+          findsOneWidget,
         );
-        await tester.pumpAndSettle();
+        expect(
+          find.descendant(
+            of: find.byType(ContributedCardsView),
+            matching: find.text('扩展已确认卡片'),
+          ),
+          findsNothing,
+        );
         await tester.tap(
           find.descendant(
-            of: find.byType(Dialog),
-            matching: find.text('打开待确认审阅'),
+            of: find.byType(WorkbenchTabStrip),
+            matching: find.text('扩展'),
           ),
         );
-        await tester.pumpAndSettle();
-        expect(find.text('扩展待确认卡片'), findsOneWidget);
-        expect(find.text('扩展已确认卡片'), findsNothing);
-        await tester.tap(find.byTooltip('扩展'));
         await tester.pumpAndSettle();
         await tester.tap(find.text('移除扩展'));
         await tester.pumpAndSettle();
@@ -405,7 +358,6 @@ void main() {
         );
         final other = c.cards.firstWhere((card) => card.id != original.id);
         await p.finishOnboarding();
-        await p.setDesktopPreset('library');
         await tester.pumpWidget(
           MultiProvider(
             providers: [
@@ -416,8 +368,12 @@ void main() {
           ),
         );
         await tester.pumpAndSettle();
-        final surface = tester.widget<DockSurface>(find.byType(DockSurface));
-        surface.layout.open('card/${other.id}/source-fixture');
+        await tester.tap(
+          find.descendant(
+            of: find.byType(WorkbenchSidebar),
+            matching: find.text('共享来源摘要'),
+          ),
+        );
         await tester.pumpAndSettle();
         await tester.tap(find.text('管理原件引用'));
         await tester.pumpAndSettle();
@@ -494,7 +450,6 @@ void main() {
           usesChinesePassphrase: false,
         );
         await p.finishOnboarding();
-        await p.setDesktopPreset('assistant');
         await tester.pumpWidget(
           MultiProvider(
             providers: [
@@ -508,6 +463,7 @@ void main() {
           ),
         );
         await tester.pumpAndSettle();
+        await openViaNewMenu(tester, '助手对话');
         final view = tester.widget<ConversationView>(
           find.byType(ConversationView),
         );
@@ -645,9 +601,7 @@ void main() {
           ui.AppExitResponse.exit,
         );
         expect(await c.readConversationState(), contains('重开后继续的输入'));
-        final surface = tester.widget<DockSurface>(find.byType(DockSurface));
-        surface.layout.open('speech');
-        await tester.pumpAndSettle();
+        await openViaNewMenu(tester, '语音输入');
         expect(find.text('另存录音原件到资料库'), findsOneWidget);
         final transcript = find.byWidgetPredicate(
           (w) => w is TextField && w.decoration?.labelText == '检查或修改识别文字',
@@ -715,7 +669,6 @@ void main() {
           const CardDraft(title: '虚构附件卡片', content: '明确选择的卡片正文'),
         );
         await p.finishOnboarding();
-        await p.setDesktopPreset('assistant');
         final recorder = ui.PictureRecorder();
         final canvas = Canvas(recorder);
         canvas.drawColor(Colors.green, BlendMode.src);
@@ -739,6 +692,7 @@ void main() {
           ),
         );
         await tester.pumpAndSettle();
+        await openViaNewMenu(tester, '助手对话');
         final q = tester
             .widget<ConversationView>(find.byType(ConversationView))
             .conversation;
@@ -904,7 +858,6 @@ void main() {
         await c.setCardOriginals(b, [blob.id]);
         await c.setCardReferences(a, [b]);
         await p.finishOnboarding();
-        await p.setDesktopPreset('library');
         await tester.pumpWidget(
           MultiProvider(
             providers: [
@@ -918,13 +871,17 @@ void main() {
           ),
         );
         await tester.pumpAndSettle();
-        final layout = tester
-            .widget<DockSurface>(find.byType(DockSurface))
-            .layout;
-        layout.open('relations');
-        for (final tab in layout.groups.expand((g) => g.tabs).toList()) {
-          if (tab != 'relations') layout.close(tab);
-        }
+        // 关系图从卡片编辑器进入；这些卡片已确认，先从全部卡片打开。
+        await tester.tap(find.text('全部卡片'));
+        await tester.pumpAndSettle();
+        await tester.tap(
+          find.descendant(
+            of: find.byType(WorkbenchSidebar),
+            matching: find.text('虚构图A'),
+          ),
+        );
+        await tester.pumpAndSettle();
+        await tester.tap(find.byTooltip('关系图'));
         await tester.pumpAndSettle();
         for (
           var i = 0;
@@ -945,7 +902,13 @@ void main() {
         await tester.pumpAndSettle();
         expect(find.text('反向引用 · 1'), findsOneWidget);
         expect(find.text('4 个节点 · 1 条引用 · 3 条来源 · 0 条收纳'), findsOneWidget);
-        expect(find.text('仅同标签的C'), findsNothing);
+        expect(
+          find.descendant(
+            of: find.byType(RelationsView),
+            matching: find.text('仅同标签的C'),
+          ),
+          findsNothing,
+        );
         await tester.tap(dropdowns.last);
         await tester.pumpAndSettle();
         await tester.tap(find.text('卡片引用 →').last);
@@ -1041,7 +1004,6 @@ void main() {
         );
         await c.selectAiProfile(first, '模型甲');
         await p.finishOnboarding();
-        await p.setDesktopPreset('assistant');
         await tester.pumpWidget(
           MultiProvider(
             providers: [
@@ -1055,6 +1017,7 @@ void main() {
           ),
         );
         await tester.pumpAndSettle();
+        await openViaNewMenu(tester, '助手对话');
         final conversation = tester
             .widget<ConversationView>(find.byType(ConversationView))
             .conversation;
@@ -1662,7 +1625,6 @@ void main() {
         await c.combineCards('本人选择的组合', [selected.id, member.id]);
         final bundle = c.cards.singleWhere((c) => c.kind == CardKind.bundle);
         await p.finishOnboarding();
-        await p.setDesktopPreset('assistant');
         await tester.pumpWidget(
           MultiProvider(
             providers: [
@@ -1676,6 +1638,7 @@ void main() {
           ),
         );
         await tester.pumpAndSettle();
+        await openViaNewMenu(tester, '助手对话');
         final q = tester
             .widget<ConversationView>(find.byType(ConversationView))
             .conversation;
@@ -1806,8 +1769,15 @@ void main() {
           selected.id,
           const CardDraft(title: '所选虚构卡片', content: '后来修改的正文'),
         );
-        final surface = tester.widget<DockSurface>(find.byType(DockSurface));
-        surface.layout.open('card/${reviewed.id}');
+        // 确认后的卡片在“全部卡片”里打开。
+        await tester.tap(find.text('全部卡片'));
+        await tester.pumpAndSettle();
+        await tester.tap(
+          find.descendant(
+            of: find.byType(WorkbenchSidebar),
+            matching: find.text('来源验收卡片'),
+          ),
+        );
         await tester.pumpAndSettle();
         final editor = find
             .byWidgetPredicate(
@@ -2173,7 +2143,6 @@ void main() {
           ),
         );
         await p.finishOnboarding();
-        await p.setDesktopPreset('assistant');
         await tester.pumpWidget(
           MultiProvider(
             providers: [
@@ -2184,6 +2153,7 @@ void main() {
           ),
         );
         await tester.pumpAndSettle();
+        await openViaNewMenu(tester, '助手对话');
         final q = tester
             .widget<ConversationView>(find.byType(ConversationView))
             .conversation;
@@ -2202,6 +2172,14 @@ void main() {
         expect(q.working, true);
         expect(c.isBusy, false);
         await tester.pump(const Duration(milliseconds: 300));
+        // 等回复时切到卡片标签继续编辑。
+        await tester.tap(
+          find.descendant(
+            of: find.byType(WorkbenchSidebar),
+            matching: find.text('虚构边写边问'),
+          ),
+        );
+        await tester.pumpAndSettle();
         final summary = find.byWidgetPredicate(
           (w) => w is TextField && w.decoration?.labelText == '总结',
         );
@@ -2227,7 +2205,7 @@ void main() {
               .writeAsBytes(bytes!.buffer.asUint8List());
           image.dispose();
         }
-        await tester.tap(find.byTooltip('保存并锁定'));
+        await tester.tap(find.byTooltip('保存并锁定 (Ctrl+L)'));
         await tester.pumpAndSettle();
         expect(c.isUnlocked, false);
         expect(ai.requests.single.cancellation!.isCancelled, true);
@@ -2236,6 +2214,13 @@ void main() {
         await c.unlockWithPassword('fixture-native-network');
         await tester.pumpAndSettle();
         expect(c.cards.single.content, '网络仍在等待，本地自动保存完成');
+        await tester.tap(
+          find.descendant(
+            of: find.byType(WorkbenchTabStrip),
+            matching: find.text('助手'),
+          ),
+        );
+        await tester.pumpAndSettle();
         final reopened = tester
             .widget<ConversationView>(find.byType(ConversationView))
             .conversation;

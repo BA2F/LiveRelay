@@ -18,7 +18,9 @@ import 'recipient_page.dart';
 import 'local_backup_page.dart';
 
 class ProfilePage extends StatefulWidget {
-  const ProfilePage({super.key});
+  const ProfilePage({super.key, this.onOpenExtensions});
+  /// 桌面传入时提供扩展入口；手机端暂不显示。
+  final VoidCallback? onOpenExtensions;
   @override
   State<ProfilePage> createState() => _ProfilePageState();
 }
@@ -121,6 +123,14 @@ class _ProfilePageState extends State<ProfilePage> {
           trailing: const Icon(Icons.chevron_right),
           onTap: () => showVaultSettings(context, controller),
         ),
+        if (widget.onOpenExtensions != null)
+          ListTile(
+            leading: const Icon(Icons.extension_outlined),
+            title: const Text('扩展'),
+            subtitle: const Text('安装与管理资料视图扩展'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: widget.onOpenExtensions,
+          ),
         const Divider(),
         for (final item in [
           (AppFeature.agent, 'Agent', Icons.auto_awesome_outlined),

@@ -36,12 +36,14 @@ void main() {
       runtime = WorkbenchRuntime(c);
       expect(await runtime.requestExit(), AppExitResponse.cancel);
       expect(await c.readWorkbenchState(), isNull);
-      await runtime.load(preset: 'assistant');
+      await runtime.load();
       expect(runtime.loaded, isTrue);
+      final cardId = c.cards.single.id;
       final edit = runtime.edits.session(c.cards.single);
       runtime.edits.edit(edit, title: 'pending title');
       runtime.conversation.updateDraft('pending conversation');
-      runtime.layout.open('changes');
+      runtime.tabs.open('card/$cardId');
+      runtime.tabs.selectSection('passwords');
       // The controller's exclusive-operation flag blocks writes, never drops them.
       c.isBusy = true;
       await expectLater(runtime.saveAndLock(), throwsFormatException);
@@ -59,7 +61,8 @@ void main() {
       runtime = WorkbenchRuntime(c);
       await runtime.load();
       expect(runtime.conversation.draft, 'pending conversation');
-      expect(runtime.layout.containing('changes'), isNotNull);
+      expect(runtime.tabs.tabs, contains('card/$cardId'));
+      expect(runtime.tabs.section, 'passwords');
       expect(await runtime.requestExit(), AppExitResponse.exit);
     } finally {
       c.isBusy = false;

@@ -5,7 +5,7 @@ import 'dart:io';
 
 import 'package:live_relay/application/workbench/card_edit_runtime.dart';
 import 'package:live_relay/application/workbench/extension_runtime.dart';
-import 'package:live_relay/application/workbench/workbench_layout_state.dart';
+import 'package:live_relay/application/workbench/workbench_tabs_state.dart';
 import 'package:live_relay/application/card_summary.dart';
 import 'package:live_relay/core/domain/entities.dart';
 import 'package:live_relay/core/extensions/extension_manifest.dart';
@@ -70,44 +70,59 @@ Map<String, dynamic> manifest() => {
   ],
 };
 Map<String, Future<void> Function()> workbenchChecks() => {
-  'headless dock move/float/restore preserves one view and rejects invalid state atomically':
+  'headless tabs open once, reorder, close to the right neighbour and reject invalid state atomically':
       () async {
-        final layout = WorkbenchLayoutState();
-        final restored = WorkbenchLayoutState();
+        final tabs = WorkbenchTabsState();
+        final restored = WorkbenchTabsState();
         try {
-          final target = layout.groups.last.id;
-          layout.move('cards', target, DockPlacement.floating);
-          layout.floating.single.x = 320;
+          tabs.open('card/a');
+          tabs.open('agent');
+          tabs.open('card/a');
+          check(
+            tabs.tabs.join(',') == 'card/a,agent' && tabs.active == 'card/a',
+            'Duplicate tab or wrong active tab',
+          );
+          tabs.move('agent', 0);
+          check(tabs.tabs.join(',') == 'agent,card/a', 'Reorder lost a tab');
+          tabs.selectSection('recycle');
+          tabs.close('agent');
+          check(tabs.active == 'card/a', 'Active tab did not fall back');
           restored.restore(
             Map<String, dynamic>.from(
-              jsonDecode(jsonEncode(layout.toJson())) as Map,
+              jsonDecode(jsonEncode(tabs.toJson())) as Map,
             ),
           );
           check(
-            restored.floating.single.x == 320 &&
-                restored.containing('cards')?.tabs.single == 'cards',
-            'Float round trip failed',
-          );
-          restored.move('cards', restored.groups.first.id, DockPlacement.left);
-          check(
-            restored.floating.isEmpty &&
-                restored.groups
-                        .expand((g) => g.tabs)
-                        .where((v) => v == 'cards')
-                        .length ==
-                    1,
-            'View duplicated/lost',
+            restored.tabs.join(',') == 'card/a' &&
+                restored.active == 'card/a' &&
+                restored.section == 'recycle',
+            'Tabs round trip failed',
           );
           final before = jsonEncode(restored.toJson());
-          final invalid = Map<String, dynamic>.from(jsonDecode(before) as Map);
-          invalid['root']['fraction'] = double.nan;
-          await reject(Future.sync(() => restored.restore(invalid)), '尺寸无效');
+          await reject(
+            Future.sync(
+              () => restored.restore({
+                'version': 2,
+                'tabs': ['card/a', 'card/a'],
+              }),
+            ),
+            '标签无效',
+          );
+          await reject(
+            Future.sync(() => restored.restore({'version': 1})),
+            '版本不支持',
+          );
           check(
             before == jsonEncode(restored.toJson()),
-            'Invalid restore changed active layout',
+            'Invalid restore changed active tabs',
+          );
+          restored.close('card/a');
+          check(
+            restored.tabs.isEmpty && restored.active == null,
+            'Closing the last tab left residue',
           );
         } finally {
-          layout.dispose();
+          tabs.dispose();
           restored.dispose();
         }
       },

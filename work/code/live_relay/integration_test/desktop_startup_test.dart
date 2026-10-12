@@ -2,6 +2,8 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:ui' as ui;
 
+import 'package:flutter/gestures.dart'
+    show kSecondaryMouseButton, PointerDeviceKind;
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
@@ -16,9 +18,11 @@ import 'package:live_relay/application/app_preferences.dart';
 import 'package:live_relay/core/domain/entities.dart';
 import 'package:live_relay/main.dart' as production;
 import 'package:live_relay/presentation/app.dart';
+import 'package:live_relay/presentation/workbench/conversation_view.dart';
 import 'package:live_relay/presentation/workbench/desktop_workbench.dart';
-import 'package:live_relay/presentation/workbench/dock_surface.dart';
 import 'package:live_relay/presentation/workbench/workbench_card_editor.dart';
+import 'package:live_relay/presentation/workbench/workbench_sidebar.dart';
+import 'package:live_relay/presentation/workbench/workbench_tab_strip.dart';
 
 /// Run only with XDG_DATA_HOME and TMPDIR inside this explicitly isolated root.
 /// The production entrypoint constructs every business service. Secure storage
@@ -106,18 +110,16 @@ void main() {
         await until(() => find.text('开始使用').evaluate().isNotEmpty);
         expect(controller!.header!.formatVersion, 3);
         await tap(find.text('开始使用'));
-        await until(() => find.text('选择你的工作台').evaluate().isNotEmpty);
-        await tap(find.text('资料工作台'));
-        await until(() => find.byType(DockSurface).evaluate().isNotEmpty);
-        expect(find.byType(DesktopWorkbench), findsOneWidget);
-        expect(preferences!.desktopPreset, 'library');
-        await tap(find.text('新建卡片'));
+        await until(() => find.byType(DesktopWorkbench).evaluate().isNotEmpty);
+        await until(() => find.byType(WorkbenchSidebar).evaluate().isNotEmpty);
+        await tap(find.byTooltip('新建 (Ctrl+N)'));
+        await tap(find.text('信息卡片'));
         await until(() => field('总结').evaluate().isNotEmpty);
         const text = '公开夹具：普通客户端入口创建并自动保存这张草稿';
         await tester.enterText(field('总结').last, text);
         // Save-and-lock must include the current edit, even before debounce.
         expect(controller!.cards.single.content, isNot(text));
-        await tester.tap(find.byTooltip('保存并锁定'));
+        await tester.tap(find.byTooltip('保存并锁定 (Ctrl+L)'));
         await until(() => find.text('解锁你的加密资料库').evaluate().isNotEmpty);
         expect(controller!.isUnlocked, isFalse);
         await tester.pumpWidget(const SizedBox());
@@ -133,14 +135,23 @@ void main() {
         expect(find.text('欢迎使用留灯'), findsNothing);
         await tester.enterText(field('主密码'), password);
         await tap(find.text('解锁'));
-        await until(() => find.byType(DockSurface).evaluate().isNotEmpty);
+        await until(() => find.byType(DesktopWorkbench).evaluate().isNotEmpty);
         expect(find.text('选择你的工作台'), findsNothing);
         expect(preferences!.onboardingComplete, isTrue);
-        expect(preferences!.desktopPreset, 'library');
         expect(controller!.cards.single.content, text);
         expect(controller!.cards.single.status, CardStatus.draft);
         expect(controller!.aiSettings.isConfigured, isFalse);
         expect(tester.takeException(), isNull);
+        // 标签随加密库恢复：上次打开的卡片仍是一个标签。
+        await until(
+          () => find
+              .descendant(
+                of: find.byType(WorkbenchTabStrip),
+                matching: find.text('新卡片'),
+              )
+              .evaluate()
+              .isNotEmpty,
+        );
         final saved = jsonDecode(await preferenceFile.readAsString()) as Map;
         expect(saved.keys.toSet(), {
           'version',
@@ -148,7 +159,6 @@ void main() {
           'readingSize',
           'onboardingStarted',
           'onboardingComplete',
-          'desktopPreset',
         });
         expect(saved.toString().contains(text), isFalse);
         final evidencePath =
@@ -171,44 +181,31 @@ void main() {
           }
         }
 
-        // Exercise bulk deletion through the actual selection and review UI.
-        // Earlier source-management verification called the use case directly.
-        await tap(find.text('我的资料'));
-        await tap(find.text('新建卡片'));
-        const secondTitle = '公开批量删除夹具';
-        await tester.enterText(field('标题').last, secondTitle);
-        await until(
-          () => controller!.cards.any((card) => card.title == secondTitle),
+        // 通过真实列表右键菜单走一遍回收：确认框、取消保留、恢复。
+        // 鼠标右键按真实序列模拟：add → down → up → remove，避免测试鼠标状态残留。
+        await tap(find.text('全部卡片'));
+        Finder inventoryRow() => find.descendant(
+          of: find.byType(WorkbenchSidebar),
+          matching: find.text('新卡片'),
         );
-        final selectedCards = List<LifeCard>.of(controller!.cards);
-        expect(selectedCards, hasLength(2));
-        await tap(find.text('我的资料'));
-        for (final card in selectedCards) {
-          final editor = find.byWidgetPredicate(
-            (w) => w is WorkbenchCardEditor && w.card.id == card.id,
+        Future<void> rightClick(Finder finder) async {
+          final location = tester.getCenter(finder);
+          final gesture = await tester.createGesture(
+            kind: PointerDeviceKind.mouse,
+            buttons: kSecondaryMouseButton,
           );
-          final tile = find.ancestor(of: editor, matching: find.byType(Card));
-          final checkbox = find.descendant(
-            of: tile,
-            matching: find.byType(Checkbox),
-          );
-          await tester.scrollUntilVisible(
-            checkbox,
-            350,
-            scrollable: find
-                .descendant(
-                  of: find.byType(DockSurface),
-                  matching: find.byType(Scrollable),
-                )
-                .first,
-          );
-          await tap(checkbox);
+          await gesture.addPointer(location: location);
+          await tester.pump();
+          await gesture.down(location);
+          await tester.pump();
+          await gesture.up();
+          await gesture.removePointer();
+          await tester.pumpAndSettle();
         }
-        await tap(find.text('删除 2 张'));
-        expect(find.text('删除 2 张卡片？'), findsOneWidget);
-        for (final card in selectedCards) {
-          expect(find.text('• ${card.title}'), findsOneWidget);
-        }
+
+        await rightClick(inventoryRow());
+        await tap(find.text('移入回收区'));
+        expect(find.text('将 1 张卡片移入回收区？'), findsOneWidget);
         expect(
           tester
               .widget<CheckboxListTile>(
@@ -221,64 +218,34 @@ void main() {
           isFalse,
         );
         await tap(find.text('取消'));
-        expect(controller!.cards.map((card) => card.id).toSet(), {
-          for (final card in selectedCards) card.id,
-        });
+        expect(controller!.cards.length, 1);
         expect(controller!.recycledCards, isEmpty);
-        await tap(find.text('删除 2 张'));
+        await rightClick(inventoryRow());
+        await tap(find.text('移入回收区'));
         await tap(find.text('移入回收区'));
         await until(() => controller!.cards.isEmpty);
-        expect(controller!.recycledCards.map((card) => card.id).toSet(), {
-          for (final card in selectedCards) card.id,
-        });
-        await tap(find.byTooltip('回收区'));
-        await tap(find.byTooltip('恢复卡片').first);
-        await tap(find.byTooltip('恢复卡片').first);
-        await until(() => controller!.cards.length == 2);
+        expect(controller!.recycledCards, hasLength(1));
+        await tap(find.text('回收'));
+        await rightClick(
+          find.descendant(
+            of: find.byType(WorkbenchSidebar),
+            matching: find.text('新卡片'),
+          ),
+        );
+        await tap(find.text('恢复卡片'));
+        await until(() => controller!.cards.length == 1);
         expect(controller!.recycledCards, isEmpty);
         expect(controller!.cards.every((card) => card.isDraft), isTrue);
-        expect(controller!.cards.any((card) => card.content == text), isTrue);
-        await tap(find.widgetWithText(TextButton, '助手'));
-        await until(() => preferences!.desktopPreset == 'assistant');
-        expect(
-          tester.widget<DockSurface>(find.byType(DockSurface)).layout.assistant,
-          isTrue,
-        );
-        await tap(find.byTooltip('工作台布局'));
-        await tap(find.text('重新选择起始工作台'));
-        await until(() => find.text('选择你的工作台').evaluate().isNotEmpty);
-        expect(preferences!.desktopPreset, isNull);
-        await tap(find.text('资料工作台'));
-        await until(() => preferences!.desktopPreset == 'library');
-        await tap(find.byTooltip('扩展'));
-        expect(
-          tester
-              .widget<DockSurface>(find.byType(DockSurface))
-              .layout
-              .containing('extensions'),
-          isNotNull,
-        );
-        await tap(find.byTooltip('工作台布局'));
-        await tap(find.text('恢复默认布局'));
-        await until(
-          () =>
-              tester
-                  .widget<DockSurface>(find.byType(DockSurface))
-                  .layout
-                  .containing('extensions') ==
-              null,
-        );
-        expect(preferences!.desktopPreset, 'library');
-        expect(controller!.cards.length, 2);
-        expect(controller!.cards.any((card) => card.content == text), isTrue);
-        // The command shortcut must work while the conversation input has focus.
+        // 助手是一个普通标签页。
+        await tap(find.byTooltip('新建 (Ctrl+N)'));
+        await tap(find.text('助手对话'));
+        await until(() => find.byType(ConversationView).evaluate().isNotEmpty);
+        // 对话输入聚焦时快捷键仍然生效：Ctrl+P 按标题打开卡片。
         await tap(field('对话输入'));
         await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
-        await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
         try {
           await tester.sendKeyEvent(LogicalKeyboardKey.keyP);
         } finally {
-          await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
           await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
         }
         await until(() => find.byType(Dialog).evaluate().isNotEmpty);
@@ -287,18 +254,20 @@ void main() {
             of: find.byType(Dialog),
             matching: find.byType(TextField),
           ),
-          '打开扩展',
+          '新卡片',
         );
         await tester.pumpAndSettle();
-        expect(find.widgetWithText(ListTile, '打开扩展'), findsOneWidget);
-        await tap(find.widgetWithText(ListTile, '打开扩展'));
-        expect(
-          tester
-              .widget<DockSurface>(find.byType(DockSurface))
-              .layout
-              .containing('extensions'),
-          isNotNull,
+        await tap(find.widgetWithText(ListTile, '新卡片').last);
+        await until(
+          () => tester
+              .widgetList<WorkbenchCardEditor>(find.byType(WorkbenchCardEditor))
+              .any((editor) => editor.card.id == controller!.cards.single.id),
         );
+        // 左栏可收起再展开。
+        await tap(find.byTooltip('收起左栏 (Ctrl+B)'));
+        expect(find.byType(WorkbenchSidebar), findsNothing);
+        await tap(find.byTooltip('展开左栏 (Ctrl+B)'));
+        expect(find.byType(WorkbenchSidebar), findsOneWidget);
         expect(tester.takeException(), isNull);
         if (evidencePath != null) {
           final evidence = Directory(evidencePath);
@@ -314,16 +283,15 @@ void main() {
                   'upstreamRequested': false,
                   'nativeOnboardingAndRecoveryConfirmation': true,
                   'headerVersion': controller!.header!.formatVersion,
-                  'initialDesktopPresetRemembered': true,
                   'immediateSaveAndLockPreservedDraft': true,
                   'mainCompositionRecreatedAndPasswordUnlocked': true,
+                  'tabsRestoredAfterUnlock': true,
                   'preferencesContainOnlyDeviceOptions': true,
-                  'nativeBulkSelectionCountAndObjectReview': true,
-                  'cancelBulkDeleteKeepsCards': true,
+                  'nativeRecycleMenuReviewAndCancel': true,
                   'originalRecycleDefaultUnchecked': true,
-                  'nativeBulkDeleteAndRestorePreserveDrafts': true,
-                  'nativePresetSwitchRechooseAndResetPreserveCards': true,
-                  'commandShortcutFromFocusedInput': true,
+                  'nativeRecycleAndRestorePreserveDrafts': true,
+                  'quickOpenShortcutFromFocusedInput': true,
+                  'sidebarCollapseToggle': true,
                   'wholeGoalComplete': false,
                 }),
               );

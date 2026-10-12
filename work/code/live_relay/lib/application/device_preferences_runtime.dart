@@ -39,7 +39,6 @@ class DevicePreferencesRuntime {
         appearance: loaded.appearance,
         readingSize: loaded.readingSize,
         onboardingComplete: true,
-        desktopPreset: loaded.desktopPreset,
       );
     }
     _state = loaded;
@@ -49,27 +48,18 @@ class DevicePreferencesRuntime {
       _save(mode: mode, size: size);
   Future<void> beginOnboarding() => _save(started: true);
   Future<void> finishOnboarding() => _save(started: true, complete: true);
-  Future<void> setDesktopPreset(String? preset) {
-    if (preset != null && !['library', 'assistant'].contains(preset)) {
-      return Future.error(const FormatException('桌面预设不支持'));
-    }
-    return _save(preset: preset, clearPreset: preset == null);
-  }
 
   Future<void> _save({
     AppearanceMode? mode,
     ReadingSize? size,
     bool? started,
     bool? complete,
-    String? preset,
-    bool clearPreset = false,
   }) => _enqueue(() async {
     final next = DevicePreferences(
       appearance: mode ?? state.appearance,
       readingSize: size ?? state.readingSize,
       onboardingStarted: started ?? state.onboardingStarted,
       onboardingComplete: complete ?? state.onboardingComplete,
-      desktopPreset: clearPreset ? null : preset ?? state.desktopPreset,
     );
     await repository.write(next.toJson());
     _ensureLive();

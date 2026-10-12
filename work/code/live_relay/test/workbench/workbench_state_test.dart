@@ -3,7 +3,7 @@ import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:live_relay/application/workbench/card_edit_sessions.dart';
-import 'package:live_relay/application/workbench/workbench_layout.dart';
+import 'package:live_relay/application/workbench/workbench_tabs.dart';
 import 'package:live_relay/core/domain/entities.dart';
 import 'package:live_relay/application/workbench/card_references.dart';
 import 'package:live_relay/infrastructure/persistence/app_database.dart';
@@ -58,47 +58,49 @@ void main() {
       await copy.close();
     }
   });
-  test('views survive split, merge, float and persisted reconstruction exactly once', () {
-    final layout = WorkbenchLayout();
-    final target = layout.groups.first.id;
-    layout.move('agent', target, DockPlacement.bottom);
-    expect(layout.root, isA<DockSplit>());
-    layout.move('agent', '', DockPlacement.floating);
-    expect(layout.floating.single.group.tabs, ['agent']);
-    layout.open('card/fixture/one');
-    layout.open('card/fixture/two');
-    final restored = WorkbenchLayout();
+  test('tabs keep one entry per object, activate, reorder and restore exactly once', () {
+    final tabs = WorkbenchTabs();
+    tabs.open('card/fixture/one');
+    tabs.open('agent');
+    tabs.open('card/fixture/one');
+    expect(tabs.tabs, ['card/fixture/one', 'agent']);
+    expect(tabs.active, 'card/fixture/one');
+    tabs.move('agent', 0);
+    expect(tabs.tabs, ['agent', 'card/fixture/one']);
+    tabs.selectSection('passwords');
+    tabs.close('agent');
+    expect(tabs.tabs, ['card/fixture/one']);
+    expect(tabs.active, 'card/fixture/one');
+    final restored = WorkbenchTabs();
     restored.restore(
-      jsonDecode(jsonEncode(layout.toJson())) as Map<String, dynamic>,
+      jsonDecode(jsonEncode(tabs.toJson())) as Map<String, dynamic>,
     );
-    expect(restored.floating.single.group.tabs, ['agent']);
-    restored.move('agent', restored.groups.first.id, DockPlacement.center);
-    expect(restored.floating, isEmpty);
-    final tabs = restored.groups.expand((g) => g.tabs).toList();
-    expect(tabs.toSet().length, tabs.length);
-    expect(
-      tabs,
-      containsAll(['cards', 'agent', 'card/fixture/one', 'card/fixture/two']),
-    );
-    layout.dispose();
+    expect(restored.tabs, ['card/fixture/one']);
+    expect(restored.active, 'card/fixture/one');
+    expect(restored.section, 'passwords');
+    restored.close('card/fixture/one');
+    expect(restored.tabs, isEmpty);
+    expect(restored.active, isNull);
+    tabs.dispose();
     restored.dispose();
   });
-  test('malformed layout fails before replacing a usable tree', () {
-    final layout = WorkbenchLayout();
-    final before = jsonEncode(layout.toJson());
+  test('malformed tabs fail before replacing a usable state', () {
+    final tabs = WorkbenchTabs();
+    tabs.open('agent');
+    final before = jsonEncode(tabs.toJson());
     expect(
-      () => layout.restore({
-        'version': 1,
-        'root': {
-          'type': 'group',
-          'id': 'a',
-          'tabs': ['cards', 'cards'],
-        },
+      () => tabs.restore({
+        'version': 2,
+        'tabs': ['agent', 'agent'],
       }),
       throwsFormatException,
     );
-    expect(jsonEncode(layout.toJson()), before);
-    layout.dispose();
+    expect(
+      () => tabs.restore({'version': 1, 'root': {'type': 'group'}}),
+      throwsFormatException,
+    );
+    expect(jsonEncode(tabs.toJson()), before);
+    tabs.dispose();
   });
   test(
     'shared edit buffers preserve drafts and edits made during a save',

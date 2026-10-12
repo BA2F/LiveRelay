@@ -4,7 +4,6 @@ import '../../core/ports/vault_repository.dart';
 /// Existing encrypted record keys; not a new public format or schema.
 enum WorkspaceRecord {
   layout('desktop.workbench.v1'),
-  windows('desktop.windows.v1'),
   extensions('workbench.extensions.v1');
 
   const WorkspaceRecord(this.key);

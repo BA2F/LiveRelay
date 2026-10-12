@@ -99,7 +99,10 @@ Future<void> main(List<String> args) async {
               expect(c.cards.single.status, CardStatus.draft);
               await runtime.load();
               expect(runtime.conversation.draft, 'conversation-$mode');
-              expect(runtime.layout.containing('changes'), isNotNull);
+              expect(
+                runtime.tabs.tabs,
+                contains(contains('card/')),
+              );
               results.add({
                 'mode': mode,
                 'nativeProcess': true,
@@ -168,7 +171,7 @@ Future<void> fixture(Directory root, String mode) async {
     title: 'saved-$mode',
   );
   runtime.conversation.updateDraft('conversation-$mode');
-  runtime.layout.open('changes');
+  runtime.tabs.open('card/${c.cards.single.id}');
   if (mode == 'crash') await runtime.flush();
   Future<void> status(String value) =>
       File('${root.path}/status.json')

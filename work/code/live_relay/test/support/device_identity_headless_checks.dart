@@ -164,7 +164,6 @@ Map<String, Future<void> Function()> deviceIdentityChecks() => {
             prefs.setAppearance(mode: AppearanceMode.dark),
             prefs.setAppearance(size: ReadingSize.large),
             prefs.beginOnboarding(),
-            prefs.setDesktopPreset('library'),
           ]);
           final reopened = DevicePreferencesRuntime(store);
           try {
@@ -173,8 +172,7 @@ Map<String, Future<void> Function()> deviceIdentityChecks() => {
               reopened.state.appearance == AppearanceMode.dark &&
                   reopened.state.readingSize == ReadingSize.large &&
                   reopened.state.onboardingStarted &&
-                  !reopened.state.onboardingComplete &&
-                  reopened.state.desktopPreset == 'library',
+                  !reopened.state.onboardingComplete,
               'Choices lost',
             );
             store.data = {'version': 999};
@@ -184,7 +182,6 @@ Map<String, Future<void> Function()> deviceIdentityChecks() => {
                   reopened.state.appearance == AppearanceMode.system,
               'Broken settings initiated onboarding',
             );
-            await reject(reopened.setDesktopPreset('unsupported'), '不支持');
           } finally {
             reopened.dispose();
           }

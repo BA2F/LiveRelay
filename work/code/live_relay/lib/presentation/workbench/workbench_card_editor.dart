@@ -21,17 +21,18 @@ class WorkbenchCardEditor extends StatefulWidget {
     required this.onHistory,
     required this.onSource,
     required this.onDelete,
-    required this.onNewTab,
     required this.onCard,
     this.onReviewSource,
+    this.onRelations,
   });
   final LifeCard card;
   final CardEditSessions edits;
   final AppController controller;
-  final VoidCallback onHistory, onNewTab, onDelete;
+  final VoidCallback onHistory, onDelete;
   final ValueChanged<String> onSource;
   final ValueChanged<String> onCard;
   final VoidCallback? onReviewSource;
+  final VoidCallback? onRelations;
   @override
   State<WorkbenchCardEditor> createState() => _WorkbenchCardEditorState();
 }
@@ -132,15 +133,16 @@ class _WorkbenchCardEditorState extends State<WorkbenchCardEditor> {
               icon: const Icon(Icons.refresh, size: 18),
             ),
           IconButton(
-            tooltip: '在新标签编辑',
-            onPressed: widget.onNewTab,
-            icon: const Icon(Icons.open_in_new, size: 18),
-          ),
-          IconButton(
             tooltip: '修订历史',
             onPressed: widget.onHistory,
             icon: const Icon(Icons.history, size: 18),
           ),
+          if (widget.onRelations != null)
+            IconButton(
+              tooltip: '关系图',
+              onPressed: widget.onRelations,
+              icon: const Icon(Icons.hub_outlined, size: 18),
+            ),
           if (widget.onReviewSource != null)
             IconButton(
               tooltip: '查看确认来源',
