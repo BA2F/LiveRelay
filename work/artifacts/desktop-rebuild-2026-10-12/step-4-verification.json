@@ -1,0 +1,43 @@
+{
+  "date": "2026-10-13",
+  "branch": "codex/desktop-rebuild",
+  "step": "4 C 模式互通（整库搬运 + 附件增量 + 整库替换提示）",
+  "fixtureOnly": true,
+  "commits": {
+    "engineFormat": "552c471 稳定快照与原件子集导出",
+    "engineImport": "e8ccd3f 旧库就地复用、凭证随库走直连解锁、同钥密文直拷",
+    "orchestration": "f161a44 介质扫描、分卷规划与搬运编排",
+    "ui": "72550f9 搬运页面、对话框与 gate 入口",
+    "phoneFallback": "60dd969 文件集降级介质与写探针",
+    "testFix": "5a5ca34 同库分层用例改为先换钥再恢复"
+  },
+  "analyze": "flutter analyze 无问题（每批提交前各跑一次）",
+  "unitTests": "flutter test 287 项通过（基线 270；新增：稳定快照派生 1、归档子集与容器前缀解析 2、跨设备导入 3、分卷规划纯函数 2、搬运闭环与换钥/全部方式流程 3、页面门控 widget 1、文件集与探针 2、端口级检查 2、blob 密文直拷与重加密 1）",
+  "nativeSuites": {
+    "desktop_workbench_test": "16 项通过",
+    "desktop_startup_test": "2 项通过（production main、隔离根）",
+    "desktop_close_test": "2 项通过",
+    "local_completion_desktop_test": "3 项通过（按新语义改为导出与恢复之间先换钥，验证原件必须随包重搬、补充包重加密补齐）",
+    "transfer_desktop_test": "本轮新增 2 项通过：两个隔离 root 共用一个临时介质目录走完整闭环（导出→导入→加原件→只增新卷→反向导入），含桌面外壳渲染冒烟"
+  },
+  "androidBuild": "flutter build apk --debug 通过（编译层面确认新代码在 Android 目标下成立）",
+  "designDecisions": {
+    "unlock": "凭证随库走：导入库 dailyPolicy=='any' 时恢复后直接 markUnlocked+刷新投影；'all' 台账维持安全重设两步走",
+    "oldVault": "导入确认框可勾选先把当前库导出到介质；未解锁或有欠原件时禁用并说明；旧库目录本身不留",
+    "mediumFormat": "沿用 .lvault：LiveRelay-<tag8>-database.lvault 每趟覆盖、LiveRelay-<tag8>-originals-NNNN.lvault 只增不改；snapshotId 改为 vaultId+epoch 派生；卷 payload 上限桌面 128MB/移动 64MB",
+    "reconcile": "介质索引 transfer.volumes（随库搬运）+ 导入清单密文描述符 + 旧库就地复用（size+sha256 全文件字节比对）；换钥快照变化即整索引作废、全量重导",
+    "directCopy": "importSupplement 在旧钥=现钥时密文直拷（不再解密重加密），保证描述符跨往返稳定；换钥后仍重加密"
+  },
+  "foundAndFixedDuringBuild": {
+    "indexLag": "初版把数据库包写在索引更新之前，接收方继承的索引落后一程，回程会重发上一程全部原件；改为两段挂起周期：先写新卷并落索引，再捕获数据库包",
+    "supplementAllOrNothing": "逐卷消费时'该卷不含账本欠件'原本报错中止；改为包里有就核验补齐、没有的留账，按剩余欠件如实报告"
+  },
+  "knownDebt": [
+    "Android SAF 介质读写未实测：目录写探针+文件集降级（多选导入、逐文件保存导出）已实现并有 Linux 单测，但真机/模拟器上走系统选择器的路径未人工验证（手机套件既有阻塞；不装真机纪律）",
+    "device_security_android_test 与 ux_flow 的手机断言已按新语义静态更新，未在模拟器/真机重跑",
+    "搬运页面、导入确认框与 gate 新入口人工走查未做",
+    "介质上的旧代次残留卷只报告不删除（清理入口后置）",
+    "卷文件在介质上被等长篡改时导出侧无法自查，导入侧会拒绝；恢复方式为手动全量重导（未做强制重导按钮）",
+    "k3 设备因素解耦、B 模式修订合并仍后置"
+  ]
+}
