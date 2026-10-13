@@ -11,6 +11,7 @@ import 'package:live_relay/core/ports/vault_installation.dart';
 import 'package:live_relay/core/ports/vault_maintenance.dart';
 import 'package:live_relay/core/ports/vault_repository.dart';
 import 'package:live_relay/core/security/recovery_credential.dart';
+import 'package:live_relay/core/security/vault_archive_identity.dart';
 import 'package:live_relay/core/security/vault_header_v3.dart';
 import 'package:live_relay/core/security/vault_header_metadata.dart';
 
@@ -125,9 +126,14 @@ Map<String, Future<void> Function()> maintenanceChecks() => {
             f.vault.opens == 1 && f.refreshes == 1 && f.vault.isUnlocked,
             'Split failure did not reopen',
           );
+          final expected = await stableArchiveSnapshotId(
+            vaultId: f.vault.identity!.vaultId,
+            epoch: f.vault.identity!.epoch,
+          );
           check(
             f.archive.snapshots.length == 2 &&
-                f.archive.snapshots[0] == f.archive.snapshots[1],
+                f.archive.snapshots[0] == expected &&
+                f.archive.snapshots[1] == expected,
             'Pairing ID changed',
           );
         } finally {
@@ -500,6 +506,12 @@ class FakeVault implements VaultMaintenance {
 
   @override
   Future<VaultHeaderV3?> modernHeader() async => null;
+  ({String vaultId, int epoch})? identity = (
+    vaultId: '11111111111111111111111111111111',
+    epoch: 1,
+  );
+  @override
+  Future<({String vaultId, int epoch})?> archiveIdentity() async => identity;
   @override
   Future<void> writeStagedHeader(
     Directory directory,
@@ -552,9 +564,10 @@ class FakeRepository implements VaultRepository {
 class FakeArchive implements VaultArchive {
   Completer<Uint8List>? pending;
   final entered = Completer<void>();
-  final kinds = <String>[], snapshots = <String?>[];
+  final kinds = <String>[], snapshots = <String?>[], blobSubsets = <Set<String>?>[];
   Uint8List? borrowedKey, firstOutput;
   StagedLifeVault? staged;
+  ArchiveContainerSummary? containerSummary;
   bool failAttachments = false, failAuthentication = false;
   @override
   Future<Uint8List> create({
@@ -563,10 +576,12 @@ class FakeArchive implements VaultArchive {
     DateTime? createdAt,
     String kind = 'full',
     String? snapshotId,
+    Set<String>? blobPaths,
   }) async {
     borrowedKey = masterKey;
     kinds.add(kind);
     snapshots.add(snapshotId);
+    blobSubsets.add(blobPaths);
     if (!entered.isCompleted) entered.complete();
     if (failAttachments && kind == 'attachments') {
       throw StateError('fixture archive failure');
@@ -575,6 +590,10 @@ class FakeArchive implements VaultArchive {
         ? firstOutput = Uint8List.fromList([8])
         : await pending!.future;
   }
+
+  @override
+  ArchiveContainerSummary? inspectContainerPrefix(Uint8List prefix) =>
+      containerSummary;
 
   @override
   Future<StagedLifeVault> stage({

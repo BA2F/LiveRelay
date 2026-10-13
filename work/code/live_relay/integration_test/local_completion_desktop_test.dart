@@ -176,13 +176,14 @@ void main() {
         expect(c.cards.map((v) => v.id), containsAll([id, imported.id]));
         expect(await c.missingOriginalCount(), 1);
         await expectLater(c.readOriginal(blob.id), throwsStateError);
+        // Stable snapshots: both exports from the same key generation carry
+        // the same pairing id, so the second one also completes the restore.
+        await c.importOriginalSupplement(other.attachments);
+        expect(await c.missingOriginalCount(), 0);
         await expectLater(
-          c.importOriginalSupplement(other.attachments),
+          c.importOriginalSupplement(pair.attachments),
           throwsStateError,
         );
-        expect(await c.missingOriginalCount(), 1);
-        await c.importOriginalSupplement(pair.attachments);
-        expect(await c.missingOriginalCount(), 0);
         expect(
           utf8.decode(await c.readOriginal(blob.id)),
           'fictional-original',

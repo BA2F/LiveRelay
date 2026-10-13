@@ -401,6 +401,13 @@ class VaultSession implements VaultMaintenance {
 
   @override
   Future<VaultHeaderV3?> modernHeader() => _keyManager.readV3();
+  @override
+  Future<({String vaultId, int epoch})?> archiveIdentity() async {
+    final header = await _keyManager.readV3();
+    return header == null
+        ? null
+        : (vaultId: header.vaultId, epoch: header.epoch);
+  }
   VaultBlobStore get blobStore => _blobStore;
   @override
   DeviceFactorProtection? get deviceProtection => _deviceFactorProtection;

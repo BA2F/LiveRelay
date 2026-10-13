@@ -3,8 +3,7 @@ import 'dart:io';
 
 import 'package:cryptography/cryptography.dart';
 
-import '../core/security/header_encoding.dart';
-import '../core/security/owner_crypto.dart';
+import '../core/security/vault_archive_identity.dart';
 
 import 'dart:typed_data';
 
@@ -286,12 +285,19 @@ class VaultBackupService {
   Future<({Uint8List database, Uint8List attachments})> exportSplit(
     String credential,
     Future<void> Function() refresh,
-  ) => _session.exclusiveMaintenance(
-    () => _exportAuthenticated(
+  ) => _session.exclusiveMaintenance(() async {
+    final identity = await _session.archiveIdentity();
+    if (identity == null) {
+      throw const LifeVaultArchiveException('分层备份需要先升级安全格式');
+    }
+    final snapshot = await stableArchiveSnapshotId(
+      vaultId: identity.vaultId,
+      epoch: identity.epoch,
+    );
+    return _exportAuthenticated(
       credential,
       refresh,
       (key) async {
-        final snapshot = HeaderEncoding.hex(OwnerCrypto.random(16));
         final database = await _archiveService.create(
           vaultDirectory: _session.directory,
           masterKey: key,
@@ -315,8 +321,8 @@ class VaultBackupService {
         _wipe(value.database);
         _wipe(value.attachments);
       },
-    ),
-  );
+    );
+  });
 
   Future<int> missingCount() async {
     if (!_session.isUnlocked) return 0;

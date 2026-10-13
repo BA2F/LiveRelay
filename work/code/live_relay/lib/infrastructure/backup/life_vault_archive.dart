@@ -41,6 +41,7 @@ class LifeVaultArchiveService implements VaultArchive {
     DateTime? createdAt,
     String kind = 'full',
     String? snapshotId,
+    Set<String>? blobPaths,
   }) async {
     final header = File(path.join(vaultDirectory.path, 'vault-header.json'));
     final database = File(path.join(vaultDirectory.path, 'vault.sqlite'));
@@ -51,8 +52,9 @@ class LifeVaultArchiveService implements VaultArchive {
     final rawHeader = await header.readAsBytes();
     final modern = jsonDecode(utf8.decode(rawHeader))['formatVersion'] == 3;
     final version = modern ? 2 : 1;
+    VaultHeaderV3? modernHeader;
     if (modern) {
-      VaultHeaderV3.decode(rawHeader);
+      modernHeader = VaultHeaderV3.decode(rawHeader);
     } else {
       _requireLegacyHeader(rawHeader);
     }
@@ -80,6 +82,7 @@ class LifeVaultArchiveService implements VaultArchive {
           'payload': 'encrypted-runtime-vault',
           if (modern) 'kind': kind,
           if (modern) 'snapshotId': snapshot,
+          if (modernHeader != null) 'vaultId': modernHeader.vaultId,
           'manifestAuthentication': 'hkdf-sha256+hmac-sha256',
         }),
       ),
@@ -96,6 +99,7 @@ class LifeVaultArchiveService implements VaultArchive {
     final entries = <String, Object?>{};
     entries[_containerName] = await _descriptor(containerBytes);
     final omitted = <String, Object?>{};
+    final includedBlobs = <String>{};
     for (final file in files) {
       final relative = path
           .relative(file.path, from: vaultDirectory.path)
@@ -110,8 +114,17 @@ class LifeVaultArchiveService implements VaultArchive {
       if (kind == 'attachments' && !blob && relative != 'vault-header.json') {
         continue;
       }
+      if (kind == 'attachments' && blob) {
+        if (blobPaths != null && !blobPaths.contains(relative)) continue;
+        includedBlobs.add(relative);
+      }
       entries[archiveName] = await _descriptor(bytes);
       archive.addFile(ArchiveFile.noCompress(archiveName, bytes.length, bytes));
+    }
+    if (kind == 'attachments' &&
+        blobPaths != null &&
+        blobPaths.difference(includedBlobs).isNotEmpty) {
+      throw const LifeVaultArchiveException('原件子集包含不存在的文件');
     }
 
     final manifestBytes = Uint8List.fromList(
@@ -279,6 +292,65 @@ class LifeVaultArchiveService implements VaultArchive {
       if (await staging.exists()) await staging.delete(recursive: true);
       rethrow;
     }
+  }
+
+  /// Reads the container header from the first ZIP entry (`container.json` is
+  /// always written first and stored uncompressed). Anything unexpected, from
+  /// a foreign ZIP layout to truncated bytes, reports null instead of guessing.
+  @override
+  ArchiveContainerSummary? inspectContainerPrefix(Uint8List prefix) {
+    if (prefix.length < 30) return null;
+    final view = ByteData.sublistView(prefix);
+    if (view.getUint32(0, Endian.little) != 0x04034b50) return null;
+    final flags = view.getUint16(6, Endian.little);
+    // Encrypted entries and streamed sizes (data descriptor) are not ours.
+    if (flags & 0x0009 != 0) return null;
+    if (view.getUint16(8, Endian.little) != 0) return null;
+    final compressedLength = view.getUint32(18, Endian.little);
+    final nameLength = view.getUint16(26, Endian.little);
+    final extraLength = view.getUint16(28, Endian.little);
+    final nameEnd = 30 + nameLength;
+    final dataStart = nameEnd + extraLength;
+    if (nameLength == 0 || prefix.length < nameEnd) return null;
+    final name = utf8.decode(prefix.sublist(30, nameEnd), allowMalformed: true);
+    if (name != _containerName) return null;
+    if (compressedLength == 0 ||
+        compressedLength > 64 * 1024 ||
+        dataStart + compressedLength > prefix.length) {
+      return null;
+    }
+    final Object? decoded;
+    try {
+      decoded = jsonDecode(
+        utf8.decode(prefix.sublist(dataStart, dataStart + compressedLength)),
+      );
+    } on Object {
+      return null;
+    }
+    if (decoded is! Map<String, Object?> || decoded['format'] != formatName) {
+      return null;
+    }
+    final version = decoded['formatVersion'];
+    if (version is! int || ![1, 2].contains(version)) return null;
+    final kind = version == 1 ? 'full' : decoded['kind'];
+    if (kind is! String ||
+        !['full', 'database', 'attachments'].contains(kind)) {
+      return null;
+    }
+    final snapshot = version == 2 ? decoded['snapshotId'] : null;
+    if (version == 2 &&
+        (snapshot is! String ||
+            !RegExp(r'^[0-9a-f]{32}$').hasMatch(snapshot))) {
+      return null;
+    }
+    final vaultId = decoded['vaultId'];
+    return ArchiveContainerSummary(
+      formatVersion: version,
+      kind: kind,
+      snapshotId: snapshot as String?,
+      vaultId: vaultId is String ? vaultId : null,
+      createdAt: DateTime.tryParse('${decoded['createdAt']}'),
+    );
   }
 
   void _requireLegacyHeader(List<int> bytes) {

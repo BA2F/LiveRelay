@@ -34,6 +34,11 @@ abstract interface class VaultMaintenance
   Future<Uint8List> authenticateDaily(String password, {Uint8List? keyFile});
   Future<Uint8List> authenticateRecovery(String text);
   Future<VaultHeaderV3?> modernHeader();
+
+  /// Identity for layered-archive pairing: the vault id plus the current key
+  /// epoch. Stable across exports until credentials rotate. Null when the
+  /// vault predates format v3.
+  Future<({String vaultId, int epoch})?> archiveIdentity();
   String canonicalizePassword(String password, VaultHeaderMetadata metadata);
   Future<VaultHeaderMetadata?> readStagedHeader(Directory staged);
   Future<Uint8List> authenticateStaged(
