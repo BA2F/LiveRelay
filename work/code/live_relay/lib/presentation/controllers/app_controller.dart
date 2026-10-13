@@ -9,11 +9,14 @@ import '../../application/vault_snapshot_query.dart';
 import '../../application/local_handoff_service.dart';
 import '../../application/recipient_service.dart';
 import '../../application/vault_security_service.dart';
+import '../../application/device_transfer_service.dart';
+import '../../application/transfer/transfer_models.dart';
 import '../../core/security/recovery_credential.dart';
 import '../../application/draft_agent_service.dart';
 import 'speech_service.dart';
 import '../contracts/preview_session.dart';
 import '../../application/vault_backup_service.dart';
+import '../../core/ports/transfer_medium.dart';
 
 import '../../core/ai/ai_privacy.dart';
 import '../../application/card_summary.dart';
@@ -49,6 +52,7 @@ class AppController extends ChangeNotifier implements PreviewSession {
     this.capabilities = const DeviceCapabilities(DevicePlatform.other),
     required this._session,
     required this._backup,
+    required this._transfer,
     required this._content,
     required this._agentSettings,
     required this._outboundConsent,
@@ -187,6 +191,7 @@ class AppController extends ChangeNotifier implements PreviewSession {
   final VaultRecordsApplication records;
   final VaultSession _session;
   final VaultBackupService _backup;
+  final DeviceTransferService _transfer;
   final VaultContentService _content;
   final AgentSettingsService _agentSettings;
   final OutboundConsentService _outboundConsent;
@@ -383,6 +388,69 @@ class AppController extends ChangeNotifier implements PreviewSession {
       refreshUnlockedData: _refreshUnlockedData,
     ),
   );
+
+  /// Read-only medium scan; does not take the busy gate so the transfer page
+  /// can refresh its listings freely.
+  Future<TransferMediumScan> scanTransferMedium(TransferMedium medium) =>
+      _transfer.scan(medium);
+
+  Future<BackupPreview> inspectTransferMedium(
+    TransferMedium medium,
+    String databaseName,
+    String credential,
+  ) async {
+    late BackupPreview preview;
+    await _run(() async {
+      preview = await _transfer.inspectMedium(medium, databaseName, credential);
+    });
+    return preview;
+  }
+
+  Future<TransferExportOutcome> exportToMedium(
+    TransferMedium medium,
+    String credential,
+  ) async {
+    late TransferExportOutcome outcome;
+    await _run(() async {
+      outcome = await _backup.exportTransferToMedium(
+        medium,
+        credential,
+        refreshUnlockedData: _refreshUnlockedData,
+        payloadLimit: DeviceTransferService.defaultPayloadLimit,
+      );
+    });
+    return outcome;
+  }
+
+  Future<TransferImportReport> importFromMedium(
+    TransferMedium medium, {
+    required String databaseName,
+    required String credential,
+    String? preExportCredential,
+  }) async {
+    late TransferImportReport report;
+    await _run(() async {
+      report = await _transfer.importFromMedium(
+        medium,
+        databaseName: databaseName,
+        credential: credential,
+        preExportCredential: preExportCredential,
+        clearUnlockedData: _clearUnlockedData,
+        refreshUnlockedData: _refreshUnlockedData,
+      );
+    });
+    return report;
+  }
+
+  Future<TransferImportReport> importPendingVolumes(
+    TransferMedium medium,
+  ) async {
+    late TransferImportReport report;
+    await _run(() async {
+      report = await _transfer.importPendingVolumes(medium);
+    });
+    return report;
+  }
 
   Future<void> lock() async {
     cancelAgentTask();

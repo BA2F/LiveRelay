@@ -13,7 +13,10 @@ import '../core/ports/vault_repository.dart';
 import '../core/ports/vault_archive.dart';
 import '../core/ports/vault_installation.dart';
 import '../core/ports/vault_maintenance.dart';
+import '../core/ports/transfer_medium.dart';
 import '../core/storage/vault_failures.dart';
+import 'transfer/transfer_index.dart';
+import 'transfer/transfer_models.dart';
 import 'vault_snapshot_query.dart';
 
 /// Result of installing an archive: how many originals were reused from the
@@ -425,6 +428,150 @@ class VaultBackupService {
     return value == null ? 0 : (jsonDecode(value) as Map).length;
   }
 
+  /// The snapshot id recorded in the owed-originals ledger, or null when
+  /// nothing is owed or the vault is locked.
+  Future<String?> pendingSnapshot() async {
+    if (!_session.isUnlocked) return null;
+    final value = await _session.repository.readLocalValue('backup.missing');
+    if (value == null) return null;
+    try {
+      final decoded = jsonDecode(value);
+      if (decoded is! Map || decoded.isEmpty) return null;
+      final first = decoded.values.first;
+      return first is Map ? first['snapshotId'] as String? : null;
+    } on Object {
+      return null;
+    }
+  }
+
+  /// Exports the vault for device-to-device transfer: the database package is
+  /// rewritten every time, and originals are appended as volumes only when no
+  /// reusable volume on the medium already carries them. The database package
+  /// is written last so an interrupted transfer never looks complete.
+  Future<TransferExportOutcome> exportTransferToMedium(
+    TransferMedium medium,
+    String credential, {
+    required Future<void> Function() refreshUnlockedData,
+    int payloadLimit = 128 * 1024 * 1024,
+  }) => _session.exclusiveMaintenance(() async {
+    if (!_session.isUnlocked) throw StateError('请先解锁加密资料库');
+    final identity = await _session.archiveIdentity();
+    if (identity == null) {
+      throw const LifeVaultArchiveException('设备间搬运需要先升级安全格式');
+    }
+    if (await missingCount() > 0) {
+      throw StateError('请先补齐原件再导出备份');
+    }
+    final snapshot = await stableArchiveSnapshotId(
+      vaultId: identity.vaultId,
+      epoch: identity.epoch,
+    );
+    final vaultTag = identity.vaultId.substring(0, 8);
+    final blobs = await _session.repository.listBlobs();
+    final index = TransferIndex.decode(
+      await _session.repository.readChunkedLocalValue('transfer.volumes'),
+    );
+    final plan = planTransfer(
+      vaultTag: vaultTag,
+      snapshot: snapshot,
+      blobs: blobs,
+      index: index,
+      mediumEntries: await medium.list(),
+      payloadLimit: payloadLimit,
+    );
+    final databaseName = transferDatabaseName(vaultTag);
+    final written = <TransferVolume>[];
+    // Two suspend cycles instead of one: the database package must contain
+    // the coverage index including this round's volumes, so the receiver
+    // inherits an up-to-date index and its return trip only ships the delta.
+    // The key is derived once and reused across both cycles.
+    final epoch = _session.operationEpoch;
+    final key = credential.startsWith('LRR1')
+        ? await _session.authenticateRecovery(credential)
+        : await _session.authenticateDaily(credential);
+    var indexPersisted = true;
+    try {
+      _checkEpoch(epoch);
+      if (plan.volumes.isNotEmpty) {
+        await _session.suspendDatabase();
+        try {
+          for (final volume in plan.volumes) {
+            _checkEpoch(epoch);
+            final bytes = await _archiveService.create(
+              vaultDirectory: _session.directory,
+              masterKey: key,
+              kind: 'attachments',
+              snapshotId: snapshot,
+              blobPaths: volume.blobPaths.toSet(),
+            );
+            try {
+              await medium.writeAtomic(volume.name, bytes);
+              written.add(
+                TransferVolume(
+                  name: volume.name,
+                  bytes: bytes.length,
+                  blobSizes: volume.blobSizes,
+                ),
+              );
+            } finally {
+              _wipe(bytes);
+            }
+          }
+        } finally {
+          if (epoch == _session.operationEpoch) {
+            await _session.openWithKey(key);
+            _checkEpoch(epoch);
+            await refreshUnlockedData();
+          }
+        }
+      }
+      _checkEpoch(epoch);
+      // Medium files cannot be taken back; an index failure only costs a
+      // repeated volume export next time, so it is reported, not thrown.
+      try {
+        await _session.repository.writeChunkedLocalValue(
+          'transfer.volumes',
+          TransferIndex(
+            snapshot: snapshot,
+            volumes: [...plan.reusable, ...written],
+          ).encode(),
+        );
+      } on Object {
+        indexPersisted = false;
+      }
+      await _session.suspendDatabase();
+      try {
+        final database = await _archiveService.create(
+          vaultDirectory: _session.directory,
+          masterKey: key,
+          kind: 'database',
+          snapshotId: snapshot,
+        );
+        try {
+          await medium.writeAtomic(databaseName, database);
+        } finally {
+          _wipe(database);
+        }
+      } finally {
+        if (epoch == _session.operationEpoch) {
+          await _session.openWithKey(key);
+          _checkEpoch(epoch);
+          await refreshUnlockedData();
+        }
+      }
+      _checkEpoch(epoch);
+      return TransferExportOutcome(
+        databaseName: databaseName,
+        writtenVolumes: written,
+        skippedBlobs: plan.skippedBlobs,
+        indexPersisted: indexPersisted,
+        warnings: plan.warnings,
+      );
+    } finally {
+      _wipe(key);
+    }
+  });
+
   Future<void> importSupplement(Uint8List bytes) => _consumeInput(
     bytes,
     () => _session.exclusiveMaintenance(() => _importSupplement(bytes)),
@@ -464,11 +611,14 @@ class VaultBackupService {
           // the next round trip can skip it again. After a rotation the keys
           // differ and blobs are re-encrypted under the current VMK instead.
           final sameKey = const ListEquality<int>().equals(oldKey, currentKey);
+          // Blobs the package does not carry stay owed: volumes are consumed
+          // one at a time, and an incomplete single package is reported by
+          // the remaining count rather than by aborting mid-way.
           for (final entry in missing.entries.toList()) {
             _checkEpoch(epoch);
             final descriptor = entry.value as Map;
             final file = File('${staged.directory.path}/${entry.key}');
-            if (!await file.exists()) throw StateError('原件包缺少预期文件');
+            if (!await file.exists()) continue;
             final cipher = await file.readAsBytes();
             if (cipher.length != descriptor['size'] ||
                 base64UrlEncode((await Sha256().hash(cipher)).bytes) !=

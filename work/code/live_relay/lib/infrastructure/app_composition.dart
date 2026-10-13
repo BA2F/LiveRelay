@@ -18,6 +18,7 @@ import '../application/agent/agent_review_service.dart';
 import '../application/agent/conversation_application.dart';
 import '../core/ports/ai_settings_repository.dart';
 import '../application/vault_backup_service.dart';
+import '../application/device_transfer_service.dart';
 import '../application/vault_session.dart';
 import '../application/vault_snapshot_query.dart';
 import '../application/vault_content_service.dart';
@@ -114,14 +115,16 @@ AppController createAppController([
     deviceFactorProtection:
         deviceFactorProtection ?? AndroidDeviceFactorProtection(),
   );
+  final archive = LifeVaultArchiveService();
   final backup = VaultBackupService(
     session: session,
-    archive: LifeVaultArchiveService(),
+    archive: archive,
     restoreTransaction: () => VaultRestoreTransaction(
       session.directory,
       checkpoint: restoreCheckpoint,
     ),
   );
+  final transfer = DeviceTransferService(backup: backup, archive: archive);
   final selectedAi = aiProvider ?? ConfiguredAiProvider();
   final speech =
       speechService ??
@@ -185,6 +188,7 @@ AppController createAppController([
       () => VaultRestoreTransaction(session.directory),
     ),
     backup: backup,
+    transfer: transfer,
     content: content,
     agentSettings: agentSettings,
     outboundConsent: outboundConsent,

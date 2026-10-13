@@ -12,6 +12,7 @@ import 'package:live_relay/application/vault_snapshot_query.dart';
 import 'package:live_relay/application/vault_content_service.dart';
 import 'package:live_relay/application/vault_records_application.dart';
 import 'package:live_relay/application/vault_backup_service.dart';
+import 'package:live_relay/application/device_transfer_service.dart';
 import 'package:live_relay/infrastructure/backup/life_vault_archive.dart';
 
 import 'support/session_fakes.dart';
@@ -26,6 +27,12 @@ import 'package:live_relay/presentation/pages/originals_page.dart';
 import 'package:live_relay/presentation/pages/recycle_page.dart';
 import 'package:live_relay/presentation/dialogs/card_dialogs.dart';
 import 'package:live_relay/presentation/widgets/release_preview_panel.dart';
+
+VaultBackupService snapshotBackup(VaultSession session) => VaultBackupService(
+  session: session,
+  archive: LifeVaultArchiveService(),
+  restoreTransaction: () => throw UnsupportedError('UI snapshot only'),
+);
 
 class SnapshotController extends AppController {
   SnapshotController() : this._(fixtureSession());
@@ -52,10 +59,12 @@ class SnapshotController extends AppController {
           snapshots: snapshots,
         ),
         session: session,
-        backup: VaultBackupService(
-          session: session,
+        backup: snapshotBackup(session),
+        // The fixture never exports or imports through the medium; the
+        // transfer service only needs wiring that satisfies the controller.
+        transfer: DeviceTransferService(
+          backup: snapshotBackup(session),
           archive: LifeVaultArchiveService(),
-          restoreTransaction: () => throw UnsupportedError('UI snapshot only'),
         ),
         content: content,
         agent: AgentService(

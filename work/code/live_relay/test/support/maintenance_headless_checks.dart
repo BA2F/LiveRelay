@@ -6,6 +6,7 @@ import 'dart:typed_data';
 import 'package:live_relay/application/vault_backup_service.dart';
 import 'package:live_relay/application/vault_security_service.dart';
 import 'package:live_relay/core/domain/entities.dart';
+import 'package:live_relay/core/ports/transfer_medium.dart';
 import 'package:live_relay/core/ports/vault_archive.dart';
 import 'package:live_relay/core/ports/vault_installation.dart';
 import 'package:live_relay/core/ports/vault_maintenance.dart';
@@ -261,6 +262,44 @@ Map<String, Future<void> Function()> maintenanceChecks() => {
                 wiped(f.vault.proof) &&
                 !await f.archive.staged!.directory.exists(),
             'Authentication failure leaked staging or key',
+          );
+        } finally {
+          await f.dispose();
+        }
+      },
+  'transfer export shares the maintenance gate and respects the lock':
+      () async {
+        final f = await Fixture.make();
+        final medium = FakeMedium();
+        f.archive.pending = Completer<Uint8List>();
+        try {
+          final export = f.backup.export(
+            'fixture-password',
+            refreshUnlockedData: f.refresh,
+          );
+          await f.archive.entered.future;
+          await reject(
+            f.backup.exportTransferToMedium(
+              medium,
+              'fixture-password',
+              refreshUnlockedData: f.refresh,
+            ),
+            '维护正在进行',
+          );
+          f.archive.pending!.complete(Uint8List.fromList([8]));
+          await export;
+          f.vault.currentState = VaultSessionState.locked;
+          await reject(
+            f.backup.exportTransferToMedium(
+              medium,
+              'fixture-password',
+              refreshUnlockedData: f.refresh,
+            ),
+            '请先解锁',
+          );
+          check(
+            medium.writes.isEmpty && !f.vault.maintenanceBusy,
+            'Rejected transfer export touched the medium',
           );
         } finally {
           await f.dispose();
@@ -573,6 +612,14 @@ class FakeVault implements VaultMaintenance {
 class FakeRepository implements VaultRepository {
   int closes = 0, imports = 0;
   Uint8List? snapshot;
+  final chunkedWrites = <String, String>{};
+  @override
+  Future<String?> readChunkedLocalValue(String key) async => chunkedWrites[key];
+  @override
+  Future<void> writeChunkedLocalValue(String key, String value) async {
+    chunkedWrites[key] = value;
+  }
+
   @override
   Future<String?> readLocalValue(String name) async => null;
   @override
@@ -658,6 +705,32 @@ class FakeArchive implements VaultArchive {
     required Uint8List masterKey,
   }) async {
     if (failAuthentication) throw StateError('fixture MAC failure');
+  }
+}
+
+class FakeMedium implements TransferMedium {
+  final writes = <String, Uint8List>{};
+  final entries = <MediumEntry>[];
+  @override
+  String get label => 'fixture-medium';
+  @override
+  Future<List<MediumEntry>> list() async => List.of(entries);
+  @override
+  Future<Uint8List> read(String name) async => writes[name] ?? Uint8List(0);
+  @override
+  Future<Uint8List> readPrefix(String name, int maxBytes) async {
+    final bytes = writes[name] ?? Uint8List(0);
+    return Uint8List.fromList(
+      bytes.length > maxBytes ? bytes.sublist(0, maxBytes) : bytes,
+    );
+  }
+
+  @override
+  Future<void> writeAtomic(String name, Uint8List bytes) async {
+    writes[name] = Uint8List.fromList(bytes);
+    entries
+      ..removeWhere((entry) => entry.name == name)
+      ..add(MediumEntry(name: name, length: bytes.length));
   }
 }
 
