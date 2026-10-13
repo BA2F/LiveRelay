@@ -162,6 +162,16 @@ void main() {
         final preview = await c.inspectBackup(pair.database, r2);
         expect(preview.requiresReset, true);
         expect(preview.missingOriginals, 1);
+        // Rotate between export and restore so the local ciphertext no longer
+        // matches the package descriptor; otherwise the restore reuses it.
+        final r2b = await c.generateRecovery();
+        await c.configureSecurity(
+          oldPassword: 'fictional-second-password',
+          oldKeyFile: file,
+          newPassword: 'fictional-rotated-password',
+          recoveryText: r2b,
+          recoveryConfirmation: r2b,
+        );
         await c.restoreVault(pair.database, r2);
         expect(c.sessionState, VaultSessionState.recovering);
         expect(c.cards, isEmpty);
