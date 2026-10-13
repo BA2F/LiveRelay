@@ -425,6 +425,12 @@ class VaultSession implements VaultMaintenance {
     newKey: newKey,
     blob: blob,
   );
+  @override
+  Future<void> writeBlobCiphertext({
+    required Directory target,
+    required VaultBlob blob,
+    required Uint8List bytes,
+  }) => _blobStore.writeCiphertext(target: target, blob: blob, bytes: bytes);
 
   /// Recovery opens only the reset workflow, without normal page projections.
   @override

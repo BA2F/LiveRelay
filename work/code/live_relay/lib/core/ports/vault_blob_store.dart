@@ -21,6 +21,17 @@ abstract interface class VaultBlobStore {
     required BlobMediaKind mediaKind,
   });
 
+  /// Writes already-authenticated ciphertext under the blob's relative path.
+  /// Only valid when the bytes were encrypted with the vault's current VMK
+  /// (the AAD binds the blob id, which the path already carries) and the
+  /// caller verified them against the recorded descriptor. Writes through a
+  /// temporary file so a partial copy can never look installed.
+  Future<void> writeCiphertext({
+    required Directory target,
+    required VaultBlob blob,
+    required Uint8List bytes,
+  });
+
   Future<Uint8List> read({
     required Directory vaultDirectory,
     required Uint8List masterKey,

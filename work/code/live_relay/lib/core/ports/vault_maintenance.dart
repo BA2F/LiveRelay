@@ -62,6 +62,11 @@ abstract interface class VaultMaintenance
     required Uint8List newKey,
     required VaultBlob blob,
   });
+  Future<void> writeBlobCiphertext({
+    required Directory target,
+    required VaultBlob blob,
+    required Uint8List bytes,
+  });
   void markUnlocked();
   void markRecovering();
   void fail();

@@ -143,6 +143,7 @@ Map<String, Future<void> Function()> maintenanceChecks() => {
   'preview uses staged metadata without ZIP decoding and keeps borrowed input':
       () async {
         final f = await Fixture.make();
+        f.vault.dailyPolicy = 'all';
         final bytes = Uint8List.fromList([99, 88]); // deliberately not ZIP
         try {
           final preview = await f.backup.inspect(bytes, 'fixture-password');
@@ -169,12 +170,12 @@ Map<String, Future<void> Function()> maintenanceChecks() => {
           await f.dispose();
         }
       },
-  'restore v3 verifies before commit and exposes only restricted recovery':
+  'restore with an unlockable policy opens directly and refreshes projections':
       () async {
         final f = await Fixture.make();
         final bytes = Uint8List.fromList([99, 88]);
         try {
-          await f.backup.restore(
+          final outcome = await f.backup.restore(
             bytes,
             'fixture-password',
             clearUnlockedData: () => f.clears++,
@@ -183,19 +184,52 @@ Map<String, Future<void> Function()> maintenanceChecks() => {
           check(
             f.transaction.verified &&
                 f.transaction.committed &&
-                f.vault.state == VaultSessionState.recovering,
-            'Restore bypassed restricted gate',
+                f.vault.state == VaultSessionState.unlocked,
+            'Restore did not open the imported credentials',
+          );
+          check(
+            outcome.unlockedAfterRestore &&
+                !outcome.requiresReset &&
+                outcome.harvestedOriginals == 0,
+            'Outcome misreported',
           );
           check(
             f.vault.opens == 1 &&
                 f.clears == 1 &&
-                f.refreshes == 0 &&
+                f.refreshes == 1 &&
                 f.vault.legacyDisables == 0,
             'Restore changed legacy or UI contract',
           );
           check(
             wiped(bytes) && wiped(f.vault.proof) && !f.vault.maintenanceBusy,
             'Restore cleanup failed',
+          );
+        } finally {
+          await f.dispose();
+        }
+      },
+  'restore with an all-factor policy still requires the local reset':
+      () async {
+        final f = await Fixture.make();
+        f.vault.dailyPolicy = 'all';
+        final bytes = Uint8List.fromList([99, 88]);
+        try {
+          final outcome = await f.backup.restore(
+            bytes,
+            'fixture-password',
+            clearUnlockedData: () => f.clears++,
+            refreshUnlockedData: f.refresh,
+          );
+          check(
+            f.transaction.committed &&
+                f.vault.state == VaultSessionState.recovering,
+            'All-factor restore bypassed the reset gate',
+          );
+          check(
+            outcome.requiresReset &&
+                !outcome.unlockedAfterRestore &&
+                f.refreshes == 0,
+            'Reset path refreshed projections or misreported',
           );
         } finally {
           await f.dispose();
@@ -376,6 +410,7 @@ class FakeVault implements VaultMaintenance {
   int operationEpoch = 0;
   @override
   int sessionGeneration = 0;
+  String dailyPolicy = 'any';
   @override
   VaultHeaderMetadata? get header => VaultHeaderMetadata(
     passwordKind: 'custom',
@@ -383,6 +418,7 @@ class FakeVault implements VaultMaintenance {
     biometricEnabled: false,
     createdAt: DateTime.utc(2026),
     formatVersion: 3,
+    dailyPolicy: dailyPolicy,
   );
   @override
   get deviceProtection => null;
@@ -477,6 +513,16 @@ class FakeVault implements VaultMaintenance {
 
   @override
   Future<void> clearDeviceKeyAfterRestore() async {}
+  final ciphertextWrites = <String>[];
+  @override
+  Future<void> writeBlobCiphertext({
+    required Directory target,
+    required VaultBlob blob,
+    required Uint8List bytes,
+  }) async {
+    ciphertextWrites.add(blob.relativePath);
+  }
+
   @override
   void markUnlocked() {
     currentState = VaultSessionState.unlocked;

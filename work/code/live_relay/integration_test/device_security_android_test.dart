@@ -99,12 +99,24 @@ void main() {
         expect(utf8.decode(await c.readOriginal(blobId)), 'fictional-original');
         await stage('独立恢复与分层备份');
         final pair = await c.exportSplitVault(r2);
+        // Rotate between export and restore so the local ciphertext no longer
+        // matches the package descriptor; otherwise the restore reuses it.
+        final r2b = await c.generateRecovery();
+        await c.configureSecurity(
+          oldPassword: 'fictional-after-password',
+          newPassword: 'fictional-rotated-password',
+          recoveryText: r2b,
+          recoveryConfirmation: r2b,
+        );
         await c.restoreVault(pair.database, r2);
-        expect(c.sessionState.name, 'recovering');
-        expect(c.cards, isEmpty);
+        // Credentials travel with the vault: a satisfiable daily policy opens
+        // straight after install.
+        expect(c.sessionState.name, 'unlocked');
+        expect(c.cards.map((v) => v.id), contains(cardId));
+        expect(await c.missingOriginalCount(), 1);
         final r3 = await c.generateRecovery();
         await c.configureSecurity(
-          oldPassword: '',
+          oldPassword: 'fictional-after-password',
           newPassword: 'fictional-recovered-password',
           recoveryText: r3,
           recoveryConfirmation: r3,

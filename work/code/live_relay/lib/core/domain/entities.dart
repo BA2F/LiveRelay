@@ -390,5 +390,9 @@ class BackupPreview {
   final int recycledCards;
   final int recycledCredentials;
   final int missingOriginals;
+
+  /// True when the package's own unlock policy cannot be satisfied on this
+  /// device (v3 vaults with an `all` daily policy), so restoring it leads to
+  /// the local security reset instead of a direct unlock.
   final bool requiresReset;
 }

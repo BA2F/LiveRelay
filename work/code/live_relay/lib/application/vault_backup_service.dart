@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:collection/collection.dart';
 import 'package:cryptography/cryptography.dart';
 
 import '../core/security/vault_archive_identity.dart';
@@ -14,6 +15,20 @@ import '../core/ports/vault_installation.dart';
 import '../core/ports/vault_maintenance.dart';
 import '../core/storage/vault_failures.dart';
 import 'vault_snapshot_query.dart';
+
+/// Result of installing an archive: how many originals were reused from the
+/// vault being replaced, and how the session was left afterwards.
+class RestoreOutcome {
+  const RestoreOutcome({
+    required this.harvestedOriginals,
+    required this.requiresReset,
+    required this.unlockedAfterRestore,
+  });
+
+  final int harvestedOriginals;
+  final bool requiresReset;
+  final bool unlockedAfterRestore;
+}
 
 /// Coordinates authenticated archives and K0 installation. UI callbacks only
 /// clear or reload projections; they never receive keys, files or repositories.
@@ -91,7 +106,7 @@ class VaultBackupService {
     }
   }
 
-  Future<void> restore(
+  Future<RestoreOutcome> restore(
     Uint8List bytes,
     String backupPassword, {
     required void Function() clearUnlockedData,
@@ -108,7 +123,7 @@ class VaultBackupService {
     ),
   );
 
-  Future<void> _restore(
+  Future<RestoreOutcome> _restore(
     Uint8List bytes,
     String backupPassword, {
     required void Function() clearUnlockedData,
@@ -143,6 +158,7 @@ class VaultBackupService {
       if (metadata.formatVersion == 1) {
         await _session.disableStagedLegacyBiometric(staged.directory);
       }
+      final harvested = await _harvestLocalOriginals(staged, epoch);
       final testDatabase = await _session.openTemporary(
         staged.directory,
         importedKey,
@@ -154,6 +170,9 @@ class VaultBackupService {
           for (final entry in staged.omitted.entries) {
             if (!blobs.any((b) => b.relativePath == entry.key)) {
               throw const LifeVaultArchiveException('缺失原件不属于数据库');
+            }
+            if (await File('${staged.directory.path}/${entry.key}').exists()) {
+              continue; // reused from the vault being replaced
             }
             missing[entry.key] = {
               ...(entry.value as Map),
@@ -197,13 +216,31 @@ class VaultBackupService {
           },
         );
         _checkEpoch(installingEpoch);
-        if (metadata.formatVersion == 3) {
+        // Credentials travel with the vault: a v3 header whose daily policy
+        // this device can satisfy (the password branch always exists for
+        // 'any') opens straight after install. Only 'all' policy vaults fall
+        // back to the local security reset.
+        final requiresReset =
+            metadata.formatVersion == 3 && metadata.dailyPolicy != 'any';
+        if (requiresReset) {
           _session.markRecovering();
         } else {
           _session.markUnlocked();
         }
         await _session.clearDeviceKeyAfterRestore();
-        if (metadata.formatVersion == 1) await refreshUnlockedData();
+        if (!requiresReset) {
+          try {
+            await refreshUnlockedData();
+          } on Object {
+            // The replacement is installed and open; a projection refresh
+            // failure must never roll a valid vault back.
+          }
+        }
+        return RestoreOutcome(
+          harvestedOriginals: harvested,
+          requiresReset: requiresReset,
+          unlockedAfterRestore: !requiresReset,
+        );
       } on Object {
         await _session.close();
         clearUnlockedData();
@@ -227,6 +264,63 @@ class VaultBackupService {
         if (importedKey != null) _wipe(importedKey);
       }
     }
+  }
+
+  /// Reuses originals already present in the vault being replaced: a blob
+  /// whose ciphertext matches the incoming manifest descriptor byte for byte
+  /// is copied into staging, so only genuinely missing originals are owed
+  /// after the install. Pure file work; misses and IO errors simply leave the
+  /// blob owed through `backup.missing`.
+  Future<int> _harvestLocalOriginals(StagedLifeVault staged, int epoch) async {
+    var harvested = 0;
+    for (final entry in staged.omitted.entries) {
+      _checkEpoch(epoch);
+      final descriptor = entry.value;
+      if (descriptor is! Map) continue;
+      final source = File('${_session.directory.path}/${entry.key}');
+      FileSystemEntityType type;
+      try {
+        type = await FileSystemEntity.type(source.path, followLinks: false);
+      } on Object {
+        continue;
+      }
+      if (type != FileSystemEntityType.file) continue;
+      final target = File('${staged.directory.path}/${entry.key}');
+      var keep = false;
+      try {
+        await target.parent.create(recursive: true);
+        final hashSink = Sha256().newHashSink();
+        var length = 0;
+        final sink = target.openWrite();
+        try {
+          await for (final chunk in source.openRead()) {
+            length += chunk.length;
+            hashSink.add(chunk);
+            sink.add(chunk);
+          }
+        } finally {
+          await sink.close();
+        }
+        hashSink.close();
+        final digest = await hashSink.hash();
+        keep =
+            length == descriptor['size'] &&
+            base64UrlEncode(digest.bytes) == descriptor['sha256'];
+      } on Object {
+        keep = false;
+      }
+      if (keep) {
+        harvested++;
+      } else if (await target.exists()) {
+        try {
+          await target.delete();
+        } on Object {
+          // A partial staged copy is dropped with the staging directory on
+          // failure; on success it is never referenced by the database.
+        }
+      }
+    }
+    return harvested;
   }
 
   Future<BackupPreview> inspect(Uint8List bytes, String password) =>
@@ -260,7 +354,8 @@ class VaultBackupService {
       repository = r;
       final preview = BackupPreview(
         missingOriginals: staged.omitted.length,
-        requiresReset: metadata.formatVersion == 3,
+        requiresReset:
+            metadata.formatVersion == 3 && metadata.dailyPolicy != 'any',
         createdAt: staged.createdAt,
         cards: (await r.listCards()).length,
         credentials: (await r.listCredentials()).length,
@@ -364,6 +459,11 @@ class VaultBackupService {
           if (staged.snapshotId != expected['snapshotId']) {
             throw StateError('此原件包与数据库备份不配对');
           }
+          // Same key lineage (the usual device-to-device case): copy the
+          // verified ciphertext byte for byte, keeping descriptors stable so
+          // the next round trip can skip it again. After a rotation the keys
+          // differ and blobs are re-encrypted under the current VMK instead.
+          final sameKey = const ListEquality<int>().equals(oldKey, currentKey);
           for (final entry in missing.entries.toList()) {
             _checkEpoch(epoch);
             final descriptor = entry.value as Map;
@@ -373,18 +473,29 @@ class VaultBackupService {
             if (cipher.length != descriptor['size'] ||
                 base64UrlEncode((await Sha256().hash(cipher)).bytes) !=
                     descriptor['sha256']) {
+              _wipe(cipher);
               throw StateError('原件与数据库备份不匹配');
             }
             final blob = metadata.singleWhere(
               (b) => b.relativePath == entry.key,
             );
-            await _session.copyBlobUnderKey(
-              source: staged.directory,
-              target: _session.directory,
-              oldKey: oldKey,
-              newKey: currentKey,
-              blob: blob,
-            );
+            if (sameKey) {
+              await _session.writeBlobCiphertext(
+                target: _session.directory,
+                blob: blob,
+                bytes: cipher,
+              );
+              _wipe(cipher);
+            } else {
+              _wipe(cipher);
+              await _session.copyBlobUnderKey(
+                source: staged.directory,
+                target: _session.directory,
+                oldKey: oldKey,
+                newKey: currentKey,
+                blob: blob,
+              );
+            }
             _checkEpoch(epoch);
             missing.remove(entry.key);
             await _session.repository.writeLocalValue(
@@ -403,12 +514,12 @@ class VaultBackupService {
     }
   }
 
-  Future<void> _consumeInput(
+  Future<T> _consumeInput<T>(
     Uint8List bytes,
-    Future<void> Function() action,
+    Future<T> Function() action,
   ) async {
     try {
-      await action();
+      return await action();
     } finally {
       _wipe(bytes);
     }

@@ -67,6 +67,24 @@ class EncryptedBlobStore implements VaultBlobStore {
   }
 
   @override
+  Future<void> writeCiphertext({
+    required Directory target,
+    required VaultBlob blob,
+    required Uint8List bytes,
+  }) async {
+    final file = File(path.join(target.path, blob.relativePath));
+    final temporary = File('${file.path}.tmp');
+    await file.parent.create(recursive: true);
+    try {
+      await temporary.writeAsBytes(bytes, flush: true);
+      await temporary.rename(file.path);
+    } on Object {
+      if (await temporary.exists()) await temporary.delete();
+      rethrow;
+    }
+  }
+
+  @override
   Future<VaultBlob> write({
     required Directory vaultDirectory,
     required Uint8List masterKey,
