@@ -5,9 +5,60 @@ import 'package:flutter/material.dart';
 import '../../application/app_controller.dart';
 import '../../application/transfer/transfer_models.dart';
 import '../../core/domain/entities.dart';
+import '../../core/ports/transfer_medium.dart';
 import '../../infrastructure/transfer/directory_transfer_medium.dart';
+import '../../infrastructure/transfer/file_set_transfer_medium.dart';
 import 'backup_dialogs.dart';
 import 'local_file_dialogs.dart';
+
+/// Opens a medium for the transfer flows: a directory when it is writable
+/// through dart:io, otherwise a user-picked file set. Android SAF tree paths
+/// usually come back as strings dart:io cannot write, which is exactly the
+/// case the fallback covers.
+Future<TransferMedium?> openTransferMedium(
+  BuildContext context, {
+  required String title,
+  required bool forExport,
+}) async {
+  final directory = await pickLocalDirectory(title: title);
+  if (directory == null) return null;
+  if (await DirectoryTransferMedium.probeWritable(directory)) {
+    return DirectoryTransferMedium(directory);
+  }
+  if (!context.mounted) return null;
+  final useFiles = await showDialog<bool>(
+    context: context,
+    builder: (dialogContext) => AlertDialog(
+      title: const Text('这个目录没法直接读写'),
+      content: const Text('此设备不能把所选目录当 U 盘用（常见于手机上的安全目录）。改用逐个选择文件的方式继续吗？'),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(dialogContext, false),
+          child: const Text('取消'),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.pop(dialogContext, true),
+          child: const Text('改用文件方式'),
+        ),
+      ],
+    ),
+  );
+  if (useFiles != true || !context.mounted) return null;
+  final files = await FilePicker.pickFiles(
+    dialogTitle: forExport
+        ? '选择介质上已有的备份包（可全不选，新包将逐个保存）'
+        : '选择介质上的备份包（数据库包与原件卷）',
+  );
+  if (!context.mounted) return null;
+  return FileSetTransferMedium([
+    for (final file in files)
+      MediumSourceFile(
+        name: file.name,
+        length: file.lengthSync(),
+        readBytes: file.readAsBytes,
+      ),
+  ]);
+}
 
 /// Exports the whole vault to a chosen medium directory: the database package
 /// is rewritten, originals ride in append-only volumes.
@@ -17,10 +68,12 @@ Future<void> exportToMediumFlow(
 ) async {
   final messenger = ScaffoldMessenger.of(context);
   try {
-    final directory = await pickLocalDirectory(
+    final medium = await openTransferMedium(
+      context,
       title: '选择介质目录（U 盘 / 局域网盘 / WebDAV 挂载目录）',
+      forExport: true,
     );
-    if (directory == null || !context.mounted) return;
+    if (medium == null || !context.mounted) return;
     final credential = await showDialog<String>(
       context: context,
       builder: (_) => const PasswordPromptDialog(
@@ -29,10 +82,7 @@ Future<void> exportToMediumFlow(
       ),
     );
     if (credential == null || !context.mounted) return;
-    final outcome = await controller.exportToMedium(
-      DirectoryTransferMedium(directory),
-      credential,
-    );
+    final outcome = await controller.exportToMedium(medium, credential);
     if (!context.mounted) return;
     await _showInfo(
       context,
@@ -44,7 +94,7 @@ Future<void> exportToMediumFlow(
         if (!outcome.indexPersisted)
           '注意：本机导出索引未能保存；下次导出可能重写同样的卷。',
         ...outcome.warnings,
-        '目录：${directory.path}',
+        '介质：${medium.label}',
       ],
     );
   } on Object {
@@ -71,11 +121,12 @@ Future<void> importFromMediumFlow(
 ) async {
   final messenger = ScaffoldMessenger.of(context);
   try {
-    final directory = await pickLocalDirectory(
+    final medium = await openTransferMedium(
+      context,
       title: '选择介质目录（U 盘 / 局域网盘 / WebDAV 挂载目录）',
+      forExport: false,
     );
-    if (directory == null || !context.mounted) return;
-    final medium = DirectoryTransferMedium(directory);
+    if (medium == null || !context.mounted) return;
     final scan = await controller.scanTransferMedium(medium);
     if (!context.mounted) return;
     final database = await _chooseDatabase(context, scan);
@@ -159,11 +210,13 @@ Future<void> topUpOriginalsFromMediumFlow(
 ) async {
   final messenger = ScaffoldMessenger.of(context);
   try {
-    final directory = await pickLocalDirectory(title: '选择介质目录');
-    if (directory == null || !context.mounted) return;
-    final report = await controller.importPendingVolumes(
-      DirectoryTransferMedium(directory),
+    final medium = await openTransferMedium(
+      context,
+      title: '选择介质目录（U 盘 / 局域网盘 / WebDAV 挂载目录）',
+      forExport: false,
     );
+    if (medium == null || !context.mounted) return;
+    final report = await controller.importPendingVolumes(medium);
     if (!context.mounted) return;
     await _showTransferReport(context, report);
   } on Object {

@@ -12,6 +12,21 @@ class DirectoryTransferMedium implements TransferMedium {
 
   final Directory directory;
 
+  /// True when dart:io can actually write into the directory; a SAF tree path
+  /// handed back as a plain string usually cannot, and the callers then fall
+  /// back to the file-set medium.
+  static Future<bool> probeWritable(Directory directory) async {
+    try {
+      if (!await directory.exists()) return false;
+      final probe = File('${directory.path}/.liverelay-write-probe');
+      await probe.writeAsBytes(const <int>[0], flush: true);
+      await probe.delete();
+      return true;
+    } on Object {
+      return false;
+    }
+  }
+
   @override
   String get label => directory.path;
 

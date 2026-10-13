@@ -1,12 +1,8 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../application/transfer/transfer_models.dart';
-import '../../infrastructure/transfer/directory_transfer_medium.dart';
 import '../controllers/app_controller.dart';
-import '../dialogs/local_file_dialogs.dart';
 import '../dialogs/transfer_dialogs.dart';
 
 /// C-mode device transfer（「整库搬运」）: export the whole vault to a
@@ -19,7 +15,7 @@ class DeviceTransferPage extends StatefulWidget {
 }
 
 class _DeviceTransferPageState extends State<DeviceTransferPage> {
-  Directory? mediumDirectory;
+  String? mediumLabel;
   TransferMediumScan? scan;
   String? message;
   int missing = 0;
@@ -38,16 +34,16 @@ class _DeviceTransferPageState extends State<DeviceTransferPage> {
   Future<void> chooseMedium() async {
     final controller = context.read<AppController>();
     try {
-      final directory = await pickLocalDirectory(
+      final medium = await openTransferMedium(
+        context,
         title: '选择介质目录（U 盘 / 局域网盘 / WebDAV 挂载目录）',
+        forExport: false,
       );
-      if (directory == null || !mounted) return;
-      final result = await controller.scanTransferMedium(
-        DirectoryTransferMedium(directory),
-      );
+      if (medium == null || !mounted) return;
+      final result = await controller.scanTransferMedium(medium);
       if (!mounted) return;
       setState(() {
-        mediumDirectory = directory;
+        mediumLabel = medium.label;
         scan = result;
         message = null;
       });
@@ -128,8 +124,7 @@ class _DeviceTransferPageState extends State<DeviceTransferPage> {
                   ),
                 ],
               ),
-              if (mediumDirectory != null)
-                Text('目录：${mediumDirectory!.path}'),
+              if (mediumLabel != null) Text('介质：$mediumLabel'),
               if (scan != null) ...[
                 const SizedBox(height: 4),
                 if (database != null) ...[
