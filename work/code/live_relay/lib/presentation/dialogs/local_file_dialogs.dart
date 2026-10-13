@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:file_picker/file_picker.dart';
@@ -23,6 +24,15 @@ Future<Map<String, Object?>?> pickLocalJson({
 
 Future<bool> saveLocalBytes(Uint8List bytes, String name) async {
   return await FilePicker.saveFile(fileName: name, bytes: bytes) != null;
+}
+
+/// Picks a directory to act as the device-transfer medium (USB stick, mounted
+/// LAN share, or mounted WebDAV drive). Returns null when cancelled or when
+/// the platform cannot provide a writable path.
+Future<Directory?> pickLocalDirectory({String title = '选择介质目录'}) async {
+  final path = await FilePicker.getDirectoryPath(dialogTitle: title);
+  if (path == null) return null;
+  return Directory(path);
 }
 
 Future<String?> askFingerprint(

@@ -16,6 +16,7 @@ import 'speech_input_page.dart';
 import 'identity_page.dart';
 import 'recipient_page.dart';
 import 'local_backup_page.dart';
+import 'device_transfer_page.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key, this.onOpenExtensions});
@@ -131,6 +132,15 @@ class _ProfilePageState extends State<ProfilePage> {
             trailing: const Icon(Icons.chevron_right),
             onTap: widget.onOpenExtensions,
           ),
+        ListTile(
+          leading: const Icon(Icons.import_export),
+          title: const Text('设备间搬运'),
+          subtitle: const Text('数据线 / 局域网 / WebDAV 目录：整库导出与导入'),
+          trailing: const Icon(Icons.chevron_right),
+          onTap: () => Navigator.of(context).push<void>(
+            MaterialPageRoute(builder: (_) => const DeviceTransferPage()),
+          ),
+        ),
         const Divider(),
         for (final item in [
           (AppFeature.agent, 'Agent', Icons.auto_awesome_outlined),

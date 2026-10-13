@@ -25,6 +25,7 @@ import 'package:live_relay/presentation/pages/home_shell.dart';
 import 'package:live_relay/presentation/pages/gate_page.dart';
 import 'package:live_relay/presentation/pages/originals_page.dart';
 import 'package:live_relay/presentation/pages/recycle_page.dart';
+import 'package:live_relay/presentation/pages/device_transfer_page.dart';
 import 'package:live_relay/presentation/dialogs/card_dialogs.dart';
 import 'package:live_relay/presentation/widgets/release_preview_panel.dart';
 
@@ -147,6 +148,31 @@ Widget app(
 );
 
 void main() {
+  testWidgets(
+    'device transfer page gates export behind unlock and offers import',
+    (tester) async {
+      final c = SnapshotController();
+      await tester.pumpWidget(app(c, const DeviceTransferPage()));
+      await tester.pumpAndSettle();
+      expect(find.text('设备间搬运'), findsOneWidget);
+      expect(find.text('导出需要先解锁资料库。'), findsOneWidget);
+      final exportButton = tester.widget<FilledButton>(
+        find.widgetWithText(FilledButton, '导出到介质目录'),
+      );
+      expect(exportButton.onPressed, isNull);
+      final importButton = tester.widget<OutlinedButton>(
+        find.widgetWithText(OutlinedButton, '从介质导入（整库替换）'),
+      );
+      expect(importButton.onPressed, isNotNull);
+      final topUpButton = tester.widget<OutlinedButton>(
+        find.widgetWithText(OutlinedButton, '从介质补齐原件（当前无欠件）'),
+      );
+      expect(topUpButton.onPressed, isNull);
+      await tester.pumpWidget(const SizedBox());
+      c.dispose();
+    },
+  );
+
   testWidgets(
     'unmatched card search never clears recent home data and refresh retains query',
     (tester) async {

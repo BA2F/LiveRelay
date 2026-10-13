@@ -9,6 +9,7 @@ import '../../core/security/vault_password_policy.dart';
 import '../design_system/atoms.dart';
 import '../dialogs/backup_dialogs.dart';
 import '../dialogs/security_dialogs.dart';
+import '../dialogs/transfer_dialogs.dart';
 import 'recipient_page.dart';
 
 class _GateScaffold extends StatelessWidget {
@@ -177,6 +178,14 @@ class _SetupVaultPageState extends State<SetupVaultPage> {
                 : () => restoreFromBackup(context, controller),
             icon: const Icon(Icons.settings_backup_restore),
             label: const Text('已有加密备份？从备份恢复'),
+          ),
+          const SizedBox(height: 8),
+          OutlinedButton.icon(
+            onPressed: controller.isBusy
+                ? null
+                : () => importFromMediumFlow(context, controller),
+            icon: const Icon(Icons.import_export),
+            label: const Text('从介质导入（设备间搬运，整库替换）'),
           ),
           const SizedBox(height: 16),
           Wrap(
@@ -497,6 +506,14 @@ class _UnlockVaultPageState extends State<UnlockVaultPage> {
                 : () => restoreFromBackup(context, controller),
             icon: const Icon(Icons.settings_backup_restore),
             label: const Text('从加密备份恢复'),
+          ),
+          const SizedBox(height: 8),
+          OutlinedButton.icon(
+            onPressed: controller.isBusy
+                ? null
+                : () => importFromMediumFlow(context, controller),
+            icon: const Icon(Icons.import_export),
+            label: const Text('从介质导入（设备间搬运，整库替换）'),
           ),
           if (controller.header?.keyFileEnabled == true)
             OutlinedButton.icon(
