@@ -70,3 +70,5 @@ Flutter Android／Linux 应用在 [`work/code/live_relay/`](work/code/live_relay
 | [notes](notes/) / [records](records/) / [archive](archive/) | 讨论、决策原因和历史材料 |
 
 开发协作先读 [AGENTS.md](AGENTS.md)。已确认设计是事实源；README 和发布页提供入口与输出视图，不另立一套产品契约。版本差异见 [CHANGELOG](CHANGELOG.md)，制品与发布约定见 [RELEASING](RELEASING.md)。
+
+本项目采用 [MIT 许可](LICENSE)；「留灯 / LiveRelay」名称与产品图标不在授权范围内。
