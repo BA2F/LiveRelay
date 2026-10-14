@@ -184,8 +184,10 @@ class _CardsPageState extends State<CardsPage> {
               message: emptyLibrary
                   ? '先记下重要的信息，再按自己的节奏整理。'
                   : searching
-                  ? '试试其他关键词。首页最近内容不受搜索影响。'
+                  ? '试试其他关键词。记录页最近内容不受搜索影响。'
                   : '调整类型或状态，查看其他内容。',
+              // 资料库为空时，新建入口由外壳的“新建卡片”悬浮按钮承担，
+              // 空状态不再重复放一个按钮。
               action: searching || filtered
                   ? TextButton(
                       onPressed: () => setState(() {
@@ -196,10 +198,7 @@ class _CardsPageState extends State<CardsPage> {
                       }),
                       child: const Text('清除搜索与筛选'),
                     )
-                  : FilledButton(
-                      onPressed: () => showCardEditor(context, controller),
-                      child: const Text('记一条'),
-                    ),
+                  : null,
             ),
           widget.browserBuilder(
             context,

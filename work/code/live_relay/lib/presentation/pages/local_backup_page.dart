@@ -85,7 +85,10 @@ class _LocalBackupPageState extends State<LocalBackupPage> {
   Widget build(BuildContext context) {
     final controller = context.watch<AppController>();
     if (!controller.isUnlocked) {
-      return const Scaffold(body: Center(child: Text('资料库已锁定')));
+      return Scaffold(
+        appBar: AppBar(title: const Text('本地分层备份')),
+        body: const Center(child: Text('资料库已锁定，解锁后继续')),
+      );
     }
     return Scaffold(
       appBar: AppBar(title: const Text('本地分层备份')),

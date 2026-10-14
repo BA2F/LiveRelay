@@ -192,12 +192,9 @@ class _PasswordsPageState extends State<PasswordsPage> {
               message: controller.credentials.isEmpty
                   ? '添加或导入账号，条目会加密保存在本机。'
                   : '试试其他关键词。',
+              // 资料库为空时，顶部“添加账号”按钮就在同屏，空状态不再重复。
               action: controller.credentials.isEmpty
-                  ? FilledButton.tonal(
-                      onPressed: () =>
-                          showCredentialEditor(context, controller),
-                      child: const Text('添加第一个条目'),
-                    )
+                  ? null
                   : TextButton(
                       onPressed: () => setState(_search.clear),
                       child: const Text('清除搜索'),
