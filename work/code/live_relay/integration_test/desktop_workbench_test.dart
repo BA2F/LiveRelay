@@ -1,6 +1,5 @@
 import 'dart:convert';
 import 'dart:io';
-import 'dart:typed_data';
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
@@ -25,6 +24,7 @@ import 'package:live_relay/core/ports/ai_provider.dart';
 import 'package:live_relay/infrastructure/ai/ai_provider_settings_store.dart';
 import 'package:desktop_drop/desktop_drop.dart';
 import 'package:flutter/rendering.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:provider/provider.dart';
@@ -36,6 +36,7 @@ import 'package:live_relay/infrastructure/app_composition.dart';
 import 'package:live_relay/presentation/app.dart';
 import 'package:live_relay/presentation/pages/profile_page.dart';
 import 'package:live_relay/presentation/workbench/extensions_view.dart';
+import 'package:live_relay/presentation/workbench/workbench_right_panel.dart';
 import 'package:live_relay/presentation/workbench/workbench_sidebar.dart';
 import 'package:live_relay/presentation/workbench/workbench_tab_strip.dart';
 
@@ -195,6 +196,133 @@ void main() {
             }),
           );
         }
+      } finally {
+        await tester.pumpWidget(const SizedBox());
+        await c.lock();
+        c.dispose();
+        p.dispose();
+        await root.delete(recursive: true);
+      }
+    },
+  );
+  testWidgets(
+    'native right panel follows the active card, jumps by tap and toggles with Ctrl+J',
+    (tester) async {
+      final root = await Directory.systemTemp.createTemp(
+        'liverelay-right-pane-test-',
+      );
+      final c = createAppController(
+        root,
+        NoBiometrics(),
+        TestOcr(),
+        RecordingAi(),
+        TestAiSettings(),
+      );
+      final p = createAppPreferences(
+        File('${root.path}/device-preferences.json'),
+      );
+      try {
+        await c.initialize();
+        await c.setupVault(
+          password: 'fictional-rightpane-2026',
+          usesChinesePassphrase: false,
+        );
+        await c.createCard(
+          const CardDraft(
+            title: '右栏甲',
+            content: '甲正文',
+            status: CardStatus.draft,
+          ),
+        );
+        final a = c.cards.singleWhere((card) => card.title == '右栏甲').id;
+        await c.createCard(
+          const CardDraft(
+            title: '右栏乙',
+            content: '乙正文',
+            status: CardStatus.draft,
+          ),
+        );
+        final b = c.cards.singleWhere((card) => card.title == '右栏乙').id;
+        await c.setCardReferences(a, [b]);
+        await c.importOriginal(
+          bytes: Uint8List.fromList(utf8.encode('right pane fixture')),
+          originalName: 'right-pane.txt',
+          mimeType: 'text/plain',
+          mediaKind: BlobMediaKind.document,
+        );
+        final blob = c.blobs.single;
+        await c.setCardOriginals(a, [blob.id]);
+
+        await p.finishOnboarding();
+        await tester.pumpWidget(
+          MultiProvider(
+            providers: [
+              ChangeNotifierProvider.value(value: c),
+              ChangeNotifierProvider.value(value: p),
+            ],
+            child: const LiveRelayApp(),
+          ),
+        );
+        await tester.pumpAndSettle();
+        // 打开卡片甲：右栏跟随出现，三块内容就位（不用滚动即全可见）。
+        await tester.tap(
+          find.descendant(
+            of: find.byType(WorkbenchSidebar),
+            matching: find.text('右栏甲'),
+          ),
+        );
+        await tester.pumpAndSettle();
+        final pane = find.byType(WorkbenchRightPanel);
+        expect(pane, findsOneWidget);
+        expect(
+          find.descendant(of: pane, matching: find.text('来源 · 2')),
+          findsOneWidget,
+        );
+        expect(
+          find.descendant(of: pane, matching: find.text('引用 · 1')),
+          findsOneWidget,
+        );
+        // 点来源行跳到原件标签；右栏跟着切成原件视角。
+        await tester.tap(
+          find.descendant(
+            of: pane,
+            matching: find.text('本人引用 · right-pane.txt'),
+          ),
+        );
+        await tester.pumpAndSettle();
+        expect((await c.readWorkbenchState())!.contains('source/'), isTrue);
+        expect(
+          find.descendant(
+            of: pane,
+            matching: find.textContaining('引用它的卡片 ·'),
+          ),
+          findsOneWidget,
+        );
+        expect(
+          find.descendant(of: pane, matching: find.text('右栏甲')),
+          findsOneWidget,
+        );
+        // 回到卡片标签。
+        await tester.tap(
+          find.descendant(
+            of: find.byType(WorkbenchTabStrip),
+            matching: find.text('右栏甲'),
+          ),
+        );
+        await tester.pumpAndSettle();
+        // 收起：面板消失并写进工作台记录。
+        await tester.tap(find.byTooltip('收起右栏 (Ctrl+J)'));
+        await tester.pumpAndSettle();
+        expect(pane, findsNothing);
+        expect(
+          (await c.readWorkbenchState())!.contains('"rightCollapsed":true'),
+          isTrue,
+        );
+        // 工具按钮展开（聚焦输入框的 Ctrl+J 由生产入口套件覆盖）。
+        await tester.tap(find.byTooltip('展开右栏 (Ctrl+J)'));
+        await tester.pumpAndSettle();
+        expect(pane, findsOneWidget);
+        expect(tester.takeException(), isNull);
       } finally {
         await tester.pumpWidget(const SizedBox());
         await c.lock();

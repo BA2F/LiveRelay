@@ -21,6 +21,7 @@ import 'package:live_relay/presentation/app.dart';
 import 'package:live_relay/presentation/workbench/conversation_view.dart';
 import 'package:live_relay/presentation/workbench/desktop_workbench.dart';
 import 'package:live_relay/presentation/workbench/workbench_card_editor.dart';
+import 'package:live_relay/presentation/workbench/workbench_right_panel.dart';
 import 'package:live_relay/presentation/workbench/workbench_sidebar.dart';
 import 'package:live_relay/presentation/workbench/workbench_tab_strip.dart';
 
@@ -119,6 +120,10 @@ void main() {
         await tester.enterText(field('总结').last, text);
         // Save-and-lock must include the current edit, even before debounce.
         expect(controller!.cards.single.content, isNot(text));
+        // 右栏可收起，收起状态随工作台记录一起持久化。
+        expect(find.byType(WorkbenchRightPanel), findsOneWidget);
+        await tap(find.byTooltip('收起右栏 (Ctrl+J)'));
+        expect(find.byType(WorkbenchRightPanel), findsNothing);
         await tester.tap(find.byTooltip('保存并锁定 (Ctrl+L)'));
         await until(() => find.text('解锁你的加密资料库').evaluate().isNotEmpty);
         expect(controller!.isUnlocked, isFalse);
@@ -259,6 +264,18 @@ void main() {
         expect(find.byType(WorkbenchSidebar), findsNothing);
         await tap(find.byTooltip('展开左栏 (Ctrl+B)'));
         expect(find.byType(WorkbenchSidebar), findsOneWidget);
+        // 重开后右栏保持收起；输入框聚焦时 Ctrl+J 仍可展开。
+        expect(find.byType(WorkbenchRightPanel), findsNothing);
+        await tap(field('总结'));
+        await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+        try {
+          await tester.sendKeyEvent(LogicalKeyboardKey.keyJ);
+        } finally {
+          await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+        }
+        await until(
+          () => find.byType(WorkbenchRightPanel).evaluate().isNotEmpty,
+        );
         expect(tester.takeException(), isNull);
         if (evidencePath != null) {
           final evidence = Directory(evidencePath);
@@ -283,6 +300,7 @@ void main() {
                   'nativeRecycleAndRestorePreserveDrafts': true,
                   'quickOpenShortcutFromFocusedInput': true,
                   'sidebarCollapseToggle': true,
+                  'rightPanelCollapsedAcrossReopen': true,
                   'wholeGoalComplete': false,
                 }),
               );
