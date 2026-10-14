@@ -1,6 +1,6 @@
 # 云端 WebDAV 云盘与 App 连接
 
-> 状态：部署资产已完成并实测；App 内"连接 WebDAV"页待施工
+> 状态：部署资产与 App 内连接页均已完成并实测
 > 日期：2026-10-14
 > 来源：本人 2026-10-13 确认（"采用 copyparty"；要求：一对一自建、一对多云服务、2C2G 部署、Docker、断点续传、服务器主管理页、客户只填网址＋账号密码）
 > 依赖：work/paper/desktop-redesign-2026-10-12/桌面重设计决策单.md 第 4 节（C 模式互通）
@@ -26,9 +26,11 @@ C 模式互通已把"介质=目录"做进应用（第 4 步，2026-10-13 完成�
 
 未验证：Docker 镜像与 compose 未实跑（本机无 Docker）；Caddy 部分未实跑。README 已如实标注。
 
-## 待施工：App 内连接页
+## 已完成：App 内连接页（2026-10-14）
 
-设计边界（施工前另出实施计划）：
+按下面这套边界落地（提交 c97fe6f、27254ff）：`WebDavTransferMedium implements TransferMedium`（lib/infrastructure/transfer/），连接模型 `core/transfer/webdav_connection.dart`＋端口＋设备安全存储（`liferelay_webdav_connection_v1` 命名空间，版本化 JSON，读不出的记录拒绝并按未配置处理）＋`WebDavConnectionService` 缓存；搬运页出现"云端：未配置／管理云端"与连接对话框（可"测试连接"），介质选择弹窗在已配置时先问云端还是本地。验证：假服务器单测 5 项、连接存储 3 项、两项目标环境现场测试（介质级与整库搬运闭环，对真 copyparty 通过）、295 项常规测试与 transfer_desktop 套件通过。
+
+设计边界（实现所遵循）：
 
 - 新基础设施适配 `WebDavTransferMedium implements TransferMedium`（端口见 `lib/core/ports/transfer_medium.dart`），业务层（DeviceTransferService 及搬运页面/对话框）零改动即获得云端介质：
   - `list` = PROPFIND Depth:1（解析 D:href 与 D:getcontentlength）；
