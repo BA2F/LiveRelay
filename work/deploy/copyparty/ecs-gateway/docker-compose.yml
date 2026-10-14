@@ -1,0 +1,18 @@
+# LiveRelay 云端 WebDAV 云盘（copyparty）—— ECS 网关形态（实际部署于 1Panel 编排目录）
+# 部署事实：阿里云 ECS i-f8zgef4blsfjh2pyvm6v，Debian 13；编排文件实际位于
+#   /opt/1panel/docker/compose/liverelay-drive/docker-compose.yml（1Panel 面板可见可管）
+# 形态：copyparty 只绑回环 13923，公网 3923 由既有 OpenResty 网关反代
+#   网关配置见同目录 openresty-route.conf；数据目录为宿主机绝对路径，备份=直接拷贝该目录
+# 说明见 ../README.md
+services:
+  copyparty:
+    image: copyparty/ac:1.20.25
+    container_name: liverelay-drive
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:13923:3923"
+    volumes:
+      # 镜像自动读取 /cfg 下的 *.conf（无需 PRTY_CONFIG 环境变量）
+      - ./copyparty.conf:/cfg/copyparty.conf:ro
+      - /srv/tttahzun/data/liverelay-drive:/data
+    mem_limit: 512m
