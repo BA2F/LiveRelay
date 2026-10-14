@@ -18,6 +18,7 @@ import '../application/agent/agent_review_service.dart';
 import '../application/agent/conversation_application.dart';
 import '../core/ports/ai_settings_repository.dart';
 import '../application/vault_backup_service.dart';
+import '../application/vault_merge_service.dart';
 import '../application/device_transfer_service.dart';
 import '../application/transfer/webdav_connection_service.dart';
 import 'transfer/webdav_connection_store.dart';
@@ -127,6 +128,15 @@ AppController createAppController([
     ),
   );
   final transfer = DeviceTransferService(backup: backup, archive: archive);
+  final merge = VaultMergeService(
+    session: session,
+    archive: archive,
+    backup: backup,
+    restoreTransaction: () => VaultRestoreTransaction(
+      session.directory,
+      checkpoint: restoreCheckpoint,
+    ),
+  );
   final webDav = WebDavConnectionService(WebDavConnectionStore());
   final selectedAi = aiProvider ?? ConfiguredAiProvider();
   final speech =
@@ -192,6 +202,7 @@ AppController createAppController([
     ),
     backup: backup,
     transfer: transfer,
+    merge: merge,
     webDav: webDav,
     content: content,
     agentSettings: agentSettings,

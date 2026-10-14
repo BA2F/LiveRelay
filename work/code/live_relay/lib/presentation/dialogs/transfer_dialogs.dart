@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../../application/app_controller.dart';
 import '../../application/transfer/transfer_models.dart';
+import '../../application/vault_merge_service.dart';
 import '../../core/domain/entities.dart';
 import '../../core/ports/transfer_medium.dart';
 import '../../core/transfer/webdav_connection.dart';
@@ -415,7 +416,21 @@ Future<void> importFromMediumFlow(
     if (!context.mounted) return;
     final volumes = scan.volumesMatching(database.snapshotId);
     final replacing = controller.header != null;
-    final decision = await showDialog<({bool confirmed, bool preExport})>(
+    // B 模式触发（口径）：介质包的 vaultId 与本机一致且已解锁时可合并导入；
+    // 异血统包禁用合并并提示用替换导入。
+    final myVaultId = await controller.archiveVaultId();
+    if (!context.mounted) return;
+    final sameVault =
+        database.vaultId != null && database.vaultId == myVaultId;
+    final canMerge = replacing && controller.isUnlocked && sameVault;
+    final foreignVault = replacing &&
+        controller.isUnlocked &&
+        database.vaultId != null &&
+        myVaultId != null &&
+        !sameVault;
+    final decision = await showDialog<
+      ({bool confirmed, bool preExport, bool merge})
+    >(
       context: context,
       builder: (_) => _ImportConfirmDialog(
         preview: preview,
@@ -428,9 +443,22 @@ Future<void> importFromMediumFlow(
             : missing > 0
             ? '当前还有 $missing 个原件未补齐，请先补齐再导出'
             : null,
+        canMerge: canMerge,
+        foreignVault: foreignVault,
       ),
     );
     if (decision == null || !decision.confirmed || !context.mounted) return;
+
+    if (decision.merge) {
+      final report = await controller.mergeFromMedium(
+        medium,
+        databaseName: database.name,
+        credential: credential,
+      );
+      if (!context.mounted) return;
+      await _showMergeReport(context, report);
+      return;
+    }
 
     String? preExportCredential;
     if (decision.preExport) {
@@ -553,6 +581,8 @@ class _ImportConfirmDialog extends StatefulWidget {
     required this.replacing,
     required this.canPreExport,
     this.preExportReason,
+    this.canMerge = false,
+    this.foreignVault = false,
   });
 
   final BackupPreview preview;
@@ -562,19 +592,32 @@ class _ImportConfirmDialog extends StatefulWidget {
   final bool canPreExport;
   final String? preExportReason;
 
+  /// 包与本机同血统且已解锁：可选合并导入。
+  final bool canMerge;
+
+  /// 包来自另一套资料库：只能替换，界面明说原因。
+  final bool foreignVault;
+
   @override
   State<_ImportConfirmDialog> createState() => _ImportConfirmDialogState();
 }
 
 class _ImportConfirmDialogState extends State<_ImportConfirmDialog> {
   var preExport = false;
+  late var merge = widget.canMerge;
 
   @override
   Widget build(BuildContext context) {
     final preview = widget.preview;
     final created = preview.createdAt?.toLocal();
     return AlertDialog(
-      title: Text(widget.replacing ? '核对介质内容并替换当前资料库' : '核对介质内容并导入资料库'),
+      title: Text(
+        merge
+            ? '核对介质内容并合并导入'
+            : widget.replacing
+            ? '核对介质内容并替换当前资料库'
+            : '核对介质内容并导入资料库',
+      ),
       content: SingleChildScrollView(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -593,11 +636,38 @@ class _ImportConfirmDialogState extends State<_ImportConfirmDialog> {
               '${preview.cards} 张卡片 · ${preview.credentials} 条密码 · ${preview.originals} 个原件',
             ),
             const SizedBox(height: 12),
-            Text(
-              widget.replacing
-                  ? '导入成功后当前资料库全部由介质内容替换，不会合并。'
-                  : '导入后即为完整资料库。',
-            ),
+            if (widget.canMerge) ...[
+              const Text('导入方式'),
+              const SizedBox(height: 6),
+              Wrap(
+                spacing: 8,
+                children: [
+                  ChoiceChip(
+                    label: const Text('合并导入'),
+                    selected: merge,
+                    onSelected: (_) => setState(() => merge = true),
+                  ),
+                  ChoiceChip(
+                    label: const Text('替换导入'),
+                    selected: !merge,
+                    onSelected: (_) => setState(() => merge = false),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Text(
+                merge
+                    ? '保留本机内容；另一台设备新增和修改的卡片合并进来。两台设备改过同一张卡时先保留本机版，并在卡片上标记，稍后可以切换。'
+                    : '导入成功后当前资料库全部由介质内容替换，不会合并。',
+              ),
+            ] else if (widget.foreignVault)
+              const Text('这个包来自另一套资料库，无法合并，只能替换导入。')
+            else
+              Text(
+                widget.replacing
+                    ? '导入成功后当前资料库全部由介质内容替换，不会合并。'
+                    : '导入后即为完整资料库。',
+              ),
             if (widget.volumeCount > 0)
               Text(
                 '介质上有 ${widget.volumeCount} 个与本包配对的原件卷，导入数据库后自动补齐；'
@@ -607,36 +677,53 @@ class _ImportConfirmDialogState extends State<_ImportConfirmDialog> {
               Text(
                 '介质上没有配对的原件卷：导入后将缺 ${preview.missingOriginals} 个原件，需要另行补齐。',
               ),
-            Text(
-              preview.requiresReset
-                  ? '该库的解锁方式在这台设备上用不了：导入后先在本机完成安全重设，再用"从介质补齐原件"完成原件卷。'
-                  : '导入成功后可直接进入资料库；解锁凭证保持该库自带的密码。',
-            ),
-            const SizedBox(height: 8),
-            CheckboxListTile(
-              contentPadding: EdgeInsets.zero,
-              value: preExport,
-              onChanged: widget.canPreExport
-                  ? (value) => setState(() => preExport = value ?? false)
-                  : null,
-              title: const Text('先把当前库导出到介质再替换'),
-              subtitle: Text(
-                widget.canPreExport
-                    ? '多验证一次当前库的凭证；替换后仍可从介质找回。'
-                    : widget.preExportReason ?? '',
+            if (merge)
+              const Text('合并后用本机现在的密码解锁；另一台设备的凭证不进入本机。')
+            else
+              Text(
+                preview.requiresReset
+                    ? '该库的解锁方式在这台设备上用不了：导入后先在本机完成安全重设，再用"从介质补齐原件"完成原件卷。'
+                    : '导入成功后可直接进入资料库；解锁凭证保持该库自带的密码。',
               ),
-            ),
+            if (!merge) ...[
+              const SizedBox(height: 8),
+              CheckboxListTile(
+                contentPadding: EdgeInsets.zero,
+                value: preExport,
+                onChanged: widget.canPreExport
+                    ? (value) => setState(() => preExport = value ?? false)
+                    : null,
+                title: const Text('先把当前库导出到介质再替换'),
+                subtitle: Text(
+                  widget.canPreExport
+                      ? '多验证一次当前库的凭证；替换后仍可从介质找回。'
+                      : widget.preExportReason ?? '',
+                ),
+              ),
+            ],
           ],
         ),
       ),
       actions: [
         TextButton(
-          onPressed: () => Navigator.pop(context, (confirmed: false, preExport: false)),
+          onPressed: () => Navigator.pop(
+            context,
+            (confirmed: false, preExport: false, merge: false),
+          ),
           child: const Text('取消'),
         ),
         FilledButton(
-          onPressed: () => Navigator.pop(context, (confirmed: true, preExport: preExport)),
-          child: Text(widget.replacing ? '确认替换并导入' : '确认导入'),
+          onPressed: () => Navigator.pop(
+            context,
+            (confirmed: true, preExport: merge ? false : preExport, merge: merge),
+          ),
+          child: Text(
+            merge
+                ? '确认合并导入'
+                : widget.replacing
+                ? '确认替换并导入'
+                : '确认导入',
+          ),
         ),
       ],
     );
@@ -662,6 +749,42 @@ Future<void> _showTransferReport(
     ...report.volumeErrors,
   ];
   await _showInfo(context, title: '导入结果', lines: lines);
+}
+
+Future<void> _showMergeReport(
+  BuildContext context,
+  MergeImportReport report,
+) async {
+  final lines = <String>[
+    '数据库包：${report.databaseName}',
+    '另一台设备带来的卡片：新增 ${report.importedCards} · 单边跟进 ${report.fastForwardedCards} · 两边都改过 ${report.forkedCards}',
+    if (report.adoptedDeletions > 0)
+      '采用另一台设备的删除：${report.adoptedDeletions} 条',
+    if (report.keptLocalDeletionConflicts > 0)
+      '另一台设备删过、本机改过的卡片：${report.keptLocalDeletionConflicts} 条（保留本机版，已标记）',
+    if (report.localDeletionConflicts > 0)
+      '本机删过、另一台设备改过的卡片：${report.localDeletionConflicts} 条（保持删除，可恢复后采用对方版本）',
+    if (report.referenceChanges.isNotEmpty)
+      '卡片引用更新：${report.referenceChanges.length} 张',
+    '原件：本机无的新增 ${report.importedBlobs}（同钥直拷 ${report.copiedBlobs} · 重新加密 ${report.reencryptedBlobs} · 复用本机 ${report.reusedLocalBlobs}）',
+    '核验消费的原件卷：${report.volumesConsumed} 个',
+    if (report.owedBlobs > 0)
+      '包内没带的原件：${report.owedBlobs} 个，已记入待补齐',
+    if (report.remainingMissingOriginals > 0)
+      '还缺 ${report.remainingMissingOriginals} 个原件；可在「设备间搬运」用"从介质补齐原件"完成。'
+    else
+      '原件已补齐。',
+    ...report.volumeErrors,
+    ...report.warnings,
+    if (report.conflicts.isNotEmpty) ...[
+      '需要选择保留哪个版本的卡片 ${report.conflicts.length} 张：',
+      for (final conflict in report.conflicts.take(8)) '· ${conflict.title}',
+      if (report.conflicts.length > 8)
+        '· 等 ${report.conflicts.length} 张（在列表里有标记）',
+    ],
+    '未合并（保留本机）：${report.unmergedCategories.join('、')}。',
+  ];
+  await _showInfo(context, title: '合并导入结果', lines: lines);
 }
 
 Future<void> _showInfo(

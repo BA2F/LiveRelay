@@ -69,6 +69,38 @@ class VaultContentService {
     }
   }
 
+  /// 只写入加密原件并登记 blob 行，不创建来源卡片（附件直加复用）。
+  Future<VaultBlob> writeOriginalOnly({
+    required Uint8List bytes,
+    required String originalName,
+    required String mimeType,
+    required BlobMediaKind mediaKind,
+  }) async {
+    try {
+      final generation = _begin();
+      final blob = await vault.writeOriginal(
+        bytes: bytes,
+        originalName: originalName,
+        mimeType: mimeType,
+        mediaKind: mediaKind,
+      );
+      try {
+        _check(generation);
+        await vault.repository.registerBlobRow(blob);
+      } on Object {
+        // 与 importOriginal 相同的补偿：只清理同一代会话里自己写入的密文。
+        if (generation == vault.sessionGeneration) {
+          await vault.deleteOriginal(blob);
+        }
+        rethrow;
+      }
+      _check(generation);
+      return blob;
+    } finally {
+      bytes.fillRange(0, bytes.length, 0);
+    }
+  }
+
   Future<Uint8List> readOriginal(String id) async {
     final generation = _begin();
     final blob = await _blob(id, generation);

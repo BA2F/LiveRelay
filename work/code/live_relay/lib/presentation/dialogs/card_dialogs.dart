@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 
 import '../controllers/app_controller.dart';
 import '../../core/domain/entities.dart';
+import '../../core/domain/vault_merge.dart';
 import '../design_system/atoms.dart';
 import '../model_labels.dart';
 import '../../application/release_preview.dart';
@@ -304,6 +305,7 @@ class _CardDetailPageState extends State<_CardDetailPage> {
             ...controller.recycledCards,
           ].where((c) => c.id == widget.initialCard.id).firstOrNull ??
           widget.initialCard;
+      final mergeConflict = controller.mergeConflicts[card.id];
       return Scaffold(
         appBar: AppBar(
           title: const Text('卡片详情'),
@@ -396,7 +398,7 @@ class _CardDetailPageState extends State<_CardDetailPage> {
                   : '本人确认于 ${_time(card.confirmedAt!)}',
             ),
             const SizedBox(height: 16),
-            if (card.isDeleted)
+            if (card.isDeleted) ...[
               FilledButton.icon(
                 icon: const Icon(Icons.restore),
                 label: const Text('恢复这张卡片'),
@@ -407,8 +409,58 @@ class _CardDetailPageState extends State<_CardDetailPage> {
                         () => controller.restoreCard(card.id),
                         success: '已恢复，已有授权仍保留',
                       ),
-              )
-            else ...[
+              ),
+              if (mergeConflict != null &&
+                  mergeConflict.kind == MergeConflictKind.localDeleted) ...[
+                const SizedBox(height: 8),
+                Text(
+                  '合并导入时另一台设备改过这张卡；对方版本保存在修订历史里。',
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+                TextButton.icon(
+                  icon: const Icon(Icons.merge_type, size: 18),
+                  label: const Text('恢复并采用另一台设备的版本'),
+                  onPressed: controller.isBusy
+                      ? null
+                      : () => runUiAction(
+                          context,
+                          () => controller.adoptForeignMergeVersion(card.id),
+                          success: '已恢复并采用另一台设备的版本',
+                        ),
+                ),
+              ],
+            ] else ...[
+              if (mergeConflict != null &&
+                  mergeConflict.kind != MergeConflictKind.localDeleted) ...[
+                Text(
+                  mergeConflict.kind == MergeConflictKind.foreignDeleted
+                      ? '合并导入后：另一台设备删除了这张卡，本机保留了改动，对方版本在修订历史里。'
+                      : '合并导入后：两台设备都改过这张卡，当前显示本机版，对方版本在修订历史里。',
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+                TextButton.icon(
+                  icon: const Icon(Icons.merge_type, size: 18),
+                  label: Text(
+                    mergeConflict.kind == MergeConflictKind.foreignDeleted
+                        ? '按另一台设备删除'
+                        : '采用另一台设备的版本',
+                  ),
+                  onPressed: controller.isBusy
+                      ? null
+                      : () => runUiAction(
+                          context,
+                          () => mergeConflict.kind ==
+                                  MergeConflictKind.foreignDeleted
+                              ? controller.adoptForeignMergeDeletion(card.id)
+                              : controller.adoptForeignMergeVersion(card.id),
+                          success: mergeConflict.kind ==
+                                  MergeConflictKind.foreignDeleted
+                              ? '已按另一台设备删除，移入回收区'
+                              : '已采用另一台设备的版本',
+                        ),
+                ),
+                const SizedBox(height: 8),
+              ],
               FilledButton.icon(
                 icon: const Icon(Icons.edit_outlined),
                 label: const Text('编辑这条信息'),

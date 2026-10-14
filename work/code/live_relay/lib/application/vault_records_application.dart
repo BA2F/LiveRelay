@@ -91,6 +91,38 @@ class VaultRecordsApplication {
     return _write((r) => r.setCardOriginals(id, input));
   }
 
+  /// 把一个新附件写入加密原件并直接关联到既有卡片，不创建来源卡片。
+  /// 文件补偿由内容层负责；引用更新失败时只会留下一个未关联的原件，
+  /// 可在卡片的原件引用里重新勾选。
+  Future<LifeCard> attachOriginalToCard(
+    String cardId, {
+    required Uint8List bytes,
+    required String originalName,
+    required String mimeType,
+    required BlobMediaKind mediaKind,
+  }) => _write((r) async {
+    final existing = await r.getCard(cardId);
+    if (existing == null || existing.isDeleted) {
+      throw const FormatException('卡片不存在');
+    }
+    final blob = await content.writeOriginalOnly(
+      bytes: bytes,
+      originalName: originalName,
+      mimeType: mimeType,
+      mediaKind: mediaKind,
+    );
+    final sources = await r.currentCardSources(cardId);
+    final ids = [
+      for (final source in sources)
+        if (source.blobId != null) source.blobId!,
+      blob.id,
+    ];
+    await r.setCardOriginals(cardId, ids);
+    final card = await r.getCard(cardId);
+    if (card == null) throw const FormatException('卡片不存在');
+    return card;
+  }).whenComplete(() => bytes.fillRange(0, bytes.length, 0));
+
   Future<LifeCard> restoreCardRevision(String id, int number) =>
       _write((r) => r.restoreCardRevision(id, number));
   Future<void> trashCard(String id) => _write((r) => r.trashCard(id));

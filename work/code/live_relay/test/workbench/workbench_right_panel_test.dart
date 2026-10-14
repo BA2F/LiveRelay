@@ -8,6 +8,7 @@ import 'package:live_relay/application/app_controller.dart';
 import 'package:live_relay/application/device_transfer_service.dart';
 import 'package:live_relay/application/transfer/webdav_connection_service.dart';
 import 'package:live_relay/application/vault_backup_service.dart';
+import 'package:live_relay/application/vault_merge_service.dart';
 import 'package:live_relay/application/vault_content_service.dart';
 import 'package:live_relay/application/vault_records_application.dart';
 import 'package:live_relay/application/vault_session.dart';
@@ -72,6 +73,17 @@ class _LensController extends AppController {
                 throw UnsupportedError('UI fixture only'),
           ),
           archive: LifeVaultArchiveService(),
+        ),
+        merge: VaultMergeService(
+          session: session,
+          archive: LifeVaultArchiveService(),
+          backup: VaultBackupService(
+            session: session,
+            archive: LifeVaultArchiveService(),
+            restoreTransaction: () =>
+                throw UnsupportedError('UI fixture only'),
+          ),
+          restoreTransaction: () => throw UnsupportedError('UI fixture only'),
         ),
         webDav: WebDavConnectionService(_NoConnection()),
         content: content,

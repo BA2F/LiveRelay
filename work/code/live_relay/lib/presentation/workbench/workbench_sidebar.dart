@@ -217,6 +217,9 @@ class WorkbenchSidebar extends StatelessWidget {
                     icon: Icons.delete_outline,
                     title: card.title,
                     meta: '卡片 · ${_time(card.updatedAt)}',
+                    mergePending: controller.mergeConflicts.containsKey(
+                      card.id,
+                    ),
                     onTap: () => onRecycledCard(card),
                     onMenu: (position) => onRowMenu(
                       WorkbenchRowKind.recycledCard,
@@ -251,6 +254,7 @@ class WorkbenchSidebar extends StatelessWidget {
         title: card.title,
         meta: '$status · ${_time(card.updatedAt)}',
         selected: activeView == 'card/${card.id}',
+        mergePending: controller.mergeConflicts.containsKey(card.id),
         onTap: () => onOpenView('card/${card.id}'),
         onMenu: (position) =>
             onRowMenu(WorkbenchRowKind.card, card.id, position),
@@ -327,11 +331,13 @@ class _SidebarRow extends StatelessWidget {
     required this.onTap,
     required this.onMenu,
     this.selected = false,
+    this.mergePending = false,
   });
   final IconData icon;
   final String title;
   final String meta;
   final bool selected;
+  final bool mergePending;
   final VoidCallback onTap;
   final ValueChanged<Offset> onMenu;
 
@@ -357,11 +363,28 @@ class _SidebarRow extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      title,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(fontSize: 13),
+                    Row(
+                      children: [
+                        if (mergePending) ...[
+                          Tooltip(
+                            message: '合并导入后两边都改过这张卡，点开可选择保留哪个版本',
+                            child: Icon(
+                              Icons.merge_type,
+                              size: 13,
+                              color: scheme.primary,
+                            ),
+                          ),
+                          const SizedBox(width: 4),
+                        ],
+                        Expanded(
+                          child: Text(
+                            title,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(fontSize: 13),
+                          ),
+                        ),
+                      ],
                     ),
                     Text(
                       meta,

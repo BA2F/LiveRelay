@@ -10,6 +10,8 @@ import '../../application/local_handoff_service.dart';
 import '../../application/recipient_service.dart';
 import '../../application/vault_security_service.dart';
 import '../../application/device_transfer_service.dart';
+import '../../application/vault_merge_service.dart';
+import '../../core/domain/vault_merge.dart';
 import '../../application/transfer/transfer_models.dart';
 import '../../application/transfer/webdav_connection_service.dart';
 import '../../core/transfer/webdav_connection.dart';
@@ -55,6 +57,7 @@ class AppController extends ChangeNotifier implements PreviewSession {
     required this._session,
     required this._backup,
     required this._transfer,
+    required this._merge,
     required this._webDav,
     required this._content,
     required this._agentSettings,
@@ -92,6 +95,10 @@ class AppController extends ChangeNotifier implements PreviewSession {
     ];
     _speechService?.addListener(notifyListeners);
   }
+
+  /// 合并导入遗留的未解决标记（`workbench.merge.v1`），按卡片 id 索引；
+  /// 列表徽标、卡片横幅与导入报告都读它。
+  Map<String, CardMergeConflict> mergeConflicts = const {};
 
   Map<String, Object?> ownerProfile = const {
     'name': '本人',
@@ -198,6 +205,7 @@ class AppController extends ChangeNotifier implements PreviewSession {
   final VaultSession _session;
   final VaultBackupService _backup;
   final DeviceTransferService _transfer;
+  final VaultMergeService _merge;
   final WebDavConnectionService _webDav;
   final VaultContentService _content;
   final AgentSettingsService _agentSettings;
@@ -465,6 +473,79 @@ class AppController extends ChangeNotifier implements PreviewSession {
     return report;
   }
 
+  /// 本机资料库的 vaultId（v3 格式）；旧格式或读取失败返回 null，
+  /// 导入界面据此判断介质包能否合并。
+  Future<String?> archiveVaultId() async {
+    try {
+      return (await _session.archiveIdentity())?.vaultId;
+    } on Object {
+      return null;
+    }
+  }
+
+  /// B 模式合并导入：以本机为底，引入介质包中另一台设备的卡片改动。
+  /// 引擎侧自取独占维护，这里只包 busy 门与错误呈现（与 restoreVault 同形）。
+  Future<MergeImportReport> mergeFromMedium(
+    TransferMedium medium, {
+    required String databaseName,
+    required String credential,
+  }) async {
+    if (!isUnlocked) throw StateError('请先解锁资料库再合并导入');
+    late MergeImportReport report;
+    await _run(() async {
+      report = await _merge.mergeFromMedium(
+        medium,
+        databaseName: databaseName,
+        credential: credential,
+        clearUnlockedData: _clearUnlockedData,
+        refreshUnlockedData: _refreshUnlockedData,
+      );
+    });
+    return report;
+  }
+
+  /// 采用另一台设备的版本：写一条等于对方版本的修订，清除待选标记。
+  /// 本机已删除的卡片会先恢复再采用。
+  Future<void> adoptForeignMergeVersion(String cardId) async {
+    final conflict = mergeConflicts[cardId];
+    final foreignHead = conflict?.foreignHead;
+    if (conflict == null || foreignHead == null) {
+      throw StateError('这条卡片没有可采用的另一设备版本');
+    }
+    await _recordMutation(() async {
+      if (conflict.localDeleted) await records.restoreCard(cardId);
+      await records.restoreCardRevision(cardId, foreignHead);
+      await _merge.clearMergeConflict(cardId);
+    });
+    _dropMergeConflict(cardId);
+  }
+
+  /// 采用另一台设备的删除：把卡片移入回收区，清除待选标记。
+  Future<void> adoptForeignMergeDeletion(String cardId) async {
+    final conflict = mergeConflicts[cardId];
+    if (conflict == null || !conflict.foreignDeleted) {
+      throw StateError('这条卡片没有另一设备的删除可采纳');
+    }
+    await _recordMutation(() async {
+      await records.trashCard(cardId);
+      await _merge.clearMergeConflict(cardId);
+    });
+    _dropMergeConflict(cardId);
+  }
+
+  /// 卡片在本机产生新修订（编辑、恢复修订）即视为已做出选择，清掉待选标记。
+  Future<void> _clearMergeAfterEdit(String cardId) async {
+    if (!mergeConflicts.containsKey(cardId)) return;
+    await _merge.clearMergeConflict(cardId);
+    _dropMergeConflict(cardId);
+  }
+
+  void _dropMergeConflict(String cardId) {
+    if (!mergeConflicts.containsKey(cardId)) return;
+    mergeConflicts = Map.of(mergeConflicts)..remove(cardId);
+    notifyListeners();
+  }
+
   /// Device-local cloud drive connection; read-only and cheap after the
   /// first load, so it stays outside the busy gate.
   Future<WebDavConnection?> webDavConnection() => _webDav.current();
@@ -485,6 +566,7 @@ class AppController extends ChangeNotifier implements PreviewSession {
 
   void _clearUnlockedData() {
     ownerProfile = const {'name': '本人', 'contact': '', 'note': ''};
+    mergeConflicts = const {};
     cards = const [];
     cardReferences = const [];
     recycledCards = const [];
@@ -563,9 +645,12 @@ class AppController extends ChangeNotifier implements PreviewSession {
     String id,
     CardDraft draft, {
     String changeNote = '更新卡片',
-  }) => _recordMutation(
-    () => records.updateCard(id, draft, changeNote: changeNote),
-  );
+  }) async {
+    await _recordMutation(
+      () => records.updateCard(id, draft, changeNote: changeNote),
+    );
+    await _clearMergeAfterEdit(id);
+  }
 
   Future<void> confirmCard(String id) =>
       _recordMutation(() => records.confirmCard(id));
@@ -587,8 +672,34 @@ class AppController extends ChangeNotifier implements PreviewSession {
       records.currentCardSources(id);
   Future<void> setCardOriginals(String id, List<String> blobIds) =>
       _recordMutation(() => records.setCardOriginals(id, blobIds));
-  Future<void> restoreCardRevision(String id, int number) =>
-      _recordMutation(() => records.restoreCardRevision(id, number));
+
+  /// 把新附件写入加密原件并关联到这条卡片；一步完成导入与关联。
+  Future<void> attachOriginalToCard(
+    String cardId, {
+    required Uint8List bytes,
+    required String originalName,
+    required String mimeType,
+    required BlobMediaKind mediaKind,
+  }) async {
+    try {
+      await _recordMutation(
+        () => records.attachOriginalToCard(
+          cardId,
+          bytes: bytes,
+          originalName: originalName,
+          mimeType: mimeType,
+          mediaKind: mediaKind,
+        ),
+      );
+    } finally {
+      bytes.fillRange(0, bytes.length, 0);
+    }
+  }
+
+  Future<void> restoreCardRevision(String id, int number) async {
+    await _recordMutation(() => records.restoreCardRevision(id, number));
+    await _clearMergeAfterEdit(id);
+  }
   Future<CardDeletionPreview> previewCardDeletion(List<String> ids) =>
       records.previewCardDeletion(ids);
   Future<void> trashCards(
@@ -902,6 +1013,7 @@ class AppController extends ChangeNotifier implements PreviewSession {
       throw StateError('资料库已关闭或重开，本次查询已丢弃');
     }
     _applySnapshot(snapshot);
+    mergeConflicts = await _merge.mergeConflicts();
   }
 
   void _applySnapshot(VaultSnapshot snapshot) {

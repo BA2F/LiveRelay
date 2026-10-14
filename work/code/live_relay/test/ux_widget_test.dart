@@ -12,6 +12,7 @@ import 'package:live_relay/application/vault_snapshot_query.dart';
 import 'package:live_relay/application/vault_content_service.dart';
 import 'package:live_relay/application/vault_records_application.dart';
 import 'package:live_relay/application/vault_backup_service.dart';
+import 'package:live_relay/application/vault_merge_service.dart';
 import 'package:live_relay/application/device_transfer_service.dart';
 import 'package:live_relay/application/transfer/webdav_connection_service.dart';
 import 'package:live_relay/core/ports/webdav_connection_repository.dart';
@@ -78,6 +79,12 @@ class SnapshotController extends AppController {
         transfer: DeviceTransferService(
           backup: snapshotBackup(session),
           archive: LifeVaultArchiveService(),
+        ),
+        merge: VaultMergeService(
+          session: session,
+          archive: LifeVaultArchiveService(),
+          backup: snapshotBackup(session),
+          restoreTransaction: () => throw UnsupportedError('UI fixture only'),
         ),
         webDav: WebDavConnectionService(_NoConnection()),
         content: content,
