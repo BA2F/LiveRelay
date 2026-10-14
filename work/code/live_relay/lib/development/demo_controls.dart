@@ -4,9 +4,9 @@ import 'package:flutter/material.dart';
 
 import '../application/app_controller.dart';
 import '../application/device_capabilities.dart';
-import '../core/domain/entities.dart';
 import '../core/ports/development_controls.dart';
 import '../presentation/pages/recipient_page.dart';
+import 'demo_drill_page.dart';
 
 class DemoControls extends ChangeNotifier implements DevelopmentControls {
   DemoControls(this.root);
@@ -97,23 +97,15 @@ class DemoControls extends ChangeNotifier implements DevelopmentControls {
                               ),
                             ],
                           ),
-                          Wrap(
-                            spacing: 8,
-                            children: [
-                              for (final state in LifeState.values)
-                                TextButton(
-                                  onPressed: () => run(() async {
-                                    await controller.resetLifeStateSimulation();
-                                    if (state != LifeState.active) {
-                                      await controller.transitionLifeState(
-                                        state,
-                                        reason: '独立演示注入状态',
-                                      );
-                                    }
-                                  }),
-                                  child: Text(state.name),
+                          TextButton(
+                            onPressed: () => run(
+                              () => navigatorKey.currentState!.push<void>(
+                                MaterialPageRoute(
+                                  builder: (_) => const DemoDrillPage(),
                                 ),
-                            ],
+                              ),
+                            ),
+                            child: const Text('生命状态演练'),
                           ),
                           DropdownButton<DevicePlatform>(
                             value: controller.capabilities.platform,

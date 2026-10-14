@@ -59,7 +59,6 @@ class _OnboardingPageState extends State<OnboardingPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  const RecipientEntryButton(),
                   const Center(child: LiveRelayLogo(size: 64)),
                   const SizedBox(height: 24),
                   Text(
@@ -92,8 +91,6 @@ class _OnboardingPageState extends State<OnboardingPage> {
                       '你的资料库',
                       style: Theme.of(context).textTheme.titleLarge,
                     ),
-                    const SizedBox(height: 8),
-                    const Text('创建新的加密资料库，或从已有加密备份恢复。'),
                     const SizedBox(height: 20),
                     FilledButton.icon(
                       onPressed: _busy || controller.isBusy
@@ -110,6 +107,8 @@ class _OnboardingPageState extends State<OnboardingPage> {
                       icon: const Icon(Icons.settings_backup_restore),
                       label: const Text('恢复已有资料库'),
                     ),
+                    const SizedBox(height: 20),
+                    const RecipientEntryButton(),
                   ],
                   const SizedBox(height: 28),
                   if (_step < 2)

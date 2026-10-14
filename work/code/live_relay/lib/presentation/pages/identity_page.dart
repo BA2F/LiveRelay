@@ -70,7 +70,10 @@ class _IdentityPageState extends State<IdentityPage> {
   Widget build(BuildContext context) {
     final controller = context.watch<AppController>();
     if (!controller.isUnlocked) {
-      return const Scaffold(body: Center(child: Text('资料库已锁定')));
+      return Scaffold(
+        appBar: AppBar(title: const Text('本人身份资料')),
+        body: const Center(child: Text('资料库已锁定，解锁后继续')),
+      );
     }
     final service = controller.handoff!;
     return Scaffold(

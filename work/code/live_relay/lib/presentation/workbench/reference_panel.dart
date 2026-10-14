@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../controllers/app_controller.dart';
+import '../../core/domain/entities.dart';
+import '../model_labels.dart';
 
 class ReferencePanel extends StatelessWidget {
   const ReferencePanel({
@@ -24,6 +26,20 @@ class ReferencePanel extends StatelessWidget {
     }
   }
 
+  Future<void> _add(
+    BuildContext context,
+    List<LifeCard> available,
+    List<String> outgoing,
+  ) async {
+    final id = await showDialog<String>(
+      context: context,
+      builder: (_) => _ReferencePickerDialog(cards: available),
+    );
+    if (id != null && context.mounted) {
+      await _replace(context, [...outgoing, id]);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final cards = {for (final c in controller.cards) c.id: c};
@@ -44,15 +60,12 @@ class ReferencePanel extends StatelessWidget {
         Row(
           children: [
             const Expanded(child: Text('卡片引用')),
-            PopupMenuButton<String>(
+            IconButton(
               tooltip: '添加卡片引用',
-              enabled: !controller.isBusy && available.isNotEmpty,
+              onPressed: controller.isBusy || available.isEmpty
+                  ? null
+                  : () => _add(context, available, outgoing),
               icon: const Icon(Icons.add_link),
-              onSelected: (id) => _replace(context, [...outgoing, id]),
-              itemBuilder: (_) => [
-                for (final c in available)
-                  PopupMenuItem(value: c.id, child: Text(c.title)),
-              ],
             ),
           ],
         ),
@@ -88,6 +101,90 @@ class ReferencePanel extends StatelessWidget {
           ),
         ],
       ],
+    );
+  }
+}
+
+/// 搜索式选择器：卡片多时也能快速找到要引用的卡片。
+class _ReferencePickerDialog extends StatefulWidget {
+  const _ReferencePickerDialog({required this.cards});
+  final List<LifeCard> cards;
+  @override
+  State<_ReferencePickerDialog> createState() => _ReferencePickerDialogState();
+}
+
+class _ReferencePickerDialogState extends State<_ReferencePickerDialog> {
+  final _query = TextEditingController();
+
+  @override
+  void dispose() {
+    _query.dispose();
+    super.dispose();
+  }
+
+  List<LifeCard> get _matches {
+    final needle = _query.text.trim().toLowerCase();
+    return widget.cards
+        .where(
+          (c) =>
+              needle.isEmpty ||
+              '${c.title} ${c.content} ${c.tags.join(' ')}'
+                  .toLowerCase()
+                  .contains(needle),
+        )
+        .take(50)
+        .toList();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final matches = _matches;
+    return Dialog(
+      child: SizedBox(
+        width: 480,
+        height: 420,
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.all(12),
+              child: TextField(
+                controller: _query,
+                autofocus: true,
+                decoration: const InputDecoration(
+                  hintText: '搜索要引用的卡片',
+                  prefixIcon: Icon(Icons.search),
+                  isDense: true,
+                  border: OutlineInputBorder(),
+                ),
+                onChanged: (_) => setState(() {}),
+                onSubmitted: (_) => Navigator.pop(
+                  context,
+                  matches.isEmpty ? null : matches.first.id,
+                ),
+              ),
+            ),
+            Expanded(
+              child: matches.isEmpty
+                  ? const Padding(
+                      padding: EdgeInsets.all(16),
+                      child: Text('没有匹配的卡片'),
+                    )
+                  : ListView(
+                      children: [
+                        for (final card in matches)
+                          ListTile(
+                            dense: true,
+                            leading: Icon(card.kind.icon, size: 18),
+                            title: Text(card.title),
+                            subtitle: Text(card.kind.label),
+                            onTap: () => Navigator.pop(context, card.id),
+                          ),
+                      ],
+                    ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

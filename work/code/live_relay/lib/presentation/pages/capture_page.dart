@@ -38,7 +38,7 @@ class CapturePage extends StatelessWidget {
         children: [
           Text('先记下来', style: Theme.of(context).textTheme.headlineSmall),
           const SizedBox(height: 6),
-          Text(recent.isEmpty ? '例如：备用钥匙放在哪里。重要的事，之后再慢慢整理。' : '重要的事，之后再慢慢整理。'),
+          const Text('重要的事，之后再慢慢整理。'),
           const SizedBox(height: 16),
           FilledButton.icon(
             onPressed: controller.isBusy
@@ -114,7 +114,7 @@ class CapturePage extends StatelessWidget {
                 ? const EmptyState(
                     icon: Icons.inbox_outlined,
                     title: '还没有记录',
-                    message: '从一条此刻最重要的信息开始。',
+                    message: '记下的内容会出现在这里。',
                   )
                 : Column(
                     children: [

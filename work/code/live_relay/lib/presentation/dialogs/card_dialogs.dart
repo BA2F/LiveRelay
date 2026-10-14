@@ -693,7 +693,7 @@ Future<void> showReleasePolicyDialog(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                const Text('仅本机模拟 · 演示执行人。默认仅本人可见。选择后可核对实际输出，不会发送给他人。'),
+                const Text('默认仅本人可见；选择级别后可核对接收者将看到的内容。'),
                 const SizedBox(height: 18),
                 DropdownButtonFormField<VisibilityLevel>(
                   initialValue: incapacitated,

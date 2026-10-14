@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
 import '../controllers/app_controller.dart';
@@ -68,7 +67,6 @@ class HandoffPage extends StatelessWidget {
                     ),
                   ),
           ),
-        const Text('仅本机模拟 · 预览对象为演示执行人，不会发送给他人，也不自动判断生命状态。'),
         const SizedBox(height: 16),
         Card(
           child: Padding(
@@ -80,7 +78,7 @@ class HandoffPage extends StatelessWidget {
                   '已设置授权 $authorized 条',
                   style: Theme.of(context).textTheme.titleLarge,
                 ),
-                Text('保持私密 ${total - authorized} 条 · 回收区不参与预览'),
+                Text('预览不包含回收区内容'),
                 const SizedBox(height: 12),
                 FilledButton.icon(
                   icon: const Icon(Icons.visibility_outlined),
@@ -120,17 +118,6 @@ class HandoffPage extends StatelessWidget {
               tile('credential', entry.id, entry.title),
           ],
         ),
-        const Divider(),
-        ListTile(
-          contentPadding: EdgeInsets.zero,
-          leading: const Icon(Icons.science_outlined),
-          title: const Text('打开独立模拟演示'),
-          subtitle: Text('仅本机模拟 · 当前状态：${c.lifeState.label}'),
-          trailing: const Icon(Icons.chevron_right),
-          onTap: () => Navigator.of(context).push<void>(
-            MaterialPageRoute(builder: (_) => const SimulationPage()),
-          ),
-        ),
       ],
     );
   }
@@ -152,7 +139,7 @@ class _RecipientPreviewPageState extends State<RecipientPreviewPage> {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          const Text('仅本机模拟 · 演示执行人。切换情境只用于核对，不改变本机模拟状态。'),
+          const Text('切换情境只用于核对各状态下对方能看到的内容。'),
           Wrap(
             spacing: 8,
             runSpacing: 8,
@@ -166,51 +153,20 @@ class _RecipientPreviewPageState extends State<RecipientPreviewPage> {
             ],
           ),
           const SizedBox(height: 16),
-          _ReleasedContents(controller: c, scene: _scene),
+          ReleasedContents(controller: c, scene: _scene),
         ],
       ),
     );
   }
 }
 
-class SimulationPage extends StatelessWidget {
-  const SimulationPage({super.key});
-  @override
-  Widget build(BuildContext context) {
-    final c = context.watch<AppController>();
-    return Scaffold(
-      appBar: AppBar(title: const Text('仅本机模拟 · 演示')),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          const Text('这里不进行真实失能或身故核验，不授予银行、继承等处置权。模拟不会通知或发送给他人。'),
-          const SizedBox(height: 16),
-          Text(
-            '当前模拟状态：${c.lifeState.label}',
-            style: Theme.of(context).textTheme.titleLarge,
-          ),
-          const SizedBox(height: 12),
-          _TransitionActions(controller: c),
-          const SizedBox(height: 20),
-          _ReleasedContents(controller: c, scene: c.lifeState),
-          const SizedBox(height: 20),
-          Text('模拟状态历史', style: Theme.of(context).textTheme.titleLarge),
-          for (final event in c.lifeStateHistory)
-            ListTile(
-              contentPadding: EdgeInsets.zero,
-              title: Text('${event.from.label} → ${event.to.label}'),
-              subtitle: Text(
-                '${event.reason} · ${DateFormat('yyyy-MM-dd HH:mm').format(event.occurredAt.toLocal())}',
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-}
-
-class _ReleasedContents extends StatelessWidget {
-  const _ReleasedContents({required this.controller, required this.scene});
+/// 按情境列出会被释放的内容；交接预览与独立演示共用。
+class ReleasedContents extends StatelessWidget {
+  const ReleasedContents({
+    super.key,
+    required this.controller,
+    required this.scene,
+  });
   final AppController controller;
   final LifeState scene;
   @override
@@ -233,7 +189,7 @@ class _ReleasedContents extends StatelessWidget {
       return const EmptyState(
         icon: Icons.visibility_off_outlined,
         title: '此情境下没有被授权的信息',
-        message: '新内容默认保持私密；健康状态不向演示执行人释放信息。',
+        message: '未设置的条目保持私密；健康状态不释放任何信息。',
       );
     }
     return Column(
@@ -259,112 +215,4 @@ class _ReleasedContents extends StatelessWidget {
       ],
     );
   }
-}
-
-class _TransitionActions extends StatelessWidget {
-  const _TransitionActions({required this.controller});
-
-  final AppController controller;
-
-  @override
-  Widget build(BuildContext context) {
-    final actions = switch (controller.lifeState) {
-      LifeState.active => [
-        _StateAction(
-          label: '模拟临时失能',
-          icon: Icons.health_and_safety_outlined,
-          onPressed: () =>
-              _confirmTransition(context, LifeState.incapacitated, '人工模拟临时失能'),
-        ),
-        _StateAction(
-          label: '模拟身故',
-          icon: Icons.flag_outlined,
-          onPressed: () =>
-              _confirmTransition(context, LifeState.deceased, '人工模拟身故'),
-        ),
-      ],
-      LifeState.incapacitated => [
-        _StateAction(
-          label: '恢复健康',
-          icon: Icons.favorite_outline,
-          onPressed: () =>
-              _confirmTransition(context, LifeState.active, '从临时失能恢复'),
-        ),
-        _StateAction(
-          label: '转为身故',
-          icon: Icons.flag_outlined,
-          onPressed: () =>
-              _confirmTransition(context, LifeState.deceased, '人工模拟身故'),
-        ),
-      ],
-      LifeState.deceased => [
-        _StateAction(
-          label: '重置演示',
-          icon: Icons.restart_alt,
-          onPressed: () async => runUiAction(
-            context,
-            controller.resetLifeStateSimulation,
-            success: '本机模拟已重置',
-          ),
-        ),
-      ],
-    };
-    return Wrap(
-      spacing: 10,
-      runSpacing: 10,
-      children: actions
-          .map(
-            (action) => FilledButton.tonalIcon(
-              onPressed: controller.isBusy ? null : action.onPressed,
-              icon: Icon(action.icon),
-              label: Text(action.label),
-            ),
-          )
-          .toList(),
-    );
-  }
-
-  Future<void> _confirmTransition(
-    BuildContext context,
-    LifeState target,
-    String reason,
-  ) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: Text('模拟切换到“${target.label}”？'),
-        content: const Text('这只改变本机模拟状态，不会通知他人。'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext, false),
-            child: const Text('取消'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(dialogContext, true),
-            child: const Text('确认模拟'),
-          ),
-        ],
-      ),
-    );
-    if (confirmed ?? false) {
-      if (context.mounted) {
-        await runUiAction(
-          context,
-          () => controller.transitionLifeState(target, reason: reason),
-        );
-      }
-    }
-  }
-}
-
-class _StateAction {
-  const _StateAction({
-    required this.label,
-    required this.icon,
-    required this.onPressed,
-  });
-
-  final String label;
-  final IconData icon;
-  final VoidCallback onPressed;
 }

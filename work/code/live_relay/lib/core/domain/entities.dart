@@ -296,7 +296,7 @@ class ReleasePolicy {
   const ReleasePolicy({
     required this.recordType,
     required this.recordId,
-    this.recipientName = '演示执行人',
+    this.recipientName = '接收者',
     this.incapacitated = VisibilityLevel.hidden,
     this.deceased = VisibilityLevel.hidden,
   });

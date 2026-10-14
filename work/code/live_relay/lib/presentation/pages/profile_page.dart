@@ -14,7 +14,6 @@ import '../widgets/appearance_settings.dart';
 import 'agent_page.dart';
 import 'speech_input_page.dart';
 import 'identity_page.dart';
-import 'recipient_page.dart';
 import 'local_backup_page.dart';
 import 'device_transfer_page.dart';
 
@@ -78,7 +77,6 @@ class _ProfilePageState extends State<ProfilePage> {
               MaterialPageRoute(builder: (_) => const IdentityPage()),
             ),
           ),
-        const RecipientEntryButton(),
         const SizedBox(height: 24),
         if (preferences != null) AppearanceSettings(preferences: preferences),
         const SizedBox(height: 16),

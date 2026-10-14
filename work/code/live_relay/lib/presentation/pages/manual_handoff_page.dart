@@ -205,14 +205,17 @@ class _ManualHandoffPageState extends State<ManualHandoffPage> {
   Widget build(BuildContext context) {
     final controller = context.watch<AppController>();
     if (!controller.isUnlocked) {
-      return const Scaffold(body: Center(child: Text('资料库已锁定')));
+      return Scaffold(
+        appBar: AppBar(title: const Text('接收者与本次交接')),
+        body: const Center(child: Text('资料库已锁定')),
+      );
     }
     return Scaffold(
       appBar: AppBar(title: const Text('接收者与本次交接')),
       body: ListView(
         padding: const EdgeInsets.all(24),
         children: [
-          const Text('此入口执行本人手动授权。生活状态模拟不会触发真实交接。'),
+          const Text('先验证接收者，再选择本次交付范围并导出。'),
           Wrap(
             spacing: 8,
             children: [

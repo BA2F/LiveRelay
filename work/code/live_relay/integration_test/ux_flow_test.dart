@@ -280,12 +280,12 @@ void main() {
       expect(find.text('synthetic-password'), findsOneWidget);
       await tapText('立即遮挡密码');
       await pop();
-      await tapText('打开独立模拟演示');
-      await shot('19-simulation');
-      await tapText('模拟临时失能');
-      await tapText('确认模拟');
+      // 生命状态演练入口只在独立演示 build 中；正式套件直接切换状态用于核对释放内容。
+      await c.transitionLifeState(
+        LifeState.incapacitated,
+        reason: '现场走查：切到临时失能核对释放',
+      );
       await until(() => c.lifeState == LifeState.incapacitated);
-      await pop();
       await tester.pumpAndSettle();
       final policyFuture = showReleasePolicyDialog(
         currentContext(),

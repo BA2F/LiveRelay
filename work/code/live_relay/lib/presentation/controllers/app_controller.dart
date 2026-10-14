@@ -105,6 +105,9 @@ class AppController extends ChangeNotifier implements PreviewSession {
       });
   final LocalHandoffService? handoff;
   final RecipientService? recipient;
+
+  /// 本机是否已有独立接收者身份；正式入口据此决定是否显示接收者入口。
+  bool get recipientExists => recipient?.exists ?? false;
   final VaultSecurityService? _securityService;
   bool get supportsModernSecurity => _securityService != null;
   String get securityProgress => _securityService?.stage ?? '';
@@ -308,6 +311,12 @@ class AppController extends ChangeNotifier implements PreviewSession {
       await _prepareEnvironment();
       await _agentSettings.initialize();
       await _outboundConsent.initialize();
+      try {
+        // 只读取接收者身份是否存在，决定正式入口是否显示接收者入口。
+        await recipient?.initialize();
+      } on Object {
+        /* 接收者身份读取失败不影响所有者资料库。 */
+      }
       try {
         await _speechService?.refresh();
         agentCommandsAvailable = await _agent.commandAvailable();
@@ -830,7 +839,7 @@ class AppController extends ChangeNotifier implements PreviewSession {
       _recordMutation(() => records.transitionLifeState(state, reason: reason));
 
   Future<void> resetLifeStateSimulation() => _recordMutation(
-    () => records.resetLifeStateSimulation(reason: '用户明确重置 MVP 模拟'),
+    () => records.resetLifeStateSimulation(reason: '本人明确重置生活状态'),
   );
 
   List<LifeCard> get executorCards {

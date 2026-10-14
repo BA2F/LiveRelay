@@ -31,6 +31,15 @@ class _GateScaffold extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
+                  if (Navigator.of(context).canPop())
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: TextButton.icon(
+                        onPressed: () => Navigator.of(context).pop(),
+                        icon: const Icon(Icons.arrow_back),
+                        label: const Text('返回'),
+                      ),
+                    ),
                   Align(
                     alignment: Alignment.centerLeft,
                     child: DecoratedBox(
@@ -75,7 +84,7 @@ class SetupVaultPage extends StatefulWidget {
 class _SetupVaultPageState extends State<SetupVaultPage> {
   final _password = TextEditingController();
   final _confirmation = TextEditingController();
-  bool _useGenerator = true;
+  bool _useGenerator = false;
   bool _savedPassphrase = false;
   bool _enableBiometric = true;
   bool _obscure = true;
@@ -170,7 +179,6 @@ class _SetupVaultPageState extends State<SetupVaultPage> {
           const Text(
             '记下资料位置、账号、资产或想交代的事。内容加密保存在本机，默认只有本人可见。请定期导出加密备份，设备丢失后可用口令恢复。',
           ),
-          const RecipientEntryButton(),
           const SizedBox(height: 12),
           OutlinedButton.icon(
             onPressed: controller.isBusy
@@ -192,9 +200,9 @@ class _SetupVaultPageState extends State<SetupVaultPage> {
             spacing: 8,
             runSpacing: 8,
             children: [
-              for (final choice in [true, false])
+              for (final choice in [false, true])
                 ChoiceChip(
-                  label: Text(choice ? '中文词组（推荐）' : '自定密码'),
+                  label: Text(choice ? '中文词组' : '自定密码'),
                   selected: _useGenerator == choice,
                   onSelected: controller.isBusy
                       ? null
@@ -211,7 +219,7 @@ class _SetupVaultPageState extends State<SetupVaultPage> {
           ),
           const SizedBox(height: 18),
           if (_useGenerator) ...[
-            const Text('默认使用 6 个随机词组。保存好口令，汉字或拼音均可解锁。'),
+            const Text('默认使用 6 个随机词组；汉字或拼音均可解锁。'),
             ExpansionTile(
               tilePadding: EdgeInsets.zero,
               title: const Text('高级：口令长度'),
@@ -262,11 +270,6 @@ class _SetupVaultPageState extends State<SetupVaultPage> {
                       ),
                       const SizedBox(height: 8),
                       SelectableText(_generated!.pinyin),
-                      const SizedBox(height: 8),
-                      Text(
-                        '请离线妥善保存这组口令。',
-                        style: Theme.of(context).textTheme.bodySmall,
-                      ),
                     ],
                   ),
                 ),
@@ -286,7 +289,7 @@ class _SetupVaultPageState extends State<SetupVaultPage> {
             decoration: InputDecoration(
               labelText: _useGenerator ? '中文词组口令' : '主密码',
               helperText: _useGenerator
-                  ? (_generated == null ? '点击上方按钮生成口令' : '已生成，请妥善保存')
+                  ? (_generated == null ? '点击上方按钮生成口令' : '已生成')
                   : '至少 ${VaultPasswordPolicy.minimumLength} 个字符，支持中文、字母、数字和符号',
               helperMaxLines: 3,
               errorMaxLines: 2,
@@ -313,8 +316,6 @@ class _SetupVaultPageState extends State<SetupVaultPage> {
               decoration: InputDecoration(
                 labelText: '再次输入主密码',
                 prefixIcon: Icon(Icons.verified_user_outlined),
-                helperText: '请再次输入相同的密码',
-                helperMaxLines: 2,
                 errorMaxLines: 2,
                 errorText:
                     _confirmation.text.isNotEmpty && !_confirmationMatches
@@ -345,7 +346,7 @@ class _SetupVaultPageState extends State<SetupVaultPage> {
                   ? null
                   : (value) => setState(() => _enableBiometric = value),
               title: const Text('启用指纹解锁'),
-              subtitle: const Text('换设备后仍需使用解锁口令'),
+              subtitle: const Text('指纹解锁只对这台设备有效'),
               secondary: const Icon(Icons.fingerprint),
             ),
           ],
@@ -368,12 +369,6 @@ class _SetupVaultPageState extends State<SetupVaultPage> {
               padding: EdgeInsets.symmetric(vertical: 14),
               child: Text('创建并进入资料库'),
             ),
-          ),
-          const SizedBox(height: 12),
-          Text(
-            '创建后即可记录，AI 为可选服务。',
-            textAlign: TextAlign.center,
-            style: Theme.of(context).textTheme.bodySmall,
           ),
         ],
       ),
@@ -458,7 +453,7 @@ class _UnlockVaultPageState extends State<UnlockVaultPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const RecipientEntryButton(),
+          if (controller.recipientExists) const RecipientEntryButton(),
           TextField(
             controller: _password,
             obscureText: _obscure,

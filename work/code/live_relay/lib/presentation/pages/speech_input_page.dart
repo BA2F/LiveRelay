@@ -430,7 +430,7 @@ class SpeechInputPageState extends State<SpeechInputPage> {
               children: [
                 Text(
                   service?.usingRemote == true
-                      ? '音频将发送给独立配置的语音服务：首次上传前确认一次，之后按上面显示的地址与模型直接上传；最长 60 秒，核对文字后回填或保存。'
+                      ? '音频将发送给配置的远程语音服务；每次最长 60 秒，核对文字后回填或保存。'
                       : widget.onTranscript == null
                       ? '录音原件加密保留，识别在本机完成，不上传音频。每次最长 60 秒，核对文字后保存关联草稿。'
                       : '识别在本机完成，不上传音频。每次最长 60 秒；核对后可填入助手，发送时另行确认。',
@@ -454,6 +454,7 @@ class SpeechInputPageState extends State<SpeechInputPage> {
                         child: DropdownButtonFormField<bool>(
                           key: ValueKey(service.usingRemote),
                           initialValue: service.usingRemote,
+                          isExpanded: true,
                           decoration: const InputDecoration(
                             labelText: '语音识别提供方',
                           ),
