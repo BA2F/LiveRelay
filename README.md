@@ -22,20 +22,21 @@
 
 ## 下载和安装
 
-Android 7 / API 24 及以上；另提供 Linux x86_64 完整应用包。安装制品通过 [GitHub Releases](https://github.com/BA2F/LiveRelay/releases) 分发，不放入 Git 源码历史。
+Android 7 / API 24 及以上（发布包为 arm64）；另提供 Linux x86_64 完整应用包。安装制品通过 [GitHub Releases](https://github.com/BA2F/LiveRelay/releases) 分发，不放入 Git 源码历史。
 
 | 里程碑 | 用途 | 发布页 |
 | --- | --- | --- |
-| MVP 0.4 | 当前推荐，真机指纹／Linux兼容修复，Android＋Linux | [下载 APK、Linux 应用与校验文件](https://github.com/BA2F/LiveRelay/releases/tag/mvp-0.4) |
+| v1.0.0-beta.1 | 当前推荐，桌面重建、云端搬运与合并导入；正式签名第一个版本 | [下载 APK、Linux 应用与校验文件](https://github.com/BA2F/LiveRelay/releases/tag/v1.0.0-beta.1) |
+| MVP 0.4 | 上一版（调试证书签名），保留历史附件 | [历史 APK、Linux 应用与校验文件](https://github.com/BA2F/LiveRelay/releases/tag/mvp-0.4) |
 | MVP 0.3 | 上一本机功能版，保留历史附件 | [历史 APK、Linux 应用与校验文件](https://github.com/BA2F/LiveRelay/releases/tag/mvp-0.3) |
 | MVP 0.2 | 上一版侧载包 | [下载 APK 与校验文件](https://github.com/BA2F/LiveRelay/releases/tag/mvp-0.2) |
 | MVP 0.1 | 首个可运行版本的原包归档 | [历史安装包](https://github.com/BA2F/LiveRelay/releases/tag/mvp-0.1) |
 
-下载 APK 和同页的 `SHA256SUMS`，在下载目录执行 `sha256sum -c SHA256SUMS` 核对文件，然后在 Android 设备上安装。MVP 0.4 使用同一正常包名和证书，构建号升为3，可覆盖旧版安装；不要通过卸载来升级，卸载会清理本机资料库。“留灯·联调”verification包与正常发布包分别保留资料。
+下载 APK 和同页的 `SHA256SUMS`，在下载目录执行 `sha256sum -c SHA256SUMS` 核对文件，然后在 Android 设备上安装。**v1.0.0-beta.1 起改用正式签名证书：从 MVP 系列升级需要卸载旧版再装新版，卸载会清除应用内资料库，请先在旧版导出整库备份（含原件），装好后恢复。** 此后各版本可以正常覆盖升级。“留灯·联调”verification 包与正常发布包分别保留资料。
 
-Linux 下载 `LiveRelay-MVP0.4-Linux-x86_64.tar.gz`，解压后运行其中的 `live_relay`；必须保留 `lib/` 和 `data/`，不能只复制可执行文件。新版从Ubuntu22.04／glibc2.35基线构建，解决旧包 `GLIBC_2.38` 要求，已验证Ubuntu22.04启动与EndeavourOS现场语音。Linux录音需parecord／ffmpeg及系统音频服务；服务密钥存储需会话D-Bus和已解锁Secret Service。小米13／Android13指纹启用／解锁修复也已进入新版。依赖、安装及已知缺口见[本版说明](docs/60_quality/releases/mvp-0.4.md)。
+Linux 下载 `LiveRelay-v1.0.0-beta.1-Linux-x86_64.tar.gz`，解压后运行其中的 `live_relay`；必须保留 `lib/` 和 `data/`，不能只复制可执行文件。从 Ubuntu22.04／glibc2.35 基线隔离构建，全部 ELF 的 ABI 已审计，最终包在 Ubuntu22.04 隔离环境完成启动验证。Linux 录音需 parecord／ffmpeg 及系统音频服务；服务密钥存储需会话 D-Bus 和已解锁 Secret Service。依赖、安装及已知缺口见[本版说明](docs/60_quality/releases/v1.0.0-beta.1.md)。
 
-这些 MVP 包标记为预发布，使用 Android Debug 证书供侧载验收。里程碑名称与 APK 内部版本分别记录，详情见 [版本记录](CHANGELOG.md)及各发布页。
+这些包标记为预发布（beta）。APK 内部版本与 Tag 名称分别记录，详情见 [版本记录](CHANGELOG.md)及各发布页。
 
 ## 开始使用
 

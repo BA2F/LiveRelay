@@ -4,10 +4,11 @@
 
 ## 命名和身份
 
-- MVP 里程碑使用 `mvp-X.Y` 标签、`LiveRelay · MVP X.Y` 标题及 `LiveRelay-MVPX.Y-Android.apk` 附件。
-- 正式语义版本使用 `vX.Y.Z`；发布前明确应用版本名及递增的 Android `versionCode`，在 `pubspec.yaml` 或构建参数中设置并记录。Tag 不会自动改变 APK 内部版本。
-- MVP 0.1/0.2 是原包归档例外：两版内部 `1.0.0+1` 保持原样；后续新构建必须递增 Android build number。
-- Linux附件使用 `LiveRelay-MVPX.Y-Linux-x86_64.tar.gz`，归档完整Flutter bundle，保留可执行权限；说明构建发行版／glibc及运行依赖，不能只上传runner。独立demo不混入生产bundle。
+- MVP 里程碑（历史）使用 `mvp-X.Y` 标签、`LiveRelay · MVP X.Y` 标题及 `LiveRelay-MVPX.Y-Android.apk` 附件；该序列已随 v1.0.0-beta.1 结束，保留为固定历史。
+- 语义版本序列使用 `vX.Y.Z`（预发布加后缀如 `-beta.1`）；发布前明确应用版本名及递增的 Android `versionCode`，在 `pubspec.yaml` 或构建参数中设置并记录。Tag 不会自动改变 APK 内部版本。
+- 附件命名随 Tag：`LiveRelay-vX.Y.Z[-pre]-Android.apk`、`LiveRelay-vX.Y.Z[-pre]-Linux-x86_64.tar.gz` 与 `SHA256SUMS`。发布前明确 Android ABI 范围（当前发布包为 arm64 单架构；调试包保留 arm64＋x86_64）。
+- 正式签名自 v1.0.0-beta.1 起使用专用 release keystore（`android/key.properties` 指向仓库外/忽略目录的密钥库）。换签名必须同时说明"须卸载重装并先导出备份"；同一 keystore 丢失即无法再覆盖升级，密钥库与密码须离线备份。
+- Linux附件归档完整Flutter bundle，保留可执行权限；说明构建发行版／glibc及运行依赖，不能只上传runner。独立demo不混入生产bundle。
 - 每个版本记录源码 commit、构建日期、包名、最低/目标 SDK、内部版本、大小、SHA-256、签名证书、验证范围及未验证能力。
 - 已发布 Tag 和附件作为固定历史保留。修正说明可以更新正文；二进制变化创建新版本，不覆盖同名附件或移动 Tag。
 
@@ -55,7 +56,7 @@ gh release create <tag> <apk-path> <checksum-path> \
   --title '<release title>' --notes-file <release-notes-path>
 ```
 
-MVP、Debug 签名或未完成正式验收的包标记为 prerelease。正式发布完成签名与验收后再使用正式发布标记。仓库保持原可见性；发布 Release 不代表改为公开仓库。
+未完成正式验收的包（含 alpha/beta 与 Debug 签名）标记为 prerelease。正式发布完成签名与验收后再使用正式发布标记。仓库保持原可见性；发布 Release 不代表改为公开仓库。
 
 ## 发布后核对
 

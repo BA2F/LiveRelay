@@ -1,6 +1,6 @@
 {
   "repository": "https://github.com/BA2F/LiveRelay",
-  "recordedOn": "2026-10-04",
+  "recordedOn": "2026-10-15",
   "records": [
     {
       "tag": "mvp-0.1",
@@ -148,6 +148,53 @@
         "CXXABI": "1.3.7"
       },
       "verification": "Final source analysis and 13 focused tests; normal Android/Linux release builds; APK manifest, repaired native DEX stages and same v2 certificate; all ELF ABI audit; final Ubuntu22.04 isolated window visible; all 20 Linux runtime files match manually tested EndeavourOS candidate; Android physical security, identity delivery, microphone and DeepSeek field evidence recorded separately; all 3 uploaded asset sizes/digests match local files.",
+      "releaseAttestation": false
+    },
+    {
+      "tag": "v1.0.0-beta.1",
+      "name": "LiveRelay v1.0.0-beta.1 — 桌面重建与合并导入",
+      "url": "https://github.com/BA2F/LiveRelay/releases/tag/v1.0.0-beta.1",
+      "publishedAt": "2026-10-14T16:00:18Z",
+      "buildDate": "2026-10-14",
+      "sourceCommit": "014f28f9c8cf6b27e9febc8fda30b14a475e124c",
+      "provenance": "First beta of the semantic-version series (MVP milestone naming retired). Android release built arm64-only from committed source 014f28f, application 1.0.0-beta.1+4, first release signed with the dedicated release key; older releases used the debug certificate, so upgrading from them requires uninstall/reinstall with an exported backup. Linux built inside an isolated Ubuntu 22.04.5 base rootfs from the verified script, full-ELF ABI audit plus an Xvfb smoke launch of the final bundle. Annotated tag is fixed at sourceCommit.",
+      "prerelease": true,
+      "packageName": "app.liverelay.live_relay",
+      "versionName": "1.0.0-beta.1",
+      "versionCode": 4,
+      "minSdk": 24,
+      "targetSdk": 36,
+      "signatureScheme": "v2",
+      "signingCertificate": "CN=LiveRelay (dedicated release key)",
+      "certificateSha256": "7dee1b1faa8904777869b634f5fc2e50cfe4acb32e09543201476d8e14531cc7",
+      "androidAbi": "arm64-v8a",
+      "apk": {
+        "fileName": "LiveRelay-v1.0.0-beta.1-Android.apk",
+        "bytes": 76379522,
+        "sha256": "31d74276a05d72040e6cd78e6f7ff3c90ca6a67d330da1d7df1b9fcc012610fb",
+        "downloadUrl": "https://github.com/BA2F/LiveRelay/releases/download/v1.0.0-beta.1/LiveRelay-v1.0.0-beta.1-Android.apk"
+      },
+      "linux": {
+        "fileName": "LiveRelay-v1.0.0-beta.1-Linux-x86_64.tar.gz",
+        "bytes": 57767914,
+        "sha256": "381698a6e769ddcffca75053803e2e8f95db79e709b4aaa5d823a9756f5a9b61",
+        "downloadUrl": "https://github.com/BA2F/LiveRelay/releases/download/v1.0.0-beta.1/LiveRelay-v1.0.0-beta.1-Linux-x86_64.tar.gz"
+      },
+      "checksumFile": {
+        "fileName": "SHA256SUMS",
+        "bytes": 212,
+        "sha256": "e02eb9f85ffd791d158ac076d16eac212b274ea78f8f84bcea21d6bf57673451",
+        "downloadUrl": "https://github.com/BA2F/LiveRelay/releases/download/v1.0.0-beta.1/SHA256SUMS"
+      },
+      "linuxArchitecture": "x86_64",
+      "linuxBuildDistribution": "Ubuntu22.04",
+      "linuxBuildGlibc": "2.35",
+      "linuxMaximumAbi": {
+        "GLIBC": "2.34",
+        "GLIBCXX": "3.4.29",
+        "CXXABI": "1.3"
+      },
+      "verification": "314 automated tests and desktop native suites (workbench 16, startup, close, transfer) passed; phone (Xiaomi 13) and emulator manual walkthroughs; APK manifest, single-ABI contents, and v2 certificate checked with aapt2/apksigner; full-ELF ABI audit of the Linux bundle (no debugger metadata); isolated Ubuntu 22.04 Xvfb smoke launch of the final bundle (app alive, Impeller and media_kit loaded; secret-service warning expected without a keyring); all 3 uploaded asset sizes/digests match local files. Windows, formal security review and more hardware remain unverified.",
       "releaseAttestation": false
     }
   ]
