@@ -5,9 +5,8 @@ import 'package:provider/provider.dart';
 
 import '../controllers/app_controller.dart';
 import '../../application/app_preferences.dart';
-import '../../application/device_capabilities.dart';
+import '../../l10n/app_localizations.dart';
 import '../dialogs/backup_dialogs.dart';
-import '../dialogs/capability_dialog.dart';
 import '../widgets/appearance_settings.dart';
 import 'gate_page.dart';
 import 'recipient_page.dart';
@@ -37,11 +36,24 @@ class _OnboardingPageState extends State<OnboardingPage> {
       }
     } on Object {
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(const SnackBar(content: Text('无法保存设置，请重试')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(AppLocalizations.of(context).onboardingSaveFailed)),
+        );
       }
     } finally {
       if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _switchLanguage(AppLanguage language) async {
+    try {
+      await context.read<AppPreferences>().setLanguage(language);
+    } on Object {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(AppLocalizations.of(context).onboardingSaveFailed)),
+        );
+      }
     }
   }
 
@@ -49,6 +61,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
   Widget build(BuildContext context) {
     final preferences = context.watch<AppPreferences>();
     final controller = context.watch<AppController>();
+    final l10n = AppLocalizations.of(context);
     return Scaffold(
       body: SafeArea(
         child: Center(
@@ -62,33 +75,37 @@ class _OnboardingPageState extends State<OnboardingPage> {
                   const Center(child: LiveRelayLogo(size: 64)),
                   const SizedBox(height: 24),
                   Text(
-                    '欢迎使用留灯',
+                    l10n.onboardingWelcome,
                     style: Theme.of(context).textTheme.headlineLarge,
                   ),
                   const SizedBox(height: 8),
-                  Text('设置 ${_step + 1} / 3'),
+                  Text(l10n.onboardingStep(_step + 1)),
                   const SizedBox(height: 24),
                   if (_step == 0) ...[
-                    Text('选择语言', style: Theme.of(context).textTheme.titleLarge),
+                    Text(
+                      l10n.onboardingChooseLanguage,
+                      style: Theme.of(context).textTheme.titleLarge,
+                    ),
                     const SizedBox(height: 12),
-                    const ListTile(
-                      title: Text('简体中文'),
-                      trailing: Icon(Icons.check),
+                    ListTile(
+                      title: const Text('简体中文'),
+                      trailing: preferences.language == AppLanguage.zh
+                          ? const Icon(Icons.check)
+                          : null,
+                      onTap: () => _switchLanguage(AppLanguage.zh),
                     ),
                     ListTile(
                       title: const Text('English'),
-                      subtitle: const Text('Coming later'),
-                      onTap: () => showCapabilityMessage(
-                        context,
-                        'English',
-                        controller.capability(AppFeature.english),
-                      ),
+                      trailing: preferences.language == AppLanguage.en
+                          ? const Icon(Icons.check)
+                          : null,
+                      onTap: () => _switchLanguage(AppLanguage.en),
                     ),
                   ] else if (_step == 1)
                     AppearanceSettings(preferences: preferences)
                   else ...[
                     Text(
-                      '你的资料库',
+                      l10n.onboardingYourVault,
                       style: Theme.of(context).textTheme.titleLarge,
                     ),
                     const SizedBox(height: 20),
@@ -97,7 +114,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
                           ? null
                           : () => _openVault(false),
                       icon: const Icon(Icons.add),
-                      label: const Text('创建资料库'),
+                      label: Text(l10n.onboardingCreate),
                     ),
                     const SizedBox(height: 12),
                     OutlinedButton.icon(
@@ -105,7 +122,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
                           ? null
                           : () => _openVault(true),
                       icon: const Icon(Icons.settings_backup_restore),
-                      label: const Text('恢复已有资料库'),
+                      label: Text(l10n.onboardingRestore),
                     ),
                     const SizedBox(height: 20),
                     const RecipientEntryButton(),
@@ -114,14 +131,14 @@ class _OnboardingPageState extends State<OnboardingPage> {
                   if (_step < 2)
                     FilledButton(
                       onPressed: () => setState(() => _step++),
-                      child: const Text('继续'),
+                      child: Text(l10n.onboardingContinue),
                     ),
                   if (_step > 0)
                     TextButton(
                       onPressed: _busy || controller.isBusy
                           ? null
                           : () => setState(() => _step--),
-                      child: const Text('返回'),
+                      child: Text(l10n.back),
                     ),
                 ],
               ),
@@ -136,41 +153,47 @@ class _OnboardingPageState extends State<OnboardingPage> {
 class FinishSetupPage extends StatelessWidget {
   const FinishSetupPage({super.key});
   @override
-  Widget build(BuildContext context) => Scaffold(
-    body: SafeArea(
-      child: Center(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24),
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 480),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                const Icon(Icons.check_circle_outline, size: 64),
-                const SizedBox(height: 24),
-                Text('准备好了', style: Theme.of(context).textTheme.headlineLarge),
-                const SizedBox(height: 12),
-                const Text('资料保存在本机。记得把加密备份另存到设备外，并妥善保存解锁口令。'),
-                const SizedBox(height: 24),
-                FilledButton(
-                  onPressed: () async {
-                    try {
-                      await context.read<AppPreferences>().finishOnboarding();
-                    } on Object {
-                      if (context.mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('设置未保存，请重试')),
-                        );
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    return Scaffold(
+      body: SafeArea(
+        child: Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(24),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 480),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  const Icon(Icons.check_circle_outline, size: 64),
+                  const SizedBox(height: 24),
+                  Text(
+                    l10n.finishReady,
+                    style: Theme.of(context).textTheme.headlineLarge,
+                  ),
+                  const SizedBox(height: 12),
+                  Text(l10n.finishMessage),
+                  const SizedBox(height: 24),
+                  FilledButton(
+                    onPressed: () async {
+                      try {
+                        await context.read<AppPreferences>().finishOnboarding();
+                      } on Object {
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text(l10n.settingsSaveFailed)),
+                          );
+                        }
                       }
-                    }
-                  },
-                  child: const Text('开始使用'),
-                ),
-              ],
+                    },
+                    child: Text(l10n.finishStart),
+                  ),
+                ],
+              ),
             ),
           ),
         ),
       ),
-    ),
-  );
+    );
+  }
 }

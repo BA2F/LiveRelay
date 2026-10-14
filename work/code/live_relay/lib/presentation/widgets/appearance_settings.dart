@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../application/app_preferences.dart';
+import '../../l10n/app_localizations.dart';
 
 class AppearanceSettings extends StatelessWidget {
   const AppearanceSettings({super.key, required this.preferences});
@@ -13,68 +14,83 @@ class AppearanceSettings extends StatelessWidget {
       await action();
     } on Object {
       if (context.mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(const SnackBar(content: Text('设置未保存，请重试')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(AppLocalizations.of(context).settingsSaveFailed)),
+        );
       }
     }
   }
 
   @override
-  Widget build(BuildContext context) => ListenableBuilder(
-    listenable: preferences,
-    builder: (context, _) => Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Text('外观', style: Theme.of(context).textTheme.titleLarge),
-        const SizedBox(height: 8),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: [
-            for (final mode in AppearanceMode.values)
-              ChoiceChip(
-                label: Text(switch (mode) {
-                  AppearanceMode.system => '跟随系统',
-                  AppearanceMode.light => '浅色',
-                  AppearanceMode.dark => '深色',
-                }),
-                selected: preferences.appearance == mode,
-                onSelected: (_) =>
-                    _save(context, () => preferences.setAppearance(mode: mode)),
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    return ListenableBuilder(
+      listenable: preferences,
+      builder: (context, _) => Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(l10n.appearanceTitle, style: Theme.of(context).textTheme.titleLarge),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              for (final mode in AppearanceMode.values)
+                ChoiceChip(
+                  label: Text(switch (mode) {
+                    AppearanceMode.system => l10n.appearanceSystem,
+                    AppearanceMode.light => l10n.appearanceLight,
+                    AppearanceMode.dark => l10n.appearanceDark,
+                  }),
+                  selected: preferences.appearance == mode,
+                  onSelected: (_) => _save(
+                    context,
+                    () => preferences.setAppearance(mode: mode),
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: 20),
+          Text(l10n.readingSizeTitle, style: Theme.of(context).textTheme.titleLarge),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              for (final size in ReadingSize.values)
+                ChoiceChip(
+                  label: Text(
+                    size == ReadingSize.medium
+                        ? l10n.readingSizeMedium
+                        : l10n.readingSizeLarge,
+                  ),
+                  selected: preferences.readingSize == size,
+                  onSelected: (_) => _save(
+                    context,
+                    () => preferences.setAppearance(size: size),
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: 20),
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    l10n.brandName,
+                    style: Theme.of(context).textTheme.titleLarge,
+                  ),
+                  const SizedBox(height: 8),
+                  Text(l10n.brandTagline),
+                ],
               ),
-          ],
-        ),
-        const SizedBox(height: 20),
-        Text('文字大小', style: Theme.of(context).textTheme.titleLarge),
-        const SizedBox(height: 8),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: [
-            for (final size in ReadingSize.values)
-              ChoiceChip(
-                label: Text(size == ReadingSize.medium ? '中等（默认）' : '大'),
-                selected: preferences.readingSize == size,
-                onSelected: (_) =>
-                    _save(context, () => preferences.setAppearance(size: size)),
-              ),
-          ],
-        ),
-        const SizedBox(height: 20),
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('留灯', style: Theme.of(context).textTheme.titleLarge),
-                const SizedBox(height: 8),
-                const Text('把重要信息留在你能掌控的地方。'),
-              ],
             ),
           ),
-        ),
-      ],
-    ),
-  );
+        ],
+      ),
+    );
+  }
 }

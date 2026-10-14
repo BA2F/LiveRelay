@@ -9,6 +9,7 @@ import '../controllers/app_controller.dart';
 import '../../application/recipient_service.dart';
 import '../../core/identity/local_identity.dart';
 import '../../core/domain/entities.dart';
+import '../../l10n/app_localizations.dart';
 import '../model_labels.dart';
 import '../dialogs/local_file_dialogs.dart';
 
@@ -35,7 +36,7 @@ class RecipientEntryButton extends StatelessWidget {
       : TextButton.icon(
           onPressed: () => openRecipientEntry(context),
           icon: const Icon(Icons.mark_email_read_outlined),
-          label: const Text('我是接收者 · 打开独立只读资料库'),
+          label: Text(AppLocalizations.of(context).recipientEntry),
         );
 }
 

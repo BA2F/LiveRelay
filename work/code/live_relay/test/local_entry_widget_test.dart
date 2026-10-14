@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
 import 'package:live_relay/application/app_controller.dart';
 import 'package:live_relay/core/ports/development_controls.dart';
+import 'package:live_relay/l10n/app_localizations.dart';
 import 'package:live_relay/presentation/pages/profile_page.dart';
 
 import 'ux_widget_test.dart' show SnapshotController;
@@ -27,7 +28,11 @@ void main() {
             ChangeNotifierProvider<AppController>.value(value: c),
             Provider<DevelopmentControls>.value(value: demo),
           ],
-          child: const MaterialApp(home: Scaffold(body: ProfilePage())),
+          child: MaterialApp(
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            home: const Scaffold(body: ProfilePage()),
+          ),
         ),
       );
       await tester.scrollUntilVisible(find.text('1.0.0'), 200);
@@ -44,7 +49,11 @@ void main() {
       await tester.pumpWidget(
         ChangeNotifierProvider<AppController>.value(
           value: c,
-          child: const MaterialApp(home: Scaffold(body: ProfilePage())),
+          child: MaterialApp(
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            home: const Scaffold(body: ProfilePage()),
+          ),
         ),
       );
       await tester.scrollUntilVisible(find.text('1.0.0'), 200);

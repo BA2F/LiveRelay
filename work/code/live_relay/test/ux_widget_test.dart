@@ -13,6 +13,7 @@ import 'package:live_relay/application/vault_content_service.dart';
 import 'package:live_relay/application/vault_records_application.dart';
 import 'package:live_relay/application/vault_backup_service.dart';
 import 'package:live_relay/application/vault_merge_service.dart';
+import 'package:live_relay/l10n/app_localizations.dart';
 import 'package:live_relay/application/device_transfer_service.dart';
 import 'package:live_relay/application/transfer/webdav_connection_service.dart';
 import 'package:live_relay/core/ports/webdav_connection_repository.dart';
@@ -158,6 +159,9 @@ Widget app(
   value: c,
   child: MaterialApp(
     theme: dark ? LiveRelayTheme.dark() : LiveRelayTheme.light(),
+    locale: const Locale('zh', 'CN'),
+    supportedLocales: AppLocalizations.supportedLocales,
+    localizationsDelegates: AppLocalizations.localizationsDelegates,
     builder: (context, child) => MediaQuery(
       data: MediaQuery.of(context)
           .copyWith(textScaler: TextScaler.linear(scale), viewInsets: insets),

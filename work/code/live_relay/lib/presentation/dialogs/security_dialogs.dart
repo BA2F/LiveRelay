@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 
 import '../controllers/app_controller.dart';
 import '../../core/security/owner_crypto.dart';
+import '../../l10n/app_localizations.dart';
 
 Future<Uint8List?> pickSecurityKeyFile() async {
   final item = await FilePicker.pickFile();
@@ -63,53 +64,56 @@ class _RecoveryConfirmationState extends State<_RecoveryConfirmation> {
   }
 
   @override
-  Widget build(BuildContext context) => AlertDialog(
-    title: const Text('保存独立恢复凭证'),
-    content: SizedBox(
-      width: 480,
-      child: SingleChildScrollView(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text('此凭证可以绕过日常解锁条件并重设整库安全设置。请单独离线保存；丢失后无法代为找回。'),
-            const SizedBox(height: 16),
-            SelectableText(widget.text),
-            TextButton.icon(
-              onPressed: copyRecovery,
-              icon: const Icon(Icons.copy),
-              label: const Text('复制恢复凭证'),
-            ),
-            CheckboxListTile(
-              contentPadding: EdgeInsets.zero,
-              value: saved,
-              onChanged: (v) => setState(() => saved = v!),
-              title: const Text('我已单独保存恢复凭证'),
-            ),
-            TextField(
-              controller: check,
-              onChanged: (_) => setState(() {}),
-              autocorrect: false,
-              enableSuggestions: false,
-              decoration: const InputDecoration(labelText: '完整回输凭证确认'),
-            ),
-          ],
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    return AlertDialog(
+      title: Text(l10n.recoveryTitle),
+      content: SizedBox(
+        width: 480,
+        child: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(l10n.recoveryWarning),
+              const SizedBox(height: 16),
+              SelectableText(widget.text),
+              TextButton.icon(
+                onPressed: copyRecovery,
+                icon: const Icon(Icons.copy),
+                label: Text(l10n.recoveryCopy),
+              ),
+              CheckboxListTile(
+                contentPadding: EdgeInsets.zero,
+                value: saved,
+                onChanged: (v) => setState(() => saved = v!),
+                title: Text(l10n.recoverySavedCheck),
+              ),
+              TextField(
+                controller: check,
+                onChanged: (_) => setState(() {}),
+                autocorrect: false,
+                enableSuggestions: false,
+                decoration: InputDecoration(labelText: l10n.recoveryConfirmField),
+              ),
+            ],
+          ),
         ),
       ),
-    ),
-    actions: [
-      TextButton(
-        onPressed: () => Navigator.pop(context),
-        child: const Text('取消'),
-      ),
-      FilledButton(
-        onPressed: saved && check.text == widget.text
-            ? () => Navigator.pop(context, widget.text)
-            : null,
-        child: const Text('已确认，继续'),
-      ),
-    ],
-  );
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: Text(l10n.cancel),
+        ),
+        FilledButton(
+          onPressed: saved && check.text == widget.text
+              ? () => Navigator.pop(context, widget.text)
+              : null,
+          child: Text(l10n.recoveryConfirmed),
+        ),
+      ],
+    );
+  }
 }
 
 Future<void> beginIndependentRecovery(

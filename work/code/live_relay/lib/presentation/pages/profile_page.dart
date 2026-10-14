@@ -8,6 +8,7 @@ import '../../core/ports/development_controls.dart';
 import '../controllers/app_controller.dart';
 import '../../application/app_preferences.dart';
 import '../../application/device_capabilities.dart';
+import '../../l10n/app_localizations.dart';
 import '../dialogs/capability_dialog.dart';
 import '../dialogs/vault_settings_dialog.dart';
 import '../widgets/appearance_settings.dart';
@@ -42,10 +43,23 @@ class _ProfilePageState extends State<ProfilePage> {
     }
   }
 
+  Future<void> _setLanguage(BuildContext context, AppLanguage language) async {
+    try {
+      await context.read<AppPreferences>().setLanguage(language);
+    } on Object {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(AppLocalizations.of(context).settingsSaveFailed)),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final controller = context.watch<AppController>();
     final preferences = context.watch<AppPreferences?>();
+    final l10n = AppLocalizations.of(context);
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
@@ -82,34 +96,37 @@ class _ProfilePageState extends State<ProfilePage> {
         const SizedBox(height: 16),
         ListTile(
           leading: const Icon(Icons.language),
-          title: const Text('语言'),
-          subtitle: const Text('简体中文'),
+          title: Text(l10n.languageTitle),
+          subtitle: Text(
+            preferences?.language == AppLanguage.en ? 'English' : '简体中文',
+          ),
           onTap: () => showDialog<void>(
             context: context,
-            builder: (context) => AlertDialog(
-              title: const Text('语言'),
+            builder: (dialogContext) => AlertDialog(
+              title: Text(AppLocalizations.of(dialogContext).languageTitle),
               content: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const ListTile(
-                    title: Text('简体中文'),
-                    trailing: Icon(Icons.check),
+                  ListTile(
+                    title: const Text('简体中文'),
+                    trailing: preferences?.language == AppLanguage.zh
+                        ? const Icon(Icons.check)
+                        : null,
+                    onTap: () => _setLanguage(dialogContext, AppLanguage.zh),
                   ),
                   ListTile(
                     title: const Text('English'),
-                    subtitle: const Text('Coming later'),
-                    onTap: () => showCapabilityMessage(
-                      context,
-                      'English',
-                      controller.capability(AppFeature.english),
-                    ),
+                    trailing: preferences?.language == AppLanguage.en
+                        ? const Icon(Icons.check)
+                        : null,
+                    onTap: () => _setLanguage(dialogContext, AppLanguage.en),
                   ),
                 ],
               ),
               actions: [
                 TextButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: const Text('完成'),
+                  onPressed: () => Navigator.pop(dialogContext),
+                  child: Text(AppLocalizations.of(dialogContext).done),
                 ),
               ],
             ),

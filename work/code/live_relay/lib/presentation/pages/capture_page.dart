@@ -14,6 +14,7 @@ import 'package:record/record.dart';
 import '../controllers/app_controller.dart';
 import '../../application/device_capabilities.dart';
 import '../../core/domain/entities.dart';
+import '../../l10n/app_localizations.dart';
 import '../design_system/atoms.dart';
 import '../dialogs/card_dialogs.dart';
 import '../dialogs/capability_dialog.dart';
@@ -29,6 +30,7 @@ class CapturePage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final controller = context.watch<AppController>();
+    final l10n = AppLocalizations.of(context);
     final recent = controller.cards.take(5).toList();
     return RefreshIndicator(
       onRefresh: () => runUiAction(context, controller.refresh),
@@ -36,16 +38,19 @@ class CapturePage extends StatelessWidget {
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
         children: [
-          Text('先记下来', style: Theme.of(context).textTheme.headlineSmall),
+          Text(
+            l10n.captureTitle,
+            style: Theme.of(context).textTheme.headlineSmall,
+          ),
           const SizedBox(height: 6),
-          const Text('重要的事，之后再慢慢整理。'),
+          Text(l10n.captureSubtitle),
           const SizedBox(height: 16),
           FilledButton.icon(
             onPressed: controller.isBusy
                 ? null
                 : () => showCardEditor(context, controller),
             icon: const Icon(Icons.add),
-            label: const Text('记一条'),
+            label: Text(l10n.captureNewCard),
           ),
           const SizedBox(height: 8),
           Wrap(
@@ -61,14 +66,14 @@ class CapturePage extends StatelessWidget {
                         BlobMediaKind.image,
                       ),
                 icon: const Icon(Icons.photo_camera_outlined),
-                label: const Text('拍照'),
+                label: Text(l10n.captureCamera),
               ),
               OutlinedButton.icon(
                 onPressed: controller.isBusy
                     ? null
                     : () => _recordAudio(context, controller),
                 icon: const Icon(Icons.mic_outlined),
-                label: const Text('录音'),
+                label: Text(l10n.captureRecordAudio),
               ),
               OutlinedButton.icon(
                 onPressed: controller.isBusy
@@ -77,14 +82,14 @@ class CapturePage extends StatelessWidget {
                         MaterialPageRoute(builder: (_) => const AgentPage()),
                       ),
                 icon: const Icon(Icons.auto_awesome_outlined),
-                label: const Text('Agent 整理'),
+                label: Text(l10n.captureAgent),
               ),
               OutlinedButton.icon(
                 onPressed: controller.isBusy
                     ? null
                     : () => _showMore(context, controller),
                 icon: const Icon(Icons.more_horiz),
-                label: const Text('更多'),
+                label: Text(l10n.captureMore),
               ),
             ],
           ),
@@ -92,13 +97,13 @@ class CapturePage extends StatelessWidget {
           Card(
             child: ListTile(
               leading: const Icon(Icons.fact_check_outlined),
-              title: Text('待整理 · ${controller.insights.drafts} 条'),
-              subtitle: const Text('核对草稿、补充信息，再由本人确认'),
+              title: Text(l10n.captureDraftTile(controller.insights.drafts)),
+              subtitle: Text(l10n.captureDraftSubtitle),
               trailing: const Icon(Icons.chevron_right),
               onTap: () => Navigator.of(context).push<void>(
                 MaterialPageRoute(
                   builder: (_) => Scaffold(
-                    appBar: AppBar(title: const Text('待整理')),
+                    appBar: AppBar(title: Text(l10n.captureDraftTitle)),
                     body: const CardsPage(initialStatus: CardStatus.draft),
                   ),
                 ),
@@ -108,13 +113,13 @@ class CapturePage extends StatelessWidget {
           const SizedBox(height: 24),
           if (controller.lastError != null) ErrorBanner(controller.lastError!),
           PageSection(
-            title: '最近记录',
-            subtitle: '已加密保存在本机 · 按最近修改排序',
+            title: l10n.captureRecent,
+            subtitle: l10n.captureRecentSubtitle,
             child: recent.isEmpty
-                ? const EmptyState(
+                ? EmptyState(
                     icon: Icons.inbox_outlined,
-                    title: '还没有记录',
-                    message: '记下的内容会出现在这里。',
+                    title: l10n.captureEmptyTitle,
+                    message: l10n.captureEmptyMessage,
                   )
                 : Column(
                     children: [
@@ -135,13 +140,13 @@ class CapturePage extends StatelessWidget {
               MaterialPageRoute(builder: (_) => const OriginalsPage()),
             ),
             icon: const Icon(Icons.folder_open),
-            label: Text('全部原件 · ${controller.blobs.length} 个'),
+            label: Text(l10n.captureAllOriginals(controller.blobs.length)),
           ),
           if (controller.insights.stale > 0)
             ListTile(
               leading: const Icon(Icons.update),
-              title: Text('${controller.insights.stale} 张卡片超过半年未确认'),
-              subtitle: const Text('打开卡片核对，旧来源和历史会保留。'),
+              title: Text(l10n.captureStale(controller.insights.stale)),
+              subtitle: Text(l10n.captureStaleSubtitle),
             ),
         ],
       ),
@@ -149,6 +154,7 @@ class CapturePage extends StatelessWidget {
   }
 
   Future<void> _showMore(BuildContext context, AppController controller) async {
+    final l10n = AppLocalizations.of(context);
     final action = await showModalBottomSheet<String>(
       context: context,
       useSafeArea: true,
@@ -158,10 +164,10 @@ class CapturePage extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             for (final item in [
-              ('image', '导入照片', Icons.add_photo_alternate_outlined),
-              ('audio', '导入录音', Icons.audio_file_outlined),
-              ('video', '导入录像', Icons.video_file_outlined),
-              ('camera', '现场录像', Icons.videocam_outlined),
+              ('image', l10n.captureImportPhoto, Icons.add_photo_alternate_outlined),
+              ('audio', l10n.captureImportAudio, Icons.audio_file_outlined),
+              ('video', l10n.captureImportVideo, Icons.video_file_outlined),
+              ('camera', l10n.captureRecordVideo, Icons.videocam_outlined),
             ])
               ListTile(
                 leading: Icon(item.$3),
@@ -207,14 +213,20 @@ class CapturePage extends StatelessWidget {
         mediaKind: kind,
       );
       if (context.mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(const SnackBar(content: Text('原始资料已加密保存，并建立来源卡片')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(AppLocalizations.of(context).captureSavedOriginal)),
+        );
       }
     } on Object {
       if (context.mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(controller.lastError ?? '导入失败')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              controller.lastError ??
+                  AppLocalizations.of(context).captureImportFailed,
+            ),
+          ),
+        );
       }
     } finally {
       try {
@@ -233,9 +245,10 @@ class CapturePage extends StatelessWidget {
   ) async {
     final capability = controller.capability(AppFeature.camera);
     if (!capability.isAvailable) {
+      final l10n = AppLocalizations.of(context);
       await showCapabilityMessage(
         context,
-        kind == BlobMediaKind.image ? '拍照' : '录像',
+        kind == BlobMediaKind.image ? l10n.captureCamera : l10n.captureVideo,
         capability,
       );
       return;
@@ -267,14 +280,20 @@ class CapturePage extends StatelessWidget {
         mediaKind: kind,
       );
       if (context.mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(const SnackBar(content: Text('现场采集已加密保存，并建立来源卡片')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(AppLocalizations.of(context).captureSavedCapture)),
+        );
       }
     } on Object {
       if (context.mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(controller.lastError ?? '采集失败')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              controller.lastError ??
+                  AppLocalizations.of(context).captureCaptureFailed,
+            ),
+          ),
+        );
       }
     } finally {
       final temporary = File(captured.path);
@@ -297,6 +316,7 @@ class CapturePage extends StatelessWidget {
     final file = File(recordedPath);
     final navigator = Navigator.of(context);
     final messenger = ScaffoldMessenger.of(context);
+    final l10n = AppLocalizations.of(context);
     final name = '录音-${_captureStamp()}.wav';
     try {
       final saved = await controller.importOriginal(
@@ -311,11 +331,11 @@ class CapturePage extends StatelessWidget {
       // 采集只有这一次保存；转写是保存之后的独立动作，识别结果再单独存草稿。
       messenger.showSnackBar(
         SnackBar(
-          content: const Text('录音已加密保存，并建立来源卡片'),
+          content: Text(l10n.captureSavedRecording),
           action: controller.speech == null || blobId == null
               ? null
               : SnackBarAction(
-                  label: '转写为文字',
+                  label: l10n.captureTranscribe,
                   onPressed: () {
                     navigator.push<void>(
                       MaterialPageRoute(
@@ -332,8 +352,10 @@ class CapturePage extends StatelessWidget {
       );
     } on Object {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(controller.lastError ?? '录音保存失败')),
+        messenger.showSnackBar(
+          SnackBar(
+            content: Text(controller.lastError ?? l10n.captureRecordFailed),
+          ),
         );
       }
     } finally {
@@ -400,13 +422,14 @@ class _AudioRecorderSheetState extends State<_AudioRecorderSheet> {
   }
 
   Future<void> _start() async {
+    final l10n = AppLocalizations.of(context);
     setState(() {
       _busy = true;
       _error = null;
     });
     try {
       if (!await _recorder.hasPermission()) {
-        throw const FormatException('未获得麦克风权限');
+        throw FormatException(l10n.recorderNoPermission);
       }
       final directory = await privateCacheDirectory();
       final output = path.join(
@@ -453,6 +476,7 @@ class _AudioRecorderSheetState extends State<_AudioRecorderSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final minutes = _elapsed.inMinutes.toString().padLeft(2, '0');
     final seconds = (_elapsed.inSeconds % 60).toString().padLeft(2, '0');
     return Padding(
@@ -467,11 +491,11 @@ class _AudioRecorderSheetState extends State<_AudioRecorderSheet> {
           ),
           const SizedBox(height: 12),
           Text(
-            _recording ? '$minutes:$seconds' : '录制一段原始语音',
+            _recording ? '$minutes:$seconds' : l10n.recorderTitle,
             style: Theme.of(context).textTheme.headlineSmall,
           ),
           const SizedBox(height: 8),
-          const Text('录音会加密保存，最长 60 秒；保存后可转写为文字。'),
+          Text(l10n.recorderHint),
           if (_error != null) ...[
             const SizedBox(height: 12),
             Text(
@@ -485,7 +509,7 @@ class _AudioRecorderSheetState extends State<_AudioRecorderSheet> {
               Expanded(
                 child: OutlinedButton(
                   onPressed: _busy ? null : _cancel,
-                  child: const Text('取消'),
+                  child: Text(l10n.recorderCancel),
                 ),
               ),
               const SizedBox(width: 12),
@@ -495,7 +519,7 @@ class _AudioRecorderSheetState extends State<_AudioRecorderSheet> {
                   icon: Icon(
                     _recording ? Icons.stop : Icons.fiber_manual_record,
                   ),
-                  label: Text(_recording ? '停止并保存' : '开始录音'),
+                  label: Text(_recording ? l10n.recorderStop : l10n.recorderStart),
                 ),
               ),
             ],

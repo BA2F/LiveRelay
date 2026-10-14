@@ -14,12 +14,15 @@ class AppPreferences extends ChangeNotifier {
   late final StreamSubscription<DevicePreferences> _subscription;
   AppearanceMode get appearance => runtime.state.appearance;
   ReadingSize get readingSize => runtime.state.readingSize;
+  AppLanguage get language => runtime.state.language;
   bool get onboardingStarted => runtime.state.onboardingStarted;
   bool get onboardingComplete => runtime.state.onboardingComplete;
   Future<void> load({required bool hasExistingVault}) =>
       runtime.load(hasExistingVault: hasExistingVault);
   Future<void> setAppearance({AppearanceMode? mode, ReadingSize? size}) =>
       runtime.setAppearance(mode: mode, size: size);
+  Future<void> setLanguage(AppLanguage language) =>
+      runtime.setLanguage(language);
   Future<void> beginOnboarding() => runtime.beginOnboarding();
   Future<void> finishOnboarding() => runtime.finishOnboarding();
   @override

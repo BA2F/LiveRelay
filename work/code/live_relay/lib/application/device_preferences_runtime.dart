@@ -38,6 +38,7 @@ class DevicePreferencesRuntime {
       loaded = DevicePreferences(
         appearance: loaded.appearance,
         readingSize: loaded.readingSize,
+        language: loaded.language,
         onboardingComplete: true,
       );
     }
@@ -46,18 +47,22 @@ class DevicePreferencesRuntime {
   });
   Future<void> setAppearance({AppearanceMode? mode, ReadingSize? size}) =>
       _save(mode: mode, size: size);
+  Future<void> setLanguage(AppLanguage language) =>
+      _save(language: language);
   Future<void> beginOnboarding() => _save(started: true);
   Future<void> finishOnboarding() => _save(started: true, complete: true);
 
   Future<void> _save({
     AppearanceMode? mode,
     ReadingSize? size,
+    AppLanguage? language,
     bool? started,
     bool? complete,
   }) => _enqueue(() async {
     final next = DevicePreferences(
       appearance: mode ?? state.appearance,
       readingSize: size ?? state.readingSize,
+      language: language ?? state.language,
       onboardingStarted: started ?? state.onboardingStarted,
       onboardingComplete: complete ?? state.onboardingComplete,
     );

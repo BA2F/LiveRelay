@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:provider/provider.dart';
 
 import 'controllers/app_controller.dart';
 import '../application/app_preferences.dart';
+import '../l10n/app_localizations.dart';
 import 'design_system/app_theme.dart';
 import 'pages/gate_page.dart';
 import 'pages/security_settings_page.dart';
@@ -19,11 +19,14 @@ class LiveRelayApp extends StatelessWidget {
   Widget build(BuildContext context) {
     final preferences = context.watch<AppPreferences?>();
     return MaterialApp(
-      title: '留灯 LiveRelay',
+      onGenerateTitle: (context) => AppLocalizations.of(context).appTitle,
       navigatorKey: navigatorKey,
-      locale: const Locale('zh', 'CN'),
-      supportedLocales: const [Locale('zh', 'CN')],
-      localizationsDelegates: GlobalMaterialLocalizations.delegates,
+      locale: switch (preferences?.language) {
+        AppLanguage.en => const Locale('en'),
+        _ => const Locale('zh', 'CN'),
+      },
+      supportedLocales: AppLocalizations.supportedLocales,
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
       debugShowCheckedModeBanner: false,
       theme: LiveRelayTheme.light(),
       darkTheme: LiveRelayTheme.dark(),
@@ -61,7 +64,7 @@ class LiveRelayApp extends StatelessWidget {
                 ? const FinishSetupPage()
                 : const HomeShell(),
           VaultSessionState.failure => FailurePage(
-            message: controller.lastError ?? '初始化失败',
+            message: controller.lastError ?? AppLocalizations.of(context).appInitFailed,
           ),
         },
       ),
@@ -100,7 +103,7 @@ class FailurePage extends StatelessWidget {
                 ),
                 const SizedBox(height: 20),
                 Text(
-                  '无法打开留灯',
+                  AppLocalizations.of(context).appCannotOpen,
                   style: Theme.of(context).textTheme.headlineSmall,
                 ),
                 const SizedBox(height: 12),

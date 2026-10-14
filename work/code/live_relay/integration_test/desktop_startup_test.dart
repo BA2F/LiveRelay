@@ -162,6 +162,7 @@ void main() {
           'version',
           'appearance',
           'readingSize',
+          'language',
           'onboardingStarted',
           'onboardingComplete',
         });

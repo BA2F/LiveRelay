@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 import '../controllers/app_controller.dart';
 import '../../core/security/chinese_passphrase.dart';
 import '../../core/security/vault_password_policy.dart';
+import '../../l10n/app_localizations.dart';
 import '../design_system/atoms.dart';
 import '../dialogs/backup_dialogs.dart';
 import '../dialogs/security_dialogs.dart';
@@ -21,6 +22,7 @@ class _GateScaffold extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final l10n = AppLocalizations.of(context);
     return Scaffold(
       body: SafeArea(
         child: Center(
@@ -37,7 +39,7 @@ class _GateScaffold extends StatelessWidget {
                       child: TextButton.icon(
                         onPressed: () => Navigator.of(context).pop(),
                         icon: const Icon(Icons.arrow_back),
-                        label: const Text('返回'),
+                        label: Text(l10n.back),
                       ),
                     ),
                   Align(
@@ -47,16 +49,19 @@ class _GateScaffold extends StatelessWidget {
                         color: scheme.primaryContainer,
                         borderRadius: BorderRadius.circular(24),
                       ),
-                      child: Padding(
-                        padding: const EdgeInsets.all(18),
-                        child: const LiveRelayLogo(size: 38),
+                      child: const Padding(
+                        padding: EdgeInsets.all(18),
+                        child: LiveRelayLogo(size: 38),
                       ),
                     ),
                   ),
                   const SizedBox(height: 24),
-                  Text('留灯', style: Theme.of(context).textTheme.displaySmall),
                   Text(
-                    'LiveRelay · 把重要信息留在你能掌控的地方',
+                    l10n.brandName,
+                    style: Theme.of(context).textTheme.displaySmall,
+                  ),
+                  Text(
+                    l10n.gateTagline,
                     style: Theme.of(context).textTheme.bodyLarge
                         ?.copyWith(color: scheme.onSurfaceVariant),
                   ),
@@ -121,20 +126,21 @@ class _SetupVaultPageState extends State<SetupVaultPage> {
   }
 
   Future<void> _submit(AppController controller) async {
+    final l10n = AppLocalizations.of(context);
     if (!_useGenerator && !_passwordValid) return;
     if (!_savedPassphrase) {
       ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('请先确认已妥善保存口令')));
+          .showSnackBar(SnackBar(content: Text(l10n.setupSaveFirst)));
       return;
     }
     if (!_useGenerator && _password.text != _confirmation.text) {
       ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('两次输入的主密码不一致')));
+          .showSnackBar(SnackBar(content: Text(l10n.setupMismatch)));
       return;
     }
     if (_useGenerator && _generated == null) {
       ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('请先生成中文词组口令')));
+          .showSnackBar(SnackBar(content: Text(l10n.setupGenerateFirst)));
       return;
     }
     try {
@@ -163,7 +169,10 @@ class _SetupVaultPageState extends State<SetupVaultPage> {
       }
     } on Object {
       if (mounted) {
-        setState(() => _creationError = controller.lastError ?? '资料库未创建，请重试');
+        setState(
+          () => _creationError =
+              controller.lastError ?? AppLocalizations.of(context).setupCreateFailed,
+        );
       }
     }
   }
@@ -171,21 +180,20 @@ class _SetupVaultPageState extends State<SetupVaultPage> {
   @override
   Widget build(BuildContext context) {
     final controller = context.watch<AppController>();
+    final l10n = AppLocalizations.of(context);
     return _GateScaffold(
-      title: '创建你的加密资料库',
+      title: l10n.setupTitle,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const Text(
-            '记下资料位置、账号、资产或想交代的事。内容加密保存在本机，默认只有本人可见。请定期导出加密备份，设备丢失后可用口令恢复。',
-          ),
+          Text(l10n.setupIntro),
           const SizedBox(height: 12),
           OutlinedButton.icon(
             onPressed: controller.isBusy
                 ? null
                 : () => restoreFromBackup(context, controller),
             icon: const Icon(Icons.settings_backup_restore),
-            label: const Text('已有加密备份？从备份恢复'),
+            label: Text(l10n.setupRestore),
           ),
           const SizedBox(height: 8),
           OutlinedButton.icon(
@@ -193,7 +201,7 @@ class _SetupVaultPageState extends State<SetupVaultPage> {
                 ? null
                 : () => importFromMediumFlow(context, controller),
             icon: const Icon(Icons.import_export),
-            label: const Text('从介质导入（设备间搬运，整库替换）'),
+            label: Text(l10n.setupImportMedium),
           ),
           const SizedBox(height: 16),
           Wrap(
@@ -202,7 +210,9 @@ class _SetupVaultPageState extends State<SetupVaultPage> {
             children: [
               for (final choice in [false, true])
                 ChoiceChip(
-                  label: Text(choice ? '中文词组' : '自定密码'),
+                  label: Text(
+                    choice ? l10n.setupChipPhrase : l10n.setupChipCustom,
+                  ),
                   selected: _useGenerator == choice,
                   onSelected: controller.isBusy
                       ? null
@@ -219,14 +229,14 @@ class _SetupVaultPageState extends State<SetupVaultPage> {
           ),
           const SizedBox(height: 18),
           if (_useGenerator) ...[
-            const Text('默认使用 6 个随机词组；汉字或拼音均可解锁。'),
+            Text(l10n.setupPhraseHint),
             ExpansionTile(
               tilePadding: EdgeInsets.zero,
-              title: const Text('高级：口令长度'),
+              title: Text(l10n.setupAdvancedLength),
               children: [
                 Row(
                   children: [
-                    const Text('词数'),
+                    Text(l10n.setupWordCountLabel),
                     Expanded(
                       child: Slider(
                         value: _wordCount.toDouble(),
@@ -246,7 +256,7 @@ class _SetupVaultPageState extends State<SetupVaultPage> {
                               }),
                       ),
                     ),
-                    Text('$_wordCount 个'),
+                    Text(l10n.setupWordCountValue(_wordCount)),
                   ],
                 ),
               ],
@@ -254,7 +264,7 @@ class _SetupVaultPageState extends State<SetupVaultPage> {
             OutlinedButton.icon(
               onPressed: controller.isBusy ? null : () => _generate(controller),
               icon: const Icon(Icons.auto_awesome),
-              label: const Text('安全生成一组口令'),
+              label: Text(l10n.setupGenerate),
             ),
             if (_generated != null) ...[
               const SizedBox(height: 12),
@@ -287,10 +297,16 @@ class _SetupVaultPageState extends State<SetupVaultPage> {
               _creationError = null;
             }),
             decoration: InputDecoration(
-              labelText: _useGenerator ? '中文词组口令' : '主密码',
+              labelText: _useGenerator
+                  ? l10n.setupPhraseLabel
+                  : l10n.setupPasswordLabel,
               helperText: _useGenerator
-                  ? (_generated == null ? '点击上方按钮生成口令' : '已生成')
-                  : '至少 ${VaultPasswordPolicy.minimumLength} 个字符，支持中文、字母、数字和符号',
+                  ? (_generated == null
+                        ? l10n.setupPhraseHelperEmpty
+                        : l10n.setupPhraseHelperGenerated)
+                  : l10n.setupPasswordHelper(
+                      VaultPasswordPolicy.minimumLength,
+                    ),
               helperMaxLines: 3,
               errorMaxLines: 2,
               errorText: !_useGenerator && _password.text.isNotEmpty
@@ -298,14 +314,14 @@ class _SetupVaultPageState extends State<SetupVaultPage> {
                   : null,
               prefixIcon: const Icon(Icons.key),
               suffixIcon: IconButton(
-                tooltip: _obscure ? '显示口令' : '遮挡口令',
+                tooltip: _obscure ? l10n.setupShow : l10n.setupHide,
                 onPressed: () => setState(() => _obscure = !_obscure),
                 icon: Icon(_obscure ? Icons.visibility : Icons.visibility_off),
               ),
             ),
           ),
           if (!_useGenerator && _passwordValid)
-            const _ValidationCheck('密码长度符合要求'),
+            _ValidationCheck(l10n.setupLengthOk),
           const SizedBox(height: 12),
           if (!_useGenerator)
             TextField(
@@ -314,17 +330,17 @@ class _SetupVaultPageState extends State<SetupVaultPage> {
               enabled: !controller.isBusy,
               onChanged: (_) => setState(() => _creationError = null),
               decoration: InputDecoration(
-                labelText: '再次输入主密码',
-                prefixIcon: Icon(Icons.verified_user_outlined),
+                labelText: l10n.setupConfirmLabel,
+                prefixIcon: const Icon(Icons.verified_user_outlined),
                 errorMaxLines: 2,
                 errorText:
                     _confirmation.text.isNotEmpty && !_confirmationMatches
-                    ? '两次输入的密码不一致'
+                    ? l10n.setupMismatch
                     : null,
               ),
             ),
           if (!_useGenerator && _confirmationMatches)
-            const _ValidationCheck('两次输入一致'),
+            _ValidationCheck(l10n.setupConfirmOk),
           CheckboxListTile(
             contentPadding: EdgeInsets.zero,
             value: _savedPassphrase,
@@ -334,8 +350,8 @@ class _SetupVaultPageState extends State<SetupVaultPage> {
                     _savedPassphrase = value ?? false;
                     _creationError = null;
                   }),
-            title: const Text('我已妥善保存口令'),
-            subtitle: const Text('口令无法找回。换设备后需要口令才能解锁。'),
+            title: Text(l10n.setupSavedCheck),
+            subtitle: Text(l10n.setupSavedSubtitle),
           ),
           if (controller.biometricAvailable) ...[
             const SizedBox(height: 8),
@@ -345,8 +361,8 @@ class _SetupVaultPageState extends State<SetupVaultPage> {
               onChanged: controller.isBusy
                   ? null
                   : (value) => setState(() => _enableBiometric = value),
-              title: const Text('启用指纹解锁'),
-              subtitle: const Text('指纹解锁只对这台设备有效'),
+              title: Text(l10n.setupBiometric),
+              subtitle: Text(l10n.setupBiometricSubtitle),
               secondary: const Icon(Icons.fingerprint),
             ),
           ],
@@ -365,9 +381,9 @@ class _SetupVaultPageState extends State<SetupVaultPage> {
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
                 : const Icon(Icons.lock_outline),
-            label: const Padding(
-              padding: EdgeInsets.symmetric(vertical: 14),
-              child: Text('创建并进入资料库'),
+            label: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 14),
+              child: Text(l10n.setupSubmit),
             ),
           ),
         ],
@@ -445,11 +461,12 @@ class _UnlockVaultPageState extends State<UnlockVaultPage> {
   @override
   Widget build(BuildContext context) {
     final controller = context.watch<AppController>();
+    final l10n = AppLocalizations.of(context);
     final canUseBiometric =
         controller.biometricAvailable &&
         (controller.header?.biometricEnabled ?? false);
     return _GateScaffold(
-      title: '解锁你的加密资料库',
+      title: l10n.unlockTitle,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -462,11 +479,11 @@ class _UnlockVaultPageState extends State<UnlockVaultPage> {
             onSubmitted: (_) => _unlock(controller),
             decoration: InputDecoration(
               labelText: controller.header?.usesChinesePassphrase ?? false
-                  ? '中文词组或拼音'
-                  : '主密码',
+                  ? l10n.unlockFieldPhrase
+                  : l10n.setupPasswordLabel,
               prefixIcon: const Icon(Icons.key),
               suffixIcon: IconButton(
-                tooltip: _obscure ? '显示口令' : '遮挡口令',
+                tooltip: _obscure ? l10n.setupShow : l10n.setupHide,
                 onPressed: () => setState(() => _obscure = !_obscure),
                 icon: Icon(_obscure ? Icons.visibility : Icons.visibility_off),
               ),
@@ -489,9 +506,9 @@ class _UnlockVaultPageState extends State<UnlockVaultPage> {
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
                 : const Icon(Icons.lock_open),
-            label: const Padding(
-              padding: EdgeInsets.symmetric(vertical: 14),
-              child: Text('解锁'),
+            label: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 14),
+              child: Text(l10n.unlockButton),
             ),
           ),
           const SizedBox(height: 12),
@@ -500,7 +517,7 @@ class _UnlockVaultPageState extends State<UnlockVaultPage> {
                 ? null
                 : () => restoreFromBackup(context, controller),
             icon: const Icon(Icons.settings_backup_restore),
-            label: const Text('从加密备份恢复'),
+            label: Text(l10n.unlockRestore),
           ),
           const SizedBox(height: 8),
           OutlinedButton.icon(
@@ -508,7 +525,7 @@ class _UnlockVaultPageState extends State<UnlockVaultPage> {
                 ? null
                 : () => importFromMediumFlow(context, controller),
             icon: const Icon(Icons.import_export),
-            label: const Text('从介质导入（设备间搬运，整库替换）'),
+            label: Text(l10n.setupImportMedium),
           ),
           if (controller.header?.keyFileEnabled == true)
             OutlinedButton.icon(
@@ -517,14 +534,14 @@ class _UnlockVaultPageState extends State<UnlockVaultPage> {
                   : () =>
                         unlockWithKeyFile(context, controller, _password.text),
               icon: const Icon(Icons.description_outlined),
-              label: const Text('使用密钥文件解锁'),
+              label: Text(l10n.unlockKeyFile),
             ),
           if (controller.header?.recoveryEnabled == true)
             TextButton(
               onPressed: controller.isBusy
                   ? null
                   : () => beginIndependentRecovery(context, controller),
-              child: const Text('忘记密码？使用独立恢复凭证'),
+              child: Text(l10n.unlockRecovery),
             ),
           if (canUseBiometric) ...[
             const SizedBox(height: 12),
@@ -533,9 +550,9 @@ class _UnlockVaultPageState extends State<UnlockVaultPage> {
                   ? null
                   : () => _unlockBiometric(controller),
               icon: const Icon(Icons.fingerprint),
-              label: const Padding(
-                padding: EdgeInsets.symmetric(vertical: 12),
-                child: Text('使用指纹解锁'),
+              label: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                child: Text(l10n.unlockBiometric),
               ),
             ),
           ],
