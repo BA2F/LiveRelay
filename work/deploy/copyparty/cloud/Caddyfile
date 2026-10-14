@@ -1,0 +1,7 @@
+# 把 drive.example.com 换成你自己的域名（A 记录指向这台服务器），
+# Caddy 会自动申请和续期 Let's Encrypt 证书。
+# 申请证书需要 80/443 端口可从公网访问；先用域名解析测试可用 Caddy 的 staging 环境避免限流。
+
+drive.example.com {
+    reverse_proxy copyparty:3923
+}

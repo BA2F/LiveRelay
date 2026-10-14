@@ -1,0 +1,19 @@
+# LiveRelay 自建云盘（1:1）：局域网或自用的 WebDAV 云盘
+# 启动：docker compose up -d      查看日志：docker compose logs -f
+# 说明见 ../README.md
+
+services:
+  copyparty:
+    # 本地验证所用版本；若拉取失败改成 copyparty/ac:latest
+    image: copyparty/ac:1.20.25
+    container_name: liverelay-drive
+    restart: unless-stopped
+    ports:
+      - "3923:3923"
+    environment:
+      PRTY_CONFIG: /cfg/copyparty.conf
+    volumes:
+      - ./copyparty.conf:/cfg/copyparty.conf:ro
+      - ./data:/data
+    # 2C2G 小机器上给服务一个内存上限，防意外吃满
+    mem_limit: 512m
