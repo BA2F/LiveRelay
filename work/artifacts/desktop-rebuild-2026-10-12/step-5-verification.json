@@ -1,0 +1,53 @@
+{
+  "date": "2026-10-14",
+  "branch": "codex/desktop-rebuild",
+  "step": "二期夜间批次：B 模式修订合并 + 体验清理 + 手机端自查",
+  "fixtureOnly": true,
+  "commits": {
+    "mergeEngine": "10000e7 B 模式合并引擎（计划模型、规划器、服务、仓库计划应用、往返测试）",
+    "experienceCleanup": "5054c62 共享 UI 体验清理（模拟清理、提示最小化、密码优先、接收者入口、搜索选择器、demo 库升级）",
+    "phoneShell": "67696ec 手机外壳自查（下拉溢出、锁定态返回、空态双入口）",
+    "wiringAndAttach": "80c08ff B 模式接线与附件直加（导入选择与报告、标记徽标与横幅、attach-to-card）"
+  },
+  "analyze": "flutter analyze 无问题（每批提交前各跑一次）",
+  "unitTests": "flutter test 314 项通过，2 跳过（基线 298；新增：合并引擎单测 11、引擎往返 3、控制器级往返 2）",
+  "nativeSuites": {
+    "desktop_workbench_test": "16 项通过（flutter test -d linux）",
+    "desktop_startup_test": "1 项通过（隔离 XDG_DATA_HOME/TMPDIR + LIVERELAY_STARTUP_ROOT）",
+    "desktop_close_test": "flutter drive 通过",
+    "transfer_desktop_test": "1 项通过"
+  },
+  "build": "flutter build linux --debug --target lib/main.dart 成功（正常客户端重建）",
+  "bModeDecisions": {
+    "trigger": "扫描包 vaultId == 本机 vaultId 且已解锁时导入界面可选合并；异血统显示说明并只能替换",
+    "cardMerge": "修订链按 (number, 内容指纹) 求共同前缀；单边延伸 fast-forward 续号；分叉追加对方段（changeNote「来自另一台设备：」前缀）+ reaffirm（「合并：暂保留本机版」）并标记；采用删除按方向分支",
+    "markers": "workbench.merge.v1（version 1，{version, conflicts: {cardId: {foreignHead, mergedAt, foreignDeleted?, localDeleted?}}}），foreignHead 为合并后编号可直接喂 restoreCardRevision",
+    "resolution": "横幅「采用另一台设备的版本」=restoreCardRevision+清标记；「按另一台设备删除」=trashCard+清标记；本机删除场景=restoreCard+restoreCardRevision+清标记；用户直接编辑或恢复修订=产生新修订+清标记",
+    "blobs": "本机 ∪ 对方；同钥密文直拷、异钥 copyBlobUnderKey 重加密、同密文留用、包内 omitted 并入 backup.missing（带对方 key/snapshot）",
+    "unmerged": "密码条目、身份/接收者/交接资料、发布策略、生命状态历史、Agent 计划与会话、工作台状态（引用除外）、transfer 索引"
+  },
+  "extensionsBeyondCharter": {
+    "relationsUnion": "card_relations 拆分/组合关系按并集导入（口径未覆盖；否则对方独有子卡丢结构）",
+    "localDeleted": "本机删除+对方修改=保持删除+对方分叉段续进历史+标记（口径只定义对方删除方向），标记 foreignHead 供恢复后采用",
+    "registerBlobRow": "拆分 registerBlob：新端口方法只登记 blob 行不建卡（附件直加闭环的引擎原语）"
+  },
+  "foundAndFixedDuringBuild": {
+    "stageManifestView": "LifeVaultArchive.stage() 的 manifestBytes 是入参 buffer 视图，提前 wipe 会让 verifyAuthentication 失败；合并服务全程持有输入、外层 finally 才 wipe（既有 C 模式因 wipe 时机在末尾未暴露）",
+    "referBlobValidation": "setCardOriginals 只接受已在 encrypted_blobs 表登记的原件；附件直加据此走 registerBlobRow 而非 importOriginal（后者会制草稿卡）",
+    "uxFlowDeadReference": "ux_flow_test 依赖已迁走的模拟入口，改为直接 transitionLifeState",
+    "releasePolicyDefault": "ReleasePolicy.recipientName 默认值「演示执行人」改「接收者」"
+  },
+  "knownDebt": [
+    "未解决前再次合并会重复追加对方分叉段（口径一次性前缀规则所致，无损但重复）",
+    "异钥（轮换后 epoch 不同）合并没有端到端测试（走与 C 模式相同的 copyBlobUnderKey 原语）",
+    "关系并集仅仓库级测试，未做控制器级",
+    "附件直加为「写文件+登记」两步，引用更新失败会留一个未关联原件（可在管理原件引用里补挂）；严格单事务需另加 repo 级方法",
+    "拖拽与选文件按钮无 UI 级自动化（desktop_drop 平台事件与系统对话框 headless 驱不动）",
+    "合并标记缓存在用户编辑后由控制器维护；confirmCard 路径不清标记（口径未提及）"
+  ],
+  "unverified": [
+    "B 模式与体验清理的人工走查（列表徽标、横幅动作、导入选择对话框、附件拖放的实际手感）",
+    "demo（林晚舟）演练页点击走查（仅构建与启动冒烟）",
+    "手机端安装与实际设备走查（本批不做）"
+  ]
+}
