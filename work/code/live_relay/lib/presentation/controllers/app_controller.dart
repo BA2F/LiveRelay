@@ -11,6 +11,8 @@ import '../../application/recipient_service.dart';
 import '../../application/vault_security_service.dart';
 import '../../application/device_transfer_service.dart';
 import '../../application/transfer/transfer_models.dart';
+import '../../application/transfer/webdav_connection_service.dart';
+import '../../core/transfer/webdav_connection.dart';
 import '../../core/security/recovery_credential.dart';
 import '../../application/draft_agent_service.dart';
 import 'speech_service.dart';
@@ -53,6 +55,7 @@ class AppController extends ChangeNotifier implements PreviewSession {
     required this._session,
     required this._backup,
     required this._transfer,
+    required this._webDav,
     required this._content,
     required this._agentSettings,
     required this._outboundConsent,
@@ -192,6 +195,7 @@ class AppController extends ChangeNotifier implements PreviewSession {
   final VaultSession _session;
   final VaultBackupService _backup;
   final DeviceTransferService _transfer;
+  final WebDavConnectionService _webDav;
   final VaultContentService _content;
   final AgentSettingsService _agentSettings;
   final OutboundConsentService _outboundConsent;
@@ -451,6 +455,13 @@ class AppController extends ChangeNotifier implements PreviewSession {
     });
     return report;
   }
+
+  /// Device-local cloud drive connection; read-only and cheap after the
+  /// first load, so it stays outside the busy gate.
+  Future<WebDavConnection?> webDavConnection() => _webDav.current();
+  Future<void> saveWebDavConnection(WebDavConnection connection) =>
+      _run(() => _webDav.save(connection));
+  Future<void> clearWebDavConnection() => _run(() => _webDav.clear());
 
   Future<void> lock() async {
     cancelAgentTask();

@@ -6,20 +6,52 @@ import '../../application/app_controller.dart';
 import '../../application/transfer/transfer_models.dart';
 import '../../core/domain/entities.dart';
 import '../../core/ports/transfer_medium.dart';
+import '../../core/transfer/webdav_connection.dart';
 import '../../infrastructure/transfer/directory_transfer_medium.dart';
 import '../../infrastructure/transfer/file_set_transfer_medium.dart';
+import '../../infrastructure/transfer/webdav_transfer_medium.dart';
 import 'backup_dialogs.dart';
 import 'local_file_dialogs.dart';
 
-/// Opens a medium for the transfer flows: a directory when it is writable
-/// through dart:io, otherwise a user-picked file set. Android SAF tree paths
-/// usually come back as strings dart:io cannot write, which is exactly the
-/// case the fallback covers.
+/// Opens a medium for the transfer flows. With a cloud connection configured
+/// the caller first picks between the cloud drive and a local directory; the
+/// local path is a directory when it is writable through dart:io, otherwise a
+/// user-picked file set. Android SAF tree paths usually come back as strings
+/// dart:io cannot write, which is exactly the case the fallback covers.
 Future<TransferMedium?> openTransferMedium(
-  BuildContext context, {
+  BuildContext context,
+  AppController controller, {
   required String title,
   required bool forExport,
 }) async {
+  final connection = await controller.webDavConnection();
+  if (!context.mounted) return null;
+  if (connection != null) {
+    final useCloud = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => SimpleDialog(
+        title: const Text('选择介质'),
+        children: [
+          SimpleDialogOption(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: Text('云端 · ${connection.describe}'),
+          ),
+          SimpleDialogOption(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('本地目录（U 盘 / 局域网盘 / 挂载目录）'),
+          ),
+        ],
+      ),
+    );
+    if (useCloud == null || !context.mounted) return null;
+    if (useCloud) {
+      return WebDavTransferMedium(
+        baseUrl: connection.baseUrl,
+        username: connection.username,
+        password: connection.password,
+      );
+    }
+  }
   final directory = await pickLocalDirectory(title: title);
   if (directory == null) return null;
   if (await DirectoryTransferMedium.probeWritable(directory)) {
@@ -60,6 +92,237 @@ Future<TransferMedium?> openTransferMedium(
   ]);
 }
 
+/// Configures or clears the device-local cloud drive connection. The
+/// entered values can be checked against the server before saving.
+Future<void> showWebDavConnectionDialog(
+  BuildContext context,
+  AppController controller,
+) async {
+  final messenger = ScaffoldMessenger.of(context);
+  final existing = await controller.webDavConnection();
+  if (!context.mounted) return;
+  final result = await showDialog<_ConnectionEdit>(
+    context: context,
+    builder: (_) => _WebDavConnectionDialog(existing: existing),
+  );
+  if (result == null || !context.mounted) return;
+  try {
+    if (result.clear) {
+      await controller.clearWebDavConnection();
+      if (messenger.mounted) {
+        messenger.showSnackBar(const SnackBar(content: Text('云端连接已清除')));
+      }
+      return;
+    }
+    final connection = WebDavConnection.parse(
+      url: result.url,
+      username: result.username,
+      password: result.password,
+    );
+    if (connection == null) return;
+    await controller.saveWebDavConnection(connection);
+    if (messenger.mounted) {
+      messenger.showSnackBar(
+        SnackBar(content: Text('云端连接已保存：${connection.describe}')),
+      );
+    }
+  } on Object {
+    if (messenger.mounted) {
+      messenger.showSnackBar(
+        SnackBar(content: Text(controller.lastError ?? '云端连接保存失败')),
+      );
+    }
+  }
+}
+
+class _ConnectionEdit {
+  const _ConnectionEdit({
+    required this.url,
+    required this.username,
+    required this.password,
+  }) : clear = false;
+
+  const _ConnectionEdit.clear()
+    : url = '',
+      username = '',
+      password = '',
+      clear = true;
+
+  final String url;
+  final String username;
+  final String password;
+  final bool clear;
+}
+
+class _WebDavConnectionDialog extends StatefulWidget {
+  const _WebDavConnectionDialog({this.existing});
+
+  final WebDavConnection? existing;
+
+  @override
+  State<_WebDavConnectionDialog> createState() =>
+      _WebDavConnectionDialogState();
+}
+
+class _WebDavConnectionDialogState extends State<_WebDavConnectionDialog> {
+  late final TextEditingController url = TextEditingController(
+    text: widget.existing?.baseUrl.toString() ?? '',
+  );
+  late final TextEditingController username = TextEditingController(
+    text: widget.existing?.username ?? '',
+  );
+  late final TextEditingController password = TextEditingController(
+    text: widget.existing?.password ?? '',
+  );
+  String? error;
+  String? checkMessage;
+  var checking = false;
+
+  @override
+  void dispose() {
+    url.dispose();
+    username.dispose();
+    password.dispose();
+    super.dispose();
+  }
+
+  Future<void> check() async {
+    final validation = WebDavConnection.validationError(
+      url: url.text,
+      username: username.text,
+      password: password.text,
+    );
+    if (validation != null) {
+      setState(() => error = validation);
+      return;
+    }
+    final connection = WebDavConnection.parse(
+      url: url.text,
+      username: username.text,
+      password: password.text,
+    )!;
+    setState(() {
+      checking = true;
+      error = null;
+      checkMessage = null;
+    });
+    final medium = WebDavTransferMedium(
+      baseUrl: connection.baseUrl,
+      username: connection.username,
+      password: connection.password,
+      timeout: const Duration(seconds: 15),
+    );
+    try {
+      final entries = await medium.list();
+      if (mounted) {
+        setState(
+          () => checkMessage = '连接成功：云端目录里现有 ${entries.length} 个文件',
+        );
+      }
+    } on Object catch (failure) {
+      if (mounted) setState(() => checkMessage = '$failure');
+    } finally {
+      medium.close();
+      if (mounted) setState(() => checking = false);
+    }
+  }
+
+  void save() {
+    final validation = WebDavConnection.validationError(
+      url: url.text,
+      username: username.text,
+      password: password.text,
+    );
+    if (validation != null) {
+      setState(() => error = validation);
+      return;
+    }
+    Navigator.pop(
+      context,
+      _ConnectionEdit(
+        url: url.text,
+        username: username.text,
+        password: password.text,
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('云端连接（WebDAV）'),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const Text('填服务商或自建服务给你的网址、账号和密码。密码只保存在这台设备上，不进入加密库、不随整库搬运。'),
+            const SizedBox(height: 12),
+            TextField(
+              controller: url,
+              autofocus: true,
+              enabled: !checking,
+              decoration: const InputDecoration(
+                labelText: '网址（含路径，如 https://drive.example.com/alice/）',
+              ),
+            ),
+            TextField(
+              controller: username,
+              enabled: !checking,
+              decoration: const InputDecoration(labelText: '账号'),
+            ),
+            TextField(
+              controller: password,
+              obscureText: true,
+              enabled: !checking,
+              onSubmitted: (_) => save(),
+              decoration: const InputDecoration(labelText: '密码'),
+            ),
+            if (error != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Text(
+                  error!,
+                  style: TextStyle(color: Theme.of(context).colorScheme.error),
+                ),
+              ),
+            if (checkMessage != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Text(checkMessage!),
+              ),
+            if (checking) const Padding(
+              padding: EdgeInsets.only(top: 8),
+              child: LinearProgressIndicator(),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        if (widget.existing != null)
+          TextButton(
+            onPressed: checking
+                ? null
+                : () => Navigator.pop(context, const _ConnectionEdit.clear()),
+            child: const Text('清除'),
+          ),
+        TextButton(
+          onPressed: checking ? null : check,
+          child: const Text('测试连接'),
+        ),
+        TextButton(
+          onPressed: checking ? null : () => Navigator.pop(context),
+          child: const Text('取消'),
+        ),
+        FilledButton(
+          onPressed: checking ? null : save,
+          child: const Text('保存'),
+        ),
+      ],
+    );
+  }
+}
+
 /// Exports the whole vault to a chosen medium directory: the database package
 /// is rewritten, originals ride in append-only volumes.
 Future<void> exportToMediumFlow(
@@ -70,6 +333,7 @@ Future<void> exportToMediumFlow(
   try {
     final medium = await openTransferMedium(
       context,
+      controller,
       title: '选择介质目录（U 盘 / 局域网盘 / WebDAV 挂载目录）',
       forExport: true,
     );
@@ -123,6 +387,7 @@ Future<void> importFromMediumFlow(
   try {
     final medium = await openTransferMedium(
       context,
+      controller,
       title: '选择介质目录（U 盘 / 局域网盘 / WebDAV 挂载目录）',
       forExport: false,
     );
@@ -212,6 +477,7 @@ Future<void> topUpOriginalsFromMediumFlow(
   try {
     final medium = await openTransferMedium(
       context,
+      controller,
       title: '选择介质目录（U 盘 / 局域网盘 / WebDAV 挂载目录）',
       forExport: false,
     );

@@ -13,6 +13,9 @@ import 'package:live_relay/application/vault_content_service.dart';
 import 'package:live_relay/application/vault_records_application.dart';
 import 'package:live_relay/application/vault_backup_service.dart';
 import 'package:live_relay/application/device_transfer_service.dart';
+import 'package:live_relay/application/transfer/webdav_connection_service.dart';
+import 'package:live_relay/core/ports/webdav_connection_repository.dart';
+import 'package:live_relay/core/transfer/webdav_connection.dart';
 import 'package:live_relay/infrastructure/backup/life_vault_archive.dart';
 
 import 'support/session_fakes.dart';
@@ -34,6 +37,15 @@ VaultBackupService snapshotBackup(VaultSession session) => VaultBackupService(
   archive: LifeVaultArchiveService(),
   restoreTransaction: () => throw UnsupportedError('UI snapshot only'),
 );
+
+class _NoConnection implements WebDavConnectionRepository {
+  @override
+  Future<WebDavConnection?> read() async => null;
+  @override
+  Future<void> write(WebDavConnection connection) async {}
+  @override
+  Future<void> clear() async {}
+}
 
 class SnapshotController extends AppController {
   SnapshotController() : this._(fixtureSession());
@@ -67,6 +79,7 @@ class SnapshotController extends AppController {
           backup: snapshotBackup(session),
           archive: LifeVaultArchiveService(),
         ),
+        webDav: WebDavConnectionService(_NoConnection()),
         content: content,
         agent: AgentService(
           vault: session,
@@ -168,6 +181,8 @@ void main() {
         find.widgetWithText(OutlinedButton, '从介质补齐原件（当前无欠件）'),
       );
       expect(topUpButton.onPressed, isNull);
+      expect(find.text('云端：未配置'), findsOneWidget);
+      expect(find.text('配置云端'), findsOneWidget);
       await tester.pumpWidget(const SizedBox());
       c.dispose();
     },

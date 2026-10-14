@@ -19,6 +19,8 @@ import '../application/agent/conversation_application.dart';
 import '../core/ports/ai_settings_repository.dart';
 import '../application/vault_backup_service.dart';
 import '../application/device_transfer_service.dart';
+import '../application/transfer/webdav_connection_service.dart';
+import 'transfer/webdav_connection_store.dart';
 import '../application/vault_session.dart';
 import '../application/vault_snapshot_query.dart';
 import '../application/vault_content_service.dart';
@@ -125,6 +127,7 @@ AppController createAppController([
     ),
   );
   final transfer = DeviceTransferService(backup: backup, archive: archive);
+  final webDav = WebDavConnectionService(WebDavConnectionStore());
   final selectedAi = aiProvider ?? ConfiguredAiProvider();
   final speech =
       speechService ??
@@ -189,6 +192,7 @@ AppController createAppController([
     ),
     backup: backup,
     transfer: transfer,
+    webDav: webDav,
     content: content,
     agentSettings: agentSettings,
     outboundConsent: outboundConsent,

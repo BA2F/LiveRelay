@@ -2,11 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../application/transfer/transfer_models.dart';
+import '../../core/transfer/webdav_connection.dart';
 import '../controllers/app_controller.dart';
 import '../dialogs/transfer_dialogs.dart';
 
 /// C-mode device transfer（「整库搬运」）: export the whole vault to a
-/// directory that acts as the medium, import it back on the other device.
+/// directory (or the configured cloud drive) that acts as the medium, import
+/// it back on the other device.
 class DeviceTransferPage extends StatefulWidget {
   const DeviceTransferPage({super.key});
 
@@ -19,11 +21,13 @@ class _DeviceTransferPageState extends State<DeviceTransferPage> {
   TransferMediumScan? scan;
   String? message;
   int missing = 0;
+  WebDavConnection? cloud;
 
   @override
   void initState() {
     super.initState();
     refreshMissing();
+    refreshCloud();
   }
 
   Future<void> refreshMissing() async {
@@ -31,11 +35,21 @@ class _DeviceTransferPageState extends State<DeviceTransferPage> {
     if (mounted) setState(() => missing = count);
   }
 
+  Future<void> refreshCloud() async {
+    try {
+      final connection = await context.read<AppController>().webDavConnection();
+      if (mounted) setState(() => cloud = connection);
+    } on Object catch (error) {
+      if (mounted) setState(() => message = '$error');
+    }
+  }
+
   Future<void> chooseMedium() async {
     final controller = context.read<AppController>();
     try {
       final medium = await openTransferMedium(
         context,
+        controller,
         title: '选择介质目录（U 盘 / 局域网盘 / WebDAV 挂载目录）',
         forExport: false,
       );
@@ -117,10 +131,32 @@ class _DeviceTransferPageState extends State<DeviceTransferPage> {
               const Divider(height: 32),
               Row(
                 children: [
+                  Expanded(
+                    child: Text(
+                      cloud == null ? '云端：未配置' : '云端：${cloud!.describe}',
+                    ),
+                  ),
+                  TextButton(
+                    onPressed: controller.isBusy
+                        ? null
+                        : () => run(() async {
+                            await showWebDavConnectionDialog(
+                              context,
+                              controller,
+                            );
+                            await refreshCloud();
+                          }),
+                    child: Text(cloud == null ? '配置云端' : '管理云端'),
+                  ),
+                ],
+              ),
+              const Divider(height: 32),
+              Row(
+                children: [
                   const Expanded(child: Text('介质内容')),
                   OutlinedButton(
                     onPressed: controller.isBusy ? null : chooseMedium,
-                    child: const Text('选择介质目录'),
+                    child: const Text('选择介质'),
                   ),
                 ],
               ),
