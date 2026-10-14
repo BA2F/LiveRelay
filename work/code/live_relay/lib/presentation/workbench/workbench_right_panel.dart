@@ -38,6 +38,13 @@ class WorkbenchRightPanel extends StatelessWidget {
             cardId: segments[1],
             onOpen: onOpen,
           );
+        case 'source':
+          return _SourceLens(
+            key: ValueKey(view),
+            controller: controller,
+            blobId: segments[1],
+            onOpen: onOpen,
+          );
       }
     }
     return const _LensEmpty();
@@ -236,6 +243,117 @@ class _CardLensState extends State<_CardLens> {
   );
 }
 
+class _SourceLens extends StatefulWidget {
+  const _SourceLens({
+    super.key,
+    required this.controller,
+    required this.blobId,
+    required this.onOpen,
+  });
+
+  final AppController controller;
+  final String blobId;
+  final ValueChanged<String> onOpen;
+
+  @override
+  State<_SourceLens> createState() => _SourceLensState();
+}
+
+class _SourceLensState extends State<_SourceLens> {
+  List<LifeCard>? _cards;
+  Object? _error;
+  var _generation = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    final generation = ++_generation;
+    try {
+      final cards = await widget.controller.cardsForBlob(widget.blobId);
+      if (!mounted ||
+          generation != _generation ||
+          !widget.controller.isUnlocked) {
+        return;
+      }
+      setState(() {
+        _cards = cards;
+        _error = null;
+      });
+    } on Object catch (error) {
+      if (!mounted || generation != _generation) return;
+      setState(() => _error = error);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final blob = widget.controller.blobs
+        .where((candidate) => candidate.id == widget.blobId)
+        .firstOrNull;
+    if (blob == null) {
+      return const _LensEmpty(
+        title: '原件已删除',
+        detail: '来源关系仍在卡片与修订历史中保留。',
+      );
+    }
+    if (_error != null) {
+      return _LensError(onRetry: _load);
+    }
+    final cards = _cards;
+    if (cards == null) {
+      return const Padding(
+        padding: EdgeInsets.all(16),
+        child: LinearProgressIndicator(),
+      );
+    }
+    final recycled = widget.controller.recycledBlobIds.contains(widget.blobId);
+    return ListView(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      children: [
+        if (recycled)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 4, 16, 0),
+            child: Text(
+              '原件已移入回收区',
+              style: TextStyle(
+                fontSize: 12,
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ),
+        _LensSection(
+          title: '原件',
+          rows: [
+            _LensRow(
+              title: blob.originalName,
+              meta:
+                  '${blob.mediaKind.label} · ${_size(blob.byteLength)} · '
+                  '${_time(blob.createdAt)}',
+            ),
+          ],
+        ),
+        _LensSection(
+          title: '引用它的卡片',
+          count: cards.length,
+          empty: '还没有卡片引用这个原件',
+          rows: [
+            for (final card in cards)
+              _LensRow(
+                title: card.title,
+                meta: '${card.status.label} · ${_time(card.updatedAt)}',
+                onTap: () => widget.onOpen('card/${card.id}'),
+              ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
 class _LensSection extends StatelessWidget {
   const _LensSection({
     required this.title,
@@ -353,7 +471,13 @@ class _LensRow extends StatelessWidget {
 }
 
 class _LensEmpty extends StatelessWidget {
-  const _LensEmpty();
+  const _LensEmpty({
+    this.title = '当前标签没有跟随信息',
+    this.detail = '右栏跟随卡片与原件标签，显示来源、历史与引用。',
+  });
+
+  final String title;
+  final String detail;
 
   @override
   Widget build(BuildContext context) {
@@ -363,10 +487,10 @@ class _LensEmpty extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('当前标签没有跟随信息', style: theme.textTheme.bodyMedium),
+          Text(title, style: theme.textTheme.bodyMedium),
           const SizedBox(height: 6),
           Text(
-            '右栏跟随卡片与原件标签，显示来源、历史与引用。',
+            detail,
             style: theme.textTheme.bodySmall?.copyWith(
               color: theme.colorScheme.onSurfaceVariant,
             ),
@@ -399,3 +523,7 @@ class _LensError extends StatelessWidget {
 
 String _time(DateTime value) =>
     DateFormat('MM-dd HH:mm').format(value.toLocal());
+
+String _size(int bytes) => bytes >= 1024 * 1024
+    ? '${(bytes / 1024 / 1024).toStringAsFixed(1)} MB'
+    : '${(bytes / 1024).ceil()} KB';

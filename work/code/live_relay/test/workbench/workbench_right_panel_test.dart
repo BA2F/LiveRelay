@@ -91,6 +91,7 @@ class _LensController extends AppController {
   var lensCardId = 'A';
   List<CardSource> sources = const [];
   List<CardRevision> history = const [];
+  List<LifeCard> cardsForBlobResult = const [];
 
   @override
   bool get isUnlocked => unlocked;
@@ -100,6 +101,9 @@ class _LensController extends AppController {
   @override
   Future<List<CardRevision>> cardHistory(String id) async =>
       id == lensCardId ? history : const [];
+  @override
+  Future<List<LifeCard>> cardsForBlob(String blobId) async =>
+      cardsForBlobResult;
 }
 
 Future<void> pumpLens(
@@ -221,6 +225,41 @@ void main() {
       expect(opened, ['card/B']);
       opened.clear();
 
+      // 卡片修订变化（自动保存）触发历史重查，不换标签也刷新。
+      c.cards = [
+        LifeCard(
+          id: 'A',
+          title: '卡片甲',
+          content: '甲正文',
+          kind: CardKind.note,
+          status: CardStatus.confirmed,
+          tags: const [],
+          createdAt: now,
+          updatedAt: now,
+          revisionNumber: 9,
+        ),
+        card('B', '卡片乙'),
+      ];
+      c.history = [
+        CardRevision(
+          id: 9,
+          cardId: 'A',
+          number: 9,
+          title: '卡片甲',
+          content: '甲正文 9',
+          tags: const [],
+          status: CardStatus.confirmed,
+          sourceKind: SourceKind.ownerInput,
+          sourceLabel: '本人输入',
+          changeNote: '第九次改动',
+          createdAt: now,
+        ),
+        ...c.history,
+      ];
+      await pumpLens(tester, c, 'card/A', opened);
+      await tester.pumpAndSettle();
+      expect(find.textContaining('修订 9 · 第九次改动'), findsOneWidget);
+
       // 被引用：乙视角。
       await pumpLens(tester, c, 'card/B', opened);
       await tester.pumpAndSettle();
@@ -255,6 +294,78 @@ void main() {
       await pumpLens(tester, c, 'card/A', opened);
       await tester.pumpAndSettle();
       expect(find.text('当前标签没有跟随信息'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    } finally {
+      c.dispose();
+    }
+  });
+
+  testWidgets('source lens shows metadata and its referencing cards',
+      (tester) async {
+    final c = _LensController();
+    final opened = <String>[];
+    try {
+      final now = DateTime.utc(2026, 10, 14, 9, 30);
+      c.blobs = [
+        VaultBlob(
+          id: 'blob-1',
+          originalName: 'note.txt',
+          mediaKind: BlobMediaKind.document,
+          mimeType: 'text/plain',
+          relativePath: 'blobs/blob-1.blob',
+          byteLength: 2048,
+          sha256: 'fixture',
+          createdAt: now,
+        ),
+      ];
+      final card = LifeCard(
+        id: 'A',
+        title: '卡片甲',
+        content: '甲正文',
+        kind: CardKind.note,
+        status: CardStatus.confirmed,
+        tags: const [],
+        createdAt: now,
+        updatedAt: now,
+        revisionNumber: 3,
+      );
+      c.cards = [card];
+      c.cardsForBlobResult = [card];
+
+      await pumpLens(tester, c, 'source/blob-1', opened);
+      await tester.pumpAndSettle();
+      expect(find.text('note.txt'), findsOneWidget);
+      expect(find.textContaining('文档 · 2 KB'), findsOneWidget);
+      expect(find.text('引用它的卡片 · 1'), findsOneWidget);
+      await tester.tap(find.text('卡片甲'));
+      await tester.pump();
+      expect(opened, ['card/A']);
+      opened.clear();
+
+      // 切换标签再回来，模拟数据变化后的重新挂载（面板按标签实例加载一次）。
+      await pumpLens(tester, c, 'settings', opened);
+      await tester.pump();
+      c.cardsForBlobResult = const [];
+      await pumpLens(tester, c, 'source/blob-1', opened);
+      await tester.pumpAndSettle();
+      expect(find.text('还没有卡片引用这个原件'), findsOneWidget);
+
+      await pumpLens(tester, c, 'settings', opened);
+      await tester.pump();
+      c.cardsForBlobResult = [card];
+      c.recycledBlobIds = const {'blob-1'};
+      await pumpLens(tester, c, 'source/blob-1', opened);
+      await tester.pumpAndSettle();
+      expect(find.text('原件已移入回收区'), findsOneWidget);
+      c.recycledBlobIds = const {};
+
+      await pumpLens(tester, c, 'settings', opened);
+      await tester.pump();
+      c.blobs = const [];
+      await pumpLens(tester, c, 'source/blob-1', opened);
+      await tester.pumpAndSettle();
+      expect(find.text('原件已删除'), findsOneWidget);
+      expect(find.text('来源关系仍在卡片与修订历史中保留。'), findsOneWidget);
       expect(tester.takeException(), isNull);
     } finally {
       c.dispose();
