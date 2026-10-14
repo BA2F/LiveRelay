@@ -53,6 +53,12 @@ static void my_application_activate(GApplication* application) {
   }
 
   gtk_window_set_default_size(window, 1280, 720);
+  // 三区工作台的最小可用宽度：左栏 288 + 右栏 320 + 两条分隔线，
+  // 其余留给中央编辑区（约 414px）。数值与组件常量同步维护。
+  GdkGeometry geometry = {};
+  geometry.min_width = 1024;
+  geometry.min_height = 640;
+  gtk_window_set_geometry_hints(window, nullptr, &geometry, GDK_HINT_MIN_SIZE);
   g_autofree gchar* executable = g_file_read_link("/proc/self/exe", nullptr);
   if (executable != nullptr) {
     g_autofree gchar* directory = g_path_get_dirname(executable);

@@ -68,6 +68,7 @@ void main() {
     tabs.move('agent', 0);
     expect(tabs.tabs, ['agent', 'card/fixture/one']);
     tabs.selectSection('passwords');
+    tabs.setRightCollapsed(true);
     tabs.close('agent');
     expect(tabs.tabs, ['card/fixture/one']);
     expect(tabs.active, 'card/fixture/one');
@@ -78,6 +79,7 @@ void main() {
     expect(restored.tabs, ['card/fixture/one']);
     expect(restored.active, 'card/fixture/one');
     expect(restored.section, 'passwords');
+    expect(restored.rightCollapsed, isTrue);
     restored.close('card/fixture/one');
     expect(restored.tabs, isEmpty);
     expect(restored.active, isNull);
@@ -87,6 +89,7 @@ void main() {
   test('malformed tabs fail before replacing a usable state', () {
     final tabs = WorkbenchTabs();
     tabs.open('agent');
+    tabs.setRightCollapsed(true);
     final before = jsonEncode(tabs.toJson());
     expect(
       () => tabs.restore({
@@ -100,6 +103,20 @@ void main() {
       throwsFormatException,
     );
     expect(jsonEncode(tabs.toJson()), before);
+    expect(tabs.rightCollapsed, isTrue);
+    tabs.dispose();
+  });
+
+  test('a record from before the right panel opens it by default', () {
+    final tabs = WorkbenchTabs();
+    tabs.setRightCollapsed(true);
+    tabs.restore(
+      jsonDecode(
+        '{"version":2,"tabs":[],"active":null,"section":"inbox",'
+        '"collapsed":false}',
+      ) as Map<String, dynamic>,
+    );
+    expect(tabs.rightCollapsed, isFalse);
     tabs.dispose();
   });
   test(

@@ -85,6 +85,7 @@ Map<String, Future<void> Function()> workbenchChecks() => {
           tabs.move('agent', 0);
           check(tabs.tabs.join(',') == 'agent,card/a', 'Reorder lost a tab');
           tabs.selectSection('recycle');
+          tabs.setRightCollapsed(true);
           tabs.close('agent');
           check(tabs.active == 'card/a', 'Active tab did not fall back');
           restored.restore(
@@ -95,7 +96,8 @@ Map<String, Future<void> Function()> workbenchChecks() => {
           check(
             restored.tabs.join(',') == 'card/a' &&
                 restored.active == 'card/a' &&
-                restored.section == 'recycle',
+                restored.section == 'recycle' &&
+                restored.rightCollapsed,
             'Tabs round trip failed',
           );
           final before = jsonEncode(restored.toJson());
@@ -113,7 +115,7 @@ Map<String, Future<void> Function()> workbenchChecks() => {
             '版本不支持',
           );
           check(
-            before == jsonEncode(restored.toJson()),
+            before == jsonEncode(restored.toJson()) && restored.rightCollapsed,
             'Invalid restore changed active tabs',
           );
           restored.close('card/a');

@@ -16,6 +16,7 @@ class WorkbenchTabs extends ChangeNotifier {
   String? get active => state.active;
   String get section => state.section;
   bool get collapsed => state.collapsed;
+  bool get rightCollapsed => state.rightCollapsed;
   void reset() => state.reset();
   void open(String view) => state.open(view);
   void activate(String view) => state.activate(view);
@@ -25,6 +26,7 @@ class WorkbenchTabs extends ChangeNotifier {
   void move(String view, int index) => state.move(view, index);
   void selectSection(String value) => state.selectSection(value);
   void setCollapsed(bool value) => state.setCollapsed(value);
+  void setRightCollapsed(bool value) => state.setRightCollapsed(value);
   Map<String, Object?> toJson() => state.toJson();
   void restore(Map<String, dynamic> data) => state.restore(data);
   @override

@@ -23,12 +23,14 @@ class WorkbenchTabsState {
   String? active;
   String section = 'inbox';
   bool collapsed = false;
+  bool rightCollapsed = false;
 
   void reset() {
     tabs.clear();
     active = null;
     section = 'inbox';
     collapsed = false;
+    rightCollapsed = false;
     _changed();
   }
 
@@ -96,12 +98,19 @@ class WorkbenchTabsState {
     _changed();
   }
 
+  void setRightCollapsed(bool value) {
+    if (rightCollapsed == value) return;
+    rightCollapsed = value;
+    _changed();
+  }
+
   Map<String, Object?> toJson() => {
     'version': 2,
     'tabs': List.of(tabs),
     'active': active,
     'section': section,
     'collapsed': collapsed,
+    'rightCollapsed': rightCollapsed,
   };
 
   /// 解析失败时抛 FormatException，且不改动当前状态；
@@ -135,6 +144,8 @@ class WorkbenchTabsState {
         ? sectionValue
         : 'inbox';
     collapsed = data['collapsed'] == true;
+    // Absent in records written before the right panel existed: default open.
+    rightCollapsed = data['rightCollapsed'] == true;
     _changed();
   }
 

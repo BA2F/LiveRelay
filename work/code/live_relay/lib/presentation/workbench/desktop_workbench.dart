@@ -10,6 +10,7 @@ import '../controllers/app_controller.dart';
 import 'state/card_edit_sessions.dart';
 import 'state/workbench_tabs.dart';
 import 'state/extension_registry.dart';
+import 'workbench_right_panel.dart';
 import '../../core/domain/entities.dart';
 import '../controllers/agent_conversation.dart';
 import '../model_labels.dart';
@@ -401,6 +402,9 @@ class _DesktopWorkbenchState extends State<DesktopWorkbench> {
 
   void _toggleSidebar() => _tabs.setCollapsed(!_tabs.collapsed);
 
+  void _toggleRightPanel() =>
+      _tabs.setRightCollapsed(!_tabs.rightCollapsed);
+
   void _focusSearch() {
     if (_tabs.collapsed) _tabs.setCollapsed(false);
     _search.selection = TextSelection(
@@ -727,6 +731,8 @@ class _DesktopWorkbenchState extends State<DesktopWorkbench> {
             () => unawaited(_action(() => _runtime.saveAndLock())),
         const SingleActivator(LogicalKeyboardKey.keyB, control: true):
             _toggleSidebar,
+        const SingleActivator(LogicalKeyboardKey.keyJ, control: true):
+            _toggleRightPanel,
       },
       child: Focus(
         autofocus: true,
@@ -753,6 +759,17 @@ class _DesktopWorkbenchState extends State<DesktopWorkbench> {
                 onPressed: _controller.isBusy
                     ? null
                     : () => _action(() => _runtime.saveAndLock()),
+              ),
+              IconButton(
+                tooltip: tabs.rightCollapsed
+                    ? '展开右栏 (Ctrl+J)'
+                    : '收起右栏 (Ctrl+J)',
+                icon: Icon(
+                  tabs.rightCollapsed
+                      ? Icons.view_sidebar_outlined
+                      : Icons.vertical_split_outlined,
+                ),
+                onPressed: _toggleRightPanel,
               ),
               PopupMenuButton<String>(
                 tooltip: '更多',
@@ -824,6 +841,17 @@ class _DesktopWorkbenchState extends State<DesktopWorkbench> {
                         ],
                       ),
                     ),
+                    if (!tabs.rightCollapsed) ...[
+                      const VerticalDivider(width: 1),
+                      SizedBox(
+                        width: WorkbenchRightPanel.width,
+                        child: WorkbenchRightPanel(
+                          controller: _controller,
+                          activeView: tabs.active,
+                          onOpen: _open,
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ),
