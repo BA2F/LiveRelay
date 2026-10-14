@@ -1,7 +1,18 @@
+import java.io.FileInputStream
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
+}
+
+// 正式发布签名：android/key.properties（不入库）存在时启用 release 签名；
+// 不存在时回退 debug 证书，保证无密钥环境仍可构建（产物不得对外发布）。
+val keystoreProperties = Properties()
+val keystorePropertiesFile = rootProject.file("key.properties")
+if (keystorePropertiesFile.exists()) {
+    keystoreProperties.load(FileInputStream(keystorePropertiesFile))
 }
 
 android {
@@ -30,6 +41,17 @@ android {
         versionName = flutter.versionName
     }
 
+    signingConfigs {
+        create("release") {
+            if (keystorePropertiesFile.exists()) {
+                storeFile = file(keystoreProperties["storeFile"] as String)
+                storePassword = keystoreProperties["storePassword"] as String
+                keyAlias = keystoreProperties["keyAlias"] as String
+                keyPassword = keystoreProperties["keyPassword"] as String
+            }
+        }
+    }
+
     buildTypes {
         debug {
             // Test builds have a separate Android sandbox and never overwrite
@@ -37,9 +59,11 @@ android {
             applicationIdSuffix = ".verification"
         }
         release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = if (keystorePropertiesFile.exists()) {
+                signingConfigs.getByName("release")
+            } else {
+                signingConfigs.getByName("debug")
+            }
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro",
@@ -51,6 +75,20 @@ android {
 kotlin {
     compilerOptions {
         jvmTarget = org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17
+    }
+}
+
+// 预编译 jniLibs 的 ABI 裁剪：buildTypes 级 ndk.abiFilters 对它们不生效，
+// 需在 Variant API 上按构建类型排除。release 只留 arm64（32 位设备不再支持）；
+// debug 保留 arm64（真机）与 x86_64（模拟器）。
+androidComponents {
+    onVariants(selector().all()) { variant ->
+        when (variant.buildType) {
+            "release" -> variant.packaging.jniLibs.excludes.addAll(
+                listOf("lib/armeabi-v7a/**", "lib/x86_64/**"),
+            )
+            "debug" -> variant.packaging.jniLibs.excludes.add("lib/armeabi-v7a/**")
+        }
     }
 }
 

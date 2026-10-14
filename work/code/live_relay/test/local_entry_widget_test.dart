@@ -35,14 +35,14 @@ void main() {
           ),
         ),
       );
-      await tester.scrollUntilVisible(find.text('1.0.0'), 200);
+      await tester.scrollUntilVisible(find.textContaining('1.0.0'), 200);
       await tester.pumpAndSettle();
       for (var i = 0; i < 6; i++) {
-        await tester.tap(find.text('1.0.0'));
+        await tester.tap(find.textContaining('1.0.0'));
         await tester.pump();
       }
       expect(demo.activations, 0);
-      await tester.tap(find.text('1.0.0'));
+      await tester.tap(find.textContaining('1.0.0'));
       await tester.pump();
       expect(demo.activations, 1);
       await tester.pumpWidget(const SizedBox());
@@ -56,10 +56,10 @@ void main() {
           ),
         ),
       );
-      await tester.scrollUntilVisible(find.text('1.0.0'), 200);
+      await tester.scrollUntilVisible(find.textContaining('1.0.0'), 200);
       await tester.pumpAndSettle();
       for (var i = 0; i < 8; i++) {
-        await tester.tap(find.text('1.0.0'));
+        await tester.tap(find.textContaining('1.0.0'));
         await tester.pump();
       }
       expect(tester.takeException(), isNull);
