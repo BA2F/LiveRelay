@@ -10,6 +10,7 @@ import '../../core/ai/review_actions.dart';
 import '../../core/ai/reviewed_agent_plan.dart';
 import '../../core/domain/card_references.dart';
 import '../../core/domain/lifecycle.dart';
+import '../../core/domain/vault_merge.dart';
 import '../../core/ports/vault_repository.dart';
 import 'app_database.dart';
 
@@ -902,7 +903,7 @@ class SqliteVaultRepository implements VaultRepository {
   }
 
   @override
-  Future<LifeCard> registerBlob(VaultBlob blob) {
+  Future<void> registerBlobRow(VaultBlob blob) {
     return database.transaction(() async {
       await database
           .into(database.encryptedBlobs)
@@ -927,6 +928,14 @@ class SqliteVaultRepository implements VaultRepository {
               createdAt: blob.createdAt,
             ),
           );
+      await _audit('import', 'blob', blob.id, '加密保存原始资料');
+    });
+  }
+
+  @override
+  Future<LifeCard> registerBlob(VaultBlob blob) {
+    return database.transaction(() async {
+      await registerBlobRow(blob);
       final sourceKind = switch (blob.mediaKind) {
         BlobMediaKind.image => SourceKind.photo,
         BlobMediaKind.audio => SourceKind.audio,
@@ -952,7 +961,7 @@ class SqliteVaultRepository implements VaultRepository {
         sourceLabel: label,
         blobId: blob.id,
       );
-      await _audit('import', 'blob', blob.id, '加密保存原始资料并创建来源卡片');
+      await _audit('import', 'blob', blob.id, '创建来源卡片：${blob.originalName}');
       return card;
     });
   }
@@ -1537,7 +1546,7 @@ class SqliteVaultRepository implements VaultRepository {
               LifeStateEventsCompanion.insert(
                 fromState: from.name,
                 toState: to.name,
-                reason: reason.trim().isEmpty ? 'MVP 人工模拟' : reason.trim(),
+                reason: reason.trim().isEmpty ? '本人手动切换生命状态' : reason.trim(),
                 occurredAt: _now,
               ),
             );
@@ -1560,7 +1569,7 @@ class SqliteVaultRepository implements VaultRepository {
               LifeStateEventsCompanion.insert(
                 fromState: from.name,
                 toState: LifeState.active.name,
-                reason: reason.trim().isEmpty ? '重置 MVP 模拟' : reason.trim(),
+                reason: reason.trim().isEmpty ? '本人明确重置生活状态' : reason.trim(),
                 occurredAt: _now,
               ),
             );
@@ -1590,6 +1599,256 @@ class SqliteVaultRepository implements VaultRepository {
       stale: cards.where((card) => card.updatedAt.isBefore(staleBefore)).length,
       credentials: credentials.length,
       byKind: byKind,
+    );
+  }
+
+  @override
+  Future<void> applyVaultMergePlan(VaultMergePlan plan) => database.transaction(
+    () async {
+      for (final blob in plan.importedBlobs) {
+        final existing = await (database.select(
+          database.encryptedBlobs,
+        )..where((t) => t.id.equals(blob.id))).getSingleOrNull();
+        if (existing != null) continue;
+        await database
+            .into(database.encryptedBlobs)
+            .insert(
+              EncryptedBlobsCompanion.insert(
+                id: blob.id,
+                originalName: blob.originalName,
+                mediaKind: blob.mediaKind.name,
+                mimeType: blob.mimeType,
+                relativePath: blob.relativePath,
+                byteLength: blob.byteLength,
+                sha256: blob.sha256,
+                ocrText: Value(blob.ocrText),
+                ocrJson: Value(
+                  blob.ocrLines.isEmpty ? null : _encodeOcrLines(blob.ocrLines),
+                ),
+                sensitiveJson: Value(
+                  blob.sensitiveMarks.isEmpty
+                      ? null
+                      : _encodeSensitiveMarks(blob.sensitiveMarks),
+                ),
+                createdAt: blob.createdAt,
+              ),
+            );
+      }
+      for (final record in plan.importedCards) {
+        final card = record.card;
+        if (await getCard(card.id) != null) {
+          throw const FormatException('合并导入的卡片已存在');
+        }
+        await database
+            .into(database.cards)
+            .insert(
+              CardsCompanion.insert(
+                id: card.id,
+                title: card.title,
+                content: card.content,
+                kind: card.kind.name,
+                status: card.status.name,
+                tagsJson: Value(jsonEncode(card.tags)),
+                createdAt: card.createdAt,
+                updatedAt: card.updatedAt,
+                confirmedAt: Value(card.confirmedAt),
+                deletedAt: Value(card.deletedAt),
+                parentCardId: Value(card.parentCardId),
+                revisionNumber: Value(card.revisionNumber),
+              ),
+            );
+        await _writeMergeRevisions(card.id, record, freshBinding: true);
+      }
+      for (final record in plan.updatedCards) {
+        final card = record.card;
+        final existing = await getCard(card.id);
+        if (existing == null) {
+          throw const FormatException('合并更新的卡片不存在');
+        }
+        final appended = record.appendedRevisions;
+        if (appended.isNotEmpty &&
+            appended.first.number <= existing.revisionNumber) {
+          throw const FormatException('合并修订编号冲突');
+        }
+        await (database.update(
+          database.cards,
+        )..where((t) => t.id.equals(card.id))).write(
+          CardsCompanion(
+            title: Value(card.title),
+            content: Value(card.content),
+            kind: Value(card.kind.name),
+            status: Value(card.status.name),
+            tagsJson: Value(jsonEncode(card.tags)),
+            updatedAt: Value(card.updatedAt),
+            confirmedAt: Value(card.confirmedAt),
+            deletedAt: Value(card.deletedAt),
+            parentCardId: Value(card.parentCardId),
+            revisionNumber: Value(card.revisionNumber),
+          ),
+        );
+        await _writeMergeRevisions(card.id, record, freshBinding: false);
+      }
+      await _mergeRelations(plan.importedRelations);
+      await _mergeReferences(plan.referenceUnions);
+      await _mergeConflicts(plan.conflicts);
+      final ledger = plan.missingLedgerJson;
+      if (ledger != null) await writeLocalValue('backup.missing', ledger);
+      await _audit(
+        'merge',
+        'vault',
+        'local',
+        '合并导入：引入 ${plan.importedCards.length} 张卡片，'
+            '更新 ${plan.updatedCards.length} 张，'
+            '记录 ${plan.conflicts.length} 处未解决',
+      );
+    },
+  );
+
+  /// Writes the appended revision chain with one source row per revision and
+  /// merges the `card.originals.<id>` binding. The binding keeps the local
+  /// projection current unless the plan names one.
+  Future<void> _writeMergeRevisions(
+    String cardId,
+    MergedCardRecord record, {
+    required bool freshBinding,
+  }) async {
+    for (final revision in record.appendedRevisions) {
+      final sourceId = _uuid.v7();
+      final blobId = revision.originalBlobId;
+      final sourceLabel = blobId == null
+          ? revision.sourceLabel
+          : (revision.originalSourceLabel ?? revision.sourceLabel);
+      final sourceKind = blobId == null
+          ? revision.sourceKind
+          : (revision.originalSourceKind ?? revision.sourceKind);
+      await database
+          .into(database.sources)
+          .insert(
+            SourcesCompanion.insert(
+              id: sourceId,
+              kind: sourceKind.name,
+              label: sourceLabel,
+              textExcerpt: Value(revision.content),
+              blobId: Value(blobId),
+              createdAt: revision.createdAt,
+            ),
+          );
+      await database
+          .into(database.cardRevisions)
+          .insert(
+            CardRevisionsCompanion.insert(
+              cardId: cardId,
+              number: revision.number,
+              title: revision.title,
+              content: revision.content,
+              tagsJson: Value(jsonEncode(revision.tags)),
+              status: revision.status.name,
+              sourceKind: revision.sourceKind.name,
+              sourceLabel: revision.sourceLabel,
+              sourceId: Value(sourceId),
+              changeNote: revision.changeNote,
+              createdAt: revision.createdAt,
+            ),
+          );
+    }
+    final existing = freshBinding ? null : await _binding(cardId);
+    if (existing == null &&
+        record.currentOriginals == null &&
+        record.revisionOriginals.isEmpty) {
+      // 从未有过绑定的卡片保持"无绑定"语义：currentCardSources 显示全部来源。
+      return;
+    }
+    final snapshots = <String, dynamic>{
+      if (existing != null)
+        ...Map<String, dynamic>.from(existing['revisions'] as Map),
+    };
+    for (final entry in record.revisionOriginals.entries) {
+      snapshots['${entry.key}'] = List<String>.of(entry.value);
+    }
+    final current =
+        record.currentOriginals ??
+        (existing == null
+            ? await _historicalOriginals(cardId)
+            : List<String>.from(existing['current'] as List));
+    await writeLocalValue(
+      _bindingKey(cardId),
+      jsonEncode({'version': 1, 'current': current, 'revisions': snapshots}),
+    );
+  }
+
+  Future<void> _mergeRelations(List<CardRelation> relations) async {
+    if (relations.isEmpty) return;
+    final rows = await database.select(database.cardRelations).get();
+    final known = {
+      for (final row in rows) '${row.fromCardId}|${row.toCardId}|${row.kind}',
+    };
+    for (final relation in relations) {
+      final key =
+          '${relation.fromCardId}|${relation.toCardId}|${relation.kind.name}';
+      if (!known.add(key)) continue;
+      if (await getCard(relation.fromCardId) == null ||
+          await getCard(relation.toCardId) == null) {
+        continue;
+      }
+      await database
+          .into(database.cardRelations)
+          .insert(
+            CardRelationsCompanion.insert(
+              fromCardId: relation.fromCardId,
+              toCardId: relation.toCardId,
+              kind: relation.kind.name,
+              createdAt: _now,
+            ),
+          );
+    }
+  }
+
+  Future<void> _mergeReferences(List<MergeCardReferenceUnion> unions) async {
+    if (unions.isEmpty) return;
+    var references = await cardReferences();
+    for (final union in unions) {
+      final targets = CardReferenceRules.targets(union.from, union.targets);
+      final facts = <String, LifeCard?>{union.from: await getCard(union.from)};
+      for (final id in targets) {
+        facts[id] = await getCard(id);
+      }
+      CardReferenceRules.validate(union.from, targets, facts);
+      references = CardReferenceRules.replace(references, union.from, targets);
+    }
+    await writeLocalValue(
+      _referencesKey,
+      jsonEncode({
+        'version': 1,
+        'references': [
+          for (final r in references) {'from': r.from, 'to': r.to},
+        ],
+      }),
+    );
+  }
+
+  Future<void> _mergeConflicts(List<CardMergeConflict> conflicts) async {
+    if (conflicts.isEmpty) return;
+    final raw = await readLocalValue(CardMergeConflict.storageKey);
+    var existing = <String, CardMergeConflict>{};
+    if (raw != null) {
+      try {
+        existing = CardMergeConflict.decodeAll(jsonDecode(raw));
+      } on Object {
+        existing = {};
+      }
+    }
+    final merged = <String, CardMergeConflict>{...existing};
+    for (final conflict in conflicts) {
+      merged[conflict.cardId] = conflict;
+    }
+    await writeLocalValue(
+      CardMergeConflict.storageKey,
+      jsonEncode({
+        'version': CardMergeConflict.version,
+        'conflicts': {
+          for (final entry in merged.entries) entry.key: entry.value.toJson(),
+        },
+      }),
     );
   }
 

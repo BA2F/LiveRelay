@@ -716,6 +716,11 @@ class _ContentRepository extends _Repository {
   @override
   Future<List<VaultBlob>> listBlobs() async => [blob];
   @override
+  Future<void> registerBlobRow(VaultBlob blob) async {
+    if (rejectRegistration) throw StateError('fixture register failed');
+  }
+
+  @override
   Future<LifeCard> registerBlob(VaultBlob blob) async {
     if (rejectRegistration) throw StateError('fixture register failed');
     return _card('original-card', CardKind.document);

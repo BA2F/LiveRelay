@@ -2,6 +2,7 @@ import 'dart:typed_data';
 
 import '../domain/entities.dart';
 import '../domain/card_references.dart';
+import '../domain/vault_merge.dart';
 import '../ai/review_source.dart';
 import '../ai/review_actions.dart';
 
@@ -74,6 +75,13 @@ abstract interface class VaultRepository {
   Future<List<VaultBlob>> listBlobs();
   Future<VaultBlob?> getBlob(String id);
 
+  /// Registers one encrypted original row (with its audit entry) without
+  /// creating any card. The caller decides how the original is referenced,
+  /// for example through [setCardOriginals].
+  Future<void> registerBlobRow(VaultBlob blob);
+
+  /// Registers the original row and creates the import source card that
+  /// references it.
   Future<LifeCard> registerBlob(VaultBlob blob);
 
   Future<void> updateBlobOcr(String id, String text);
@@ -138,6 +146,13 @@ abstract interface class VaultRepository {
   Future<void> resetLifeStateSimulation({required String reason});
 
   Future<VaultInsights> insights();
+
+  /// Applies one B-mode merge plan in a single transaction. The caller has
+  /// already authenticated both vault copies and built every record; this
+  /// method only writes (card rows, revisions with their source rows, the
+  /// originals binding, blob rows, relations, reference unions, unresolved
+  /// markers and the owed-originals ledger).
+  Future<void> applyVaultMergePlan(VaultMergePlan plan);
 
   Future<void> close();
 }
