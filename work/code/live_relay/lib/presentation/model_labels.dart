@@ -63,3 +63,25 @@ extension VisibilityPresentation on VisibilityLevel {
     VisibilityLevel.original => '含原始资料',
   };
 }
+
+extension SourceKindPresentation on SourceKind {
+  String get label => switch (this) {
+    SourceKind.ownerInput => '本人输入',
+    SourceKind.imported => '导入',
+    SourceKind.ocrDerived => '识别文字',
+    SourceKind.aiGenerated => '模型生成',
+    SourceKind.photo => '照片',
+    SourceKind.audio => '录音',
+    SourceKind.video => '视频',
+  };
+}
+
+extension BlobMediaKindPresentation on BlobMediaKind {
+  String get label => switch (this) {
+    BlobMediaKind.image => '图片',
+    BlobMediaKind.audio => '录音',
+    BlobMediaKind.video => '视频',
+    BlobMediaKind.document => '文档',
+    BlobMediaKind.other => '文件',
+  };
+}
