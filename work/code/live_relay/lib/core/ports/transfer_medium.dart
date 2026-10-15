@@ -1,5 +1,21 @@
 import 'dart:typed_data';
 
+/// Raised by transfer-medium implementations for expected failures:
+/// unreachable host, rejected credentials, missing file. [message] is
+/// already user-facing Chinese text.
+class TransferMediumException implements Exception {
+  const TransferMediumException(this.message, {this.notFound = false});
+
+  final String message;
+
+  /// True when the medium is reachable but the requested name is absent,
+  /// so callers can distinguish "no record yet" from a real failure.
+  final bool notFound;
+
+  @override
+  String toString() => message;
+}
+
 class MediumEntry {
   const MediumEntry({required this.name, required this.length});
 

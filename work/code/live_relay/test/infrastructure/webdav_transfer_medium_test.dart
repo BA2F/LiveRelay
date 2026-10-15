@@ -3,6 +3,7 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:live_relay/core/ports/transfer_medium.dart';
 import 'package:live_relay/infrastructure/transfer/webdav_transfer_medium.dart';
 
 /// Minimal in-memory WebDAV server for exercising the client without any
@@ -158,7 +159,7 @@ void main() {
     expect(prefix.length, 64);
     expect(prefix, server.files['pack.lvault']!.sublist(0, 64));
     expect(await medium.read('pack.lvault'), server.files['pack.lvault']);
-    await expectLater(medium.read('missing.lvault'), throwsA(isA<WebDavException>()));
+    await expectLater(medium.read('missing.lvault'), throwsA(isA<TransferMediumException>()));
 
     final plain = FakeDavServer(obeyRange: false);
     await plain.start();
@@ -224,7 +225,7 @@ void main() {
     await expectLater(
       bad.list(),
       throwsA(
-        isA<WebDavException>().having(
+        isA<TransferMediumException>().having(
           (e) => e.message,
           'message',
           contains('拒绝访问'),
@@ -242,7 +243,7 @@ void main() {
     await expectLater(
       dead.list(),
       throwsA(
-        isA<WebDavException>().having(
+        isA<TransferMediumException>().having(
           (e) => e.message,
           'message',
           contains('无法连接云端'),

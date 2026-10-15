@@ -84,8 +84,8 @@ class DeviceCapabilities {
               '请配置 Responses AI 服务',
             ),
     AppFeature.checkIn => const FeatureCapability(
-      CapabilityStatus.notImplemented,
-      '报平安与自动交接暂未提供',
+      CapabilityStatus.available,
+      '报平安、超期提醒与预先授权的取件通知（需配置云端连接）',
     ),
     AppFeature.partialBackup => const FeatureCapability(
       CapabilityStatus.available,

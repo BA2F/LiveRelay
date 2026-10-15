@@ -7,15 +7,6 @@ import 'package:http/http.dart' as http;
 
 import '../../core/ports/transfer_medium.dart';
 
-class WebDavException implements Exception {
-  const WebDavException(this.message);
-
-  final String message;
-
-  @override
-  String toString() => message;
-}
-
 /// A transfer medium that speaks a plain WebDAV subset over HTTP(S):
 /// PROPFIND for listings, ranged GET for prefix reads, PUT plus an
 /// overwriting MOVE for atomic writes. Works against any standard WebDAV
@@ -74,19 +65,19 @@ class WebDavTransferMedium implements TransferMedium {
       final streamed = await _client.send(request).timeout(timeout);
       return await http.Response.fromStream(streamed).timeout(timeout);
     } on TimeoutException {
-      throw const WebDavException('云端超时：检查网址与网络后重试');
+      throw const TransferMediumException('云端超时：检查网址与网络后重试');
     } on SocketException catch (error) {
-      throw WebDavException('无法连接云端（${error.message}）');
+      throw TransferMediumException('无法连接云端（${error.message}）');
     } on http.ClientException catch (error) {
-      throw WebDavException('无法连接云端（${error.message}）');
+      throw TransferMediumException('无法连接云端（${error.message}）');
     }
   }
 
   Never _failure(String action, int status) {
     if (status == 401 || status == 403) {
-      throw const WebDavException('云端拒绝访问：检查网址、账号密码与目录权限');
+      throw const TransferMediumException('云端拒绝访问：检查网址、账号密码与目录权限');
     }
-    throw WebDavException('$action失败（HTTP $status）');
+    throw TransferMediumException('$action失败（HTTP $status）');
   }
 
   bool _ok(int status) => status >= 200 && status < 300;
@@ -135,7 +126,7 @@ class WebDavTransferMedium implements TransferMedium {
         ),
       );
       if (entries.length > _maximumEntries) {
-        throw const WebDavException('云端目录条目异常，已停止读取');
+        throw const TransferMediumException('云端目录条目异常，已停止读取');
       }
     }
     entries.sort((a, b) => a.name.compareTo(b.name));
@@ -158,7 +149,7 @@ class WebDavTransferMedium implements TransferMedium {
       headers: {'Range': 'bytes=0-${maxBytes - 1}'},
     );
     if (response.statusCode == 404) {
-      throw const WebDavException('云端没有这个文件');
+      throw const TransferMediumException('云端没有这个文件', notFound: true);
     }
     if (!_ok(response.statusCode) && response.statusCode != 206) {
       _failure('读取云端文件', response.statusCode);
@@ -173,7 +164,7 @@ class WebDavTransferMedium implements TransferMedium {
   Future<Uint8List> read(String name) async {
     final response = await _request('GET', _url(name));
     if (response.statusCode == 404) {
-      throw const WebDavException('云端没有这个文件');
+      throw const TransferMediumException('云端没有这个文件', notFound: true);
     }
     if (!_ok(response.statusCode)) _failure('读取云端文件', response.statusCode);
     return response.bodyBytes;

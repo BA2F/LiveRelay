@@ -1,0 +1,25 @@
+# LiveRelay 摇篮服务（报平安提醒与取件通知）—— ECS 形态（实际部署于 1Panel 编排目录）
+# 部署事实：与 copyparty 并列跑在阿里云 ECS 上；编排文件实际位于
+#   /opt/1panel/docker/compose/liverelay-cradle/docker-compose.yml（1Panel 面板可见可管）
+# 挂载：copyparty 的客户卷根只读挂入 /data；状态目录 ./state 持久化；SMTP 凭据只写在本文件（chmod 600）
+# 先用干跑模式上线（只记日志不发信）：把 CRADLE_DRY_RUN 设为 1，观察日志后再填 SMTP 凭据
+# 说明见 README.md
+services:
+  cradle:
+    build: .
+    container_name: liverelay-cradle
+    restart: unless-stopped
+    volumes:
+      - /srv/tttahzun/data/liverelay-drive:/data:ro
+      - ./state:/state
+    environment:
+      - TZ=Asia/Shanghai
+      - CRADLE_INTERVAL_SECONDS=600
+      - CRADLE_DRY_RUN=${CRADLE_DRY_RUN:-}
+      - CRADLE_SMTP_HOST=CHANGE-ME
+      - CRADLE_SMTP_PORT=465
+      - CRADLE_SMTP_MODE=ssl
+      - CRADLE_SMTP_USER=CHANGE-ME
+      - CRADLE_SMTP_PASS=CHANGE-ME
+      - CRADLE_SMTP_FROM=CHANGE-ME
+    mem_limit: 128m

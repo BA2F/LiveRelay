@@ -13,6 +13,7 @@ import '../dialogs/capability_dialog.dart';
 import '../dialogs/vault_settings_dialog.dart';
 import '../widgets/appearance_settings.dart';
 import 'agent_page.dart';
+import 'cradle_page.dart';
 import 'speech_input_page.dart';
 import 'identity_page.dart';
 import 'local_backup_page.dart';
@@ -168,23 +169,22 @@ class _ProfilePageState extends State<ProfilePage> {
             title: Text(item.$2),
             subtitle: Text(controller.capability(item.$1).message),
             onTap: () {
-              if (item.$1 == AppFeature.agent ||
-                  item.$1 == AppFeature.speechInput ||
-                  item.$1 == AppFeature.partialBackup) {
-                Navigator.of(context).push<void>(
-                  MaterialPageRoute(
-                    builder: (_) => item.$1 == AppFeature.agent
-                        ? const AgentPage()
-                        : item.$1 == AppFeature.speechInput
-                        ? const SpeechInputPage()
-                        : const LocalBackupPage(),
-                  ),
-                );
-              } else {
+              final page = switch (item.$1) {
+                AppFeature.agent => const AgentPage(),
+                AppFeature.speechInput => const SpeechInputPage(),
+                AppFeature.checkIn => const CradlePage(),
+                AppFeature.partialBackup => const LocalBackupPage(),
+                _ => null,
+              };
+              if (page == null) {
                 showCapabilityMessage(
                   context,
                   item.$2,
                   controller.capability(item.$1),
+                );
+              } else {
+                Navigator.of(context).push<void>(
+                  MaterialPageRoute(builder: (_) => page),
                 );
               }
             },
@@ -193,7 +193,7 @@ class _ProfilePageState extends State<ProfilePage> {
         ListTile(
           leading: const LiveRelayLogo(size: 24),
           title: const Text('留灯 LiveRelay'),
-          subtitle: const Text('1.0.0-beta.1'),
+          subtitle: const Text('1.0.0-beta.2'),
           onTap: () => versionTap(context.read<DevelopmentControls?>()),
         ),
       ],

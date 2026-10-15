@@ -57,6 +57,18 @@ class LocalHandoffService {
   Future<void> saveProfile(String name, String contact, String note) =>
       _owned(() => _saveProfile(name, contact, note));
   Future<Map<String, Object?>> publicIdentity() => _owned(_publicIdentity);
+
+  /// Signs a canonical payload with the owner identity; returns the base64
+  /// signature. Used by cradle check-in records.
+  Future<String> signPayload(List<int> canonicalBytes) => _owned(() async {
+    final owner = await _owner();
+    try {
+      return await owner.sign(canonicalBytes);
+    } finally {
+      owner.dispose();
+    }
+  });
+
   Future<Uint8List> createChallenge(
     Map<String, Object?> recipient,
     String fingerprint,

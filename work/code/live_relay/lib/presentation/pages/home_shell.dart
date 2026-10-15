@@ -1,8 +1,11 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:provider/provider.dart';
 
 import '../controllers/app_controller.dart';
+import '../cradle_auto_checkin.dart';
 import '../dialogs/card_dialogs.dart';
 import '../dialogs/credential_dialogs.dart';
 import '../../l10n/app_localizations.dart';
@@ -21,6 +24,7 @@ class HomeShell extends StatefulWidget {
 
 class _HomeShellState extends State<HomeShell> {
   int _index = 0;
+  var _autoCheckInLaunched = false;
   Future<void> _newCard(AppController controller) async {
     final l10n = AppLocalizations.of(context);
     final password = await showModalBottomSheet<bool>(
@@ -53,12 +57,16 @@ class _HomeShellState extends State<HomeShell> {
 
   @override
   Widget build(BuildContext context) {
+    final controller = context.watch<AppController>();
+    if (!_autoCheckInLaunched) {
+      _autoCheckInLaunched = true;
+      unawaited(maybeAutoCheckIn(controller));
+    }
     if (defaultTargetPlatform == TargetPlatform.linux ||
         defaultTargetPlatform == TargetPlatform.windows ||
         defaultTargetPlatform == TargetPlatform.macOS) {
       return const DesktopWorkbench();
     }
-    final controller = context.watch<AppController>();
     final l10n = AppLocalizations.of(context);
     final destinations = [
       (l10n.tabRecord, Icons.edit_note_outlined),
