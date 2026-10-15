@@ -3,6 +3,15 @@ allprojects {
         google()
         mavenCentral()
     }
+    // integration_test 插件声明了动态版本依赖（runner/rules/espresso-core），
+    // 解析时需联网列 Maven 版本；钉到本地已解析过的版本，无网络时也能构建。
+    configurations.all {
+        resolutionStrategy.force(
+            "androidx.test:runner:1.3.0",
+            "androidx.test:rules:1.2.0",
+            "androidx.test.espresso:espresso-core:3.3.0",
+        )
+    }
 }
 
 val newBuildDir: Directory =

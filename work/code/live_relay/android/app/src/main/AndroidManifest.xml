@@ -3,10 +3,13 @@
     <uses-permission android:name="android.permission.CAMERA"/>
     <uses-permission android:name="android.permission.RECORD_AUDIO"/>
     <uses-permission android:name="android.permission.INTERNET"/>
+    <!-- 2026-10-15 拍板：云端先用 IP+HTTP（不走 LE IP 证书），
+         全局放行明文 HTTP，兼容厂商 ROM 策略与后续 Android 版本收紧。 -->
     <application
         android:label="留灯"
         android:name="${applicationName}"
         android:allowBackup="false"
+        android:usesCleartextTraffic="true"
         android:icon="@mipmap/ic_launcher">
         <activity
             android:name=".MainActivity"
