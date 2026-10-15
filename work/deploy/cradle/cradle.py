@@ -38,6 +38,7 @@ DATA_DIR = Path(os.environ.get("CRADLE_DATA_DIR", "/data"))
 STATE_DIR = Path(os.environ.get("CRADLE_STATE_DIR", "/state"))
 INTERVAL_SECONDS = int(os.environ.get("CRADLE_INTERVAL_SECONDS", "600"))
 DRY_RUN = os.environ.get("CRADLE_DRY_RUN", "") == "1"
+ONCE = os.environ.get("CRADLE_ONCE", "") == "1"
 
 CHECKIN_NAME = "liverelay-checkin.json"
 PLAN_NAME = "liverelay-cradle-plan.json"
@@ -226,7 +227,7 @@ def main() -> None:
                 "CRADLE_SMTP_PASS",
                 "CRADLE_SMTP_FROM",
             )
-            if not os.environ.get(key)
+            if not os.environ.get(key) or os.environ.get(key) == "CHANGE-ME"
         ]
         if missing:
             log(f"missing SMTP settings: {', '.join(missing)}; refusing to start")
@@ -244,6 +245,8 @@ def main() -> None:
                 process_customer(customer, now)
             except Exception as error:  # noqa: BLE001 - one bad customer never stops the loop
                 log(f"{customer.name}: unexpected error: {error}")
+        if ONCE:
+            return
         time.sleep(INTERVAL_SECONDS)
 
 
