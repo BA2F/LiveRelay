@@ -160,24 +160,42 @@ def notify_body(recipient: dict, plan: dict) -> str:
     )
 
 
-def process_customer(customer: Path, now: datetime) -> None:
+def find_customers() -> list[tuple[str, Path]]:
+    """Directories holding cradle files, keyed by path relative to the data
+    root. The deployed copyparty layout puts customer volumes one level
+    deeper (users/<customer>/), so a fixed one-level scan is not enough:
+    walk up to three levels and treat any directory containing one of the
+    cradle files as a customer."""
+    root_parts = len(DATA_DIR.parts)
+    customers: list[tuple[str, Path]] = []
+    for dirpath, dirnames, filenames in os.walk(DATA_DIR):
+        if len(Path(dirpath).parts) - root_parts >= 3:
+            dirnames[:] = []
+            continue
+        if CHECKIN_NAME in filenames or PLAN_NAME in filenames:
+            relative = Path(dirpath).relative_to(DATA_DIR)
+            customers.append(("__".join(relative.parts), Path(dirpath)))
+    return sorted(customers)
+
+
+def process_customer(key: str, customer: Path, now: datetime) -> None:
     plan_path = customer / PLAN_NAME
     if not plan_path.is_file():
         return
     plan = read_json(plan_path)
     problem = plan_problem(plan)
     if problem:
-        log(f"{customer.name}: invalid plan ({problem}); skipped")
+        log(f"{key}: invalid plan ({problem}); skipped")
         return
 
     checkin_path = customer / CHECKIN_NAME
     baseline_path = checkin_path if checkin_path.is_file() else plan_path
     baseline_ns = baseline_path.stat().st_mtime_ns
 
-    state_path = STATE_DIR / f"{customer.name}.json"
+    state_path = STATE_DIR / f"{key}.json"
     state = read_json(state_path)
     if not isinstance(state, dict) or state.get("baselineNs") != baseline_ns:
-        log(f"{customer.name}: baseline is {baseline_path.name} ({baseline_ns})")
+        log(f"{key}: baseline is {baseline_path.name} ({baseline_ns})")
         state = {"baselineNs": baseline_ns, "lastRemindDate": None, "notified": {}}
     notified = state.get("notified")
     if not isinstance(notified, dict):
@@ -197,18 +215,18 @@ def process_customer(customer: Path, now: datetime) -> None:
             try:
                 send_mail(email, notify_subject(recipient), notify_body(recipient, plan))
             except Exception as error:  # noqa: BLE001 - logged, retried next round
-                log(f"{customer.name}: notify {email} failed: {error}")
+                log(f"{key}: notify {email} failed: {error}")
                 continue
             notified[email] = now.isoformat()
-            log(f"{customer.name}: notified {email} after {days:.1f} days")
+            log(f"{key}: notified {email} after {days:.1f} days")
     elif days >= remind_at and state.get("lastRemindDate") != today:
         try:
             send_mail(plan["ownerEmail"], remind_subject(plan, days), remind_body(plan, days))
         except Exception as error:  # noqa: BLE001 - logged, retried next round
-            log(f"{customer.name}: reminder failed: {error}")
+            log(f"{key}: reminder failed: {error}")
         else:
             state["lastRemindDate"] = today
-            log(f"{customer.name}: reminded {plan['ownerEmail']} after {days:.1f} days")
+            log(f"{key}: reminded {plan['ownerEmail']} after {days:.1f} days")
 
     write_state(state_path, state)
 
@@ -236,15 +254,15 @@ def main() -> None:
     while True:
         now = datetime.now(timezone.utc)
         try:
-            customers = sorted(path for path in DATA_DIR.iterdir() if path.is_dir())
+            customers = find_customers()
         except OSError as error:
             log(f"data directory unreadable: {error}")
             customers = []
-        for customer in customers:
+        for key, customer in customers:
             try:
-                process_customer(customer, now)
+                process_customer(key, customer, now)
             except Exception as error:  # noqa: BLE001 - one bad customer never stops the loop
-                log(f"{customer.name}: unexpected error: {error}")
+                log(f"{key}: unexpected error: {error}")
         if ONCE:
             return
         time.sleep(INTERVAL_SECONDS)

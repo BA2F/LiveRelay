@@ -5,7 +5,7 @@
 > 依赖：Docker 与 Docker Compose；一个可发信的 SMTP 账号；copyparty 客户卷（见 ../copyparty/）
 > 设计：tasks/specs/2026-10-15_报平安与自动交接.md
 
-App 把两样东西写进云端客户卷（`/srv/tttahzun/data/liverelay-drive/<客户>/`）：
+App 把两样东西写进云端客户卷（`/srv/tttahzun/data/liverelay-drive/users/<客户>/`，copyparty 云布局）：
 
 - `liverelay-checkin.json`：最近一次报平安（覆盖写；手动按钮与"打开 App 自动记一次"）
 - `liverelay-cradle-plan.json`：摇篮计划（周期／提前提醒／宽限期／提醒邮箱／接收者名单）
@@ -56,6 +56,7 @@ SMTP：`CRADLE_SMTP_MODE=ssl`（端口 465）或 `starttls`（端口 587）。�
   - 记录 11 天前 → 打印取件通知（发给接收者，"测试接收者 给你留了内容"）✓
   - 记录刷新为当前时间 → 状态正确重置（提醒日与已通知标记清空），当轮无动作 ✓
 - 测试数据（假计划、假记录、状态文件）已清理；接真发信待本人提供 SMTP 凭据。
+- 修复记录（2026-10-15 晚）：初版按"客户卷＝数据根一级子目录"扫描，实际 copyparty 布局为 `users/<客户>/`；本人手机实测报平安（记录落进 `users/test3/`）暴露了这个问题。已改为最多三层递归发现（客户键用相对路径，`users__test3`），深浅两种布局都验证过，容器已更新。此后本人在 test3 卷的真实报平安记录可被服务看见。
 
 ## 待办
 
