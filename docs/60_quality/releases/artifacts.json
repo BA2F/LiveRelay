@@ -196,6 +196,39 @@
       },
       "verification": "314 automated tests and desktop native suites (workbench 16, startup, close, transfer) passed; phone (Xiaomi 13) and emulator manual walkthroughs; APK manifest, single-ABI contents, and v2 certificate checked with aapt2/apksigner; full-ELF ABI audit of the Linux bundle (no debugger metadata); isolated Ubuntu 22.04 Xvfb smoke launch of the final bundle (app alive, Impeller and media_kit loaded; secret-service warning expected without a keyring); all 3 uploaded asset sizes/digests match local files. Windows, formal security review and more hardware remain unverified.",
       "releaseAttestation": false
+    },
+    {
+      "tag": "v1.0.0-beta.2",
+      "name": "LiveRelay v1.0.0-beta.2 — 云端明文放行与摇篮",
+      "url": "https://github.com/BA2F/LiveRelay/releases/tag/v1.0.0-beta.2",
+      "publishedAt": "2026-10-15T14:42:35Z",
+      "buildDate": "2026-10-15",
+      "sourceCommit": "2375f8c34eec2119cabadafc621637ceb81a953b",
+      "provenance": "Android-only release built from committed source 2375f8c, application 1.0.0-beta.2+5, same dedicated release key as beta.1 (direct overwrite upgrade). Adds the cleartext-HTTP allowance for the IP+HTTP cloud, pins the integration_test dynamic dependency versions in android/build.gradle.kts so builds no longer need the network, and ships the cradle (check-in and auto handover) app side plus deploy assets; the cradle service runs on the ECS in dry-run mode pending SMTP credentials. Annotated tag is fixed at sourceCommit.",
+      "prerelease": true,
+      "packageName": "app.liverelay.live_relay",
+      "versionName": "1.0.0-beta.2",
+      "versionCode": 5,
+      "minSdk": 24,
+      "targetSdk": 36,
+      "signatureScheme": "v2",
+      "signingCertificate": "CN=LiveRelay (dedicated release key)",
+      "certificateSha256": "7dee1b1faa8904777869b634f5fc2e50cfe4acb32e09543201476d8e14531cc7",
+      "androidAbi": "arm64-v8a",
+      "apk": {
+        "fileName": "LiveRelay-v1.0.0-beta.2-Android.apk",
+        "bytes": 76379606,
+        "sha256": "785b5175b35f8201d2343fafe432949756cc9beb5caf9f7c9395652893bd2a86",
+        "downloadUrl": "https://github.com/BA2F/LiveRelay/releases/download/v1.0.0-beta.2/LiveRelay-v1.0.0-beta.2-Android.apk"
+      },
+      "checksumFile": {
+        "fileName": "SHA256SUMS",
+        "bytes": 102,
+        "sha256": "1e75c4fcbaea51222105a170a1b3309394e550ebe4c54d2e4efe67750afa083e",
+        "downloadUrl": "https://github.com/BA2F/LiveRelay/releases/download/v1.0.0-beta.2/SHA256SUMS"
+      },
+      "verification": "318 automated tests and static analysis; simulator A/B probe for cleartext HTTP (both configurations reach the cloud; evidence in work/artifacts/cleartext-ab-2026-10-15); phone (Xiaomi 13) real checks of cloud connection, check-in upload and cradle plan save; ECS cradle dry run (remind at 6.5d, notify at 11d, reset after re-check-in) plus a reminder drill against the owner's real record; the customer-volume discovery bug was found by the real record and fixed. APK manifest, single-ABI contents and v2 certificate checked with aapt2/apksigner; all uploaded asset sizes/digests match local files. SMTP delivery remains dry-run; two UI walkthroughs pending.",
+      "releaseAttestation": false
     }
   ]
 }
