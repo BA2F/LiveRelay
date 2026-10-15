@@ -65,6 +65,12 @@ class CradleRecipient {
     required this.cloudPassword,
   });
 
+  /// Canonical cloud file name of this recipient's pre-authorized handoff
+  /// package. The plan stores it and the cradle service mails it to the
+  /// recipient, so the upload in the handoff flow must use the same name.
+  static String packageNameFor(String label) =>
+      'liverelay-handoff-${label.replaceAll(RegExp(r'[/\\]'), '_')}.lrshare';
+
   final String label;
   final String email;
   final String packageName;

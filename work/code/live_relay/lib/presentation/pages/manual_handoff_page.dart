@@ -1,11 +1,16 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../controllers/app_controller.dart';
+import '../../application/cradle_service.dart';
 import '../../application/local_handoff_service.dart';
 import '../../application/release_preview.dart';
+import '../../core/cradle/cradle_records.dart';
 import '../../core/domain/entities.dart';
 import '../../core/identity/local_identity.dart';
+import '../../infrastructure/transfer/webdav_transfer_medium.dart';
 import '../dialogs/local_file_dialogs.dart';
 import '../model_labels.dart';
 
@@ -135,7 +140,7 @@ class _ManualHandoffPageState extends State<ManualHandoffPage> {
               originals[item.key.substring(item.key.indexOf('/') + 1)] ?? [],
         ),
     ];
-    final approved = await showDialog<bool>(
+    final approved = await showDialog<String>(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('确认本次真实交接'),
@@ -180,24 +185,69 @@ class _ManualHandoffPageState extends State<ManualHandoffPage> {
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context, false),
+            onPressed: () => Navigator.pop(context),
             child: const Text('取消'),
           ),
+          OutlinedButton(
+            onPressed: () => Navigator.pop(context, 'local'),
+            child: const Text('导出为本地文件'),
+          ),
           FilledButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('授权所选范围并导出'),
+            onPressed: () => Navigator.pop(context, 'cloud'),
+            child: const Text('上传到云端摇篮'),
           ),
         ],
       ),
     );
-    if (approved != true || !controller.isUnlocked) return;
+    if (approved == null || !controller.isUnlocked) return;
     final bytes = await controller.handoff!.exportScope(selected!, selections);
     try {
-      if (controller.isUnlocked) {
+      if (!controller.isUnlocked) return;
+      if (approved == 'local') {
         await saveLocalBytes(bytes, 'LiveRelay-scoped.lrshare');
+        return;
       }
+      await uploadToCradle(controller, bytes);
     } finally {
       bytes.fillRange(0, bytes.length, 0);
+    }
+  }
+
+  /// Uploads the exported package as this recipient's pre-authorized cradle
+  /// package. The name follows CradleRecipient.packageNameFor so the cradle
+  /// service's pickup mail points at this exact file.
+  Future<void> uploadToCradle(
+    AppController controller,
+    Uint8List bytes,
+  ) async {
+    final connection = await controller.webDavConnection();
+    if (connection == null) {
+      throw StateError('还没有配置云端连接：先到「设备间搬运」里配置云端');
+    }
+    final binding = recipients[selected];
+    final public = binding is Map ? binding['public'] : null;
+    if (public is! Map) throw StateError('接收者身份已失效，请重新核对');
+    final label = LocalIdentity.displayName(Map<String, Object?>.from(public));
+    final packageName = CradleRecipient.packageNameFor(label);
+    final medium = WebDavTransferMedium(
+      baseUrl: connection.baseUrl,
+      username: connection.username,
+      password: connection.password,
+      timeout: const Duration(seconds: 120),
+    );
+    try {
+      await CradleService(controller.handoff!).uploadPackage(
+        medium,
+        packageName: packageName,
+        bytes: bytes,
+      );
+    } finally {
+      medium.close();
+    }
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('已上传到云端摇篮：$packageName')),
+      );
     }
   }
 

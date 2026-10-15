@@ -91,6 +91,38 @@ void main() {
     },
   );
 
+  test('pre-authorized packages upload under the canonical plan name', () async {
+    final root = await Directory.systemTemp.createTemp('cradle-unit-');
+    final cradle = await _unlockedCradle(root);
+    final medium = MemoryMedium();
+
+    expect(
+      CradleRecipient.packageNameFor('家人'),
+      'liverelay-handoff-家人.lrshare',
+    );
+    expect(
+      CradleRecipient.packageNameFor(r'a/b\c'),
+      'liverelay-handoff-a_b_c.lrshare',
+    );
+
+    final bytes = Uint8List.fromList(utf8.encode('fake scoped delivery wire'));
+    await cradle.uploadPackage(
+      medium,
+      packageName: CradleRecipient.packageNameFor('家人'),
+      bytes: bytes,
+    );
+    expect(medium.files['liverelay-handoff-家人.lrshare'], bytes);
+
+    expect(
+      () => cradle.uploadPackage(medium, packageName: 'bad/name', bytes: bytes),
+      throwsFormatException,
+    );
+    expect(
+      () => cradle.uploadPackage(medium, packageName: '', bytes: bytes),
+      throwsFormatException,
+    );
+  });
+
   test('cradle plans round-trip and validate parameter ranges', () async {
     final root = await Directory.systemTemp.createTemp('cradle-unit-');
     final cradle = await _unlockedCradle(root);

@@ -225,7 +225,7 @@ class _CradlePageState extends State<CradlePage> {
           CradleRecipient(
             label: match.name,
             email: email,
-            packageName: 'liferelay-handoff-${match.name}.lrshare',
+            packageName: CradleRecipient.packageNameFor(match.name),
             cloudUrl: connection.baseUrl.toString(),
             cloudUser: connection.username,
             cloudPassword: connection.password,

@@ -49,6 +49,23 @@ class CradleService {
         Uint8List.fromList(utf8.encode(jsonEncode(plan.toJson()))),
       );
 
+  /// Uploads a pre-authorized scoped-delivery package for one recipient.
+  /// The caller derives [packageName] with CradleRecipient.packageNameFor so
+  /// the cradle service's pickup mail points at this exact file.
+  Future<void> uploadPackage(
+    TransferMedium medium, {
+    required String packageName,
+    required Uint8List bytes,
+  }) {
+    if (packageName.isEmpty ||
+        packageName.length > 200 ||
+        packageName.contains('/') ||
+        packageName.contains('\\')) {
+      throw const FormatException('交接包文件名不合法');
+    }
+    return medium.writeAtomic(packageName, bytes);
+  }
+
   /// Reads the last check-in back from the cloud; null when none exists yet.
   Future<CheckinRecord?> readCheckin(TransferMedium medium) async {
     final bytes = await _readOrNull(medium, CheckinRecord.fileName);
