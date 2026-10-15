@@ -26,7 +26,8 @@ Android 7 / API 24 及以上（发布包为 arm64）；另提供 Linux x86_64 �
 
 | 里程碑 | 用途 | 发布页 |
 | --- | --- | --- |
-| v1.0.0-beta.1 | 当前推荐，桌面重建、云端搬运与合并导入；正式签名第一个版本 | [下载 APK、Linux 应用与校验文件](https://github.com/BA2F/LiveRelay/releases/tag/v1.0.0-beta.1) |
+| v1.0.0-beta.2 | 当前推荐，云端明文放行与摇篮（报平安与自动交接） | [下载 APK 与校验文件](https://github.com/BA2F/LiveRelay/releases/tag/v1.0.0-beta.2) |
+| v1.0.0-beta.1 | 桌面重建、云端搬运与合并导入；正式签名第一个版本（Linux 应用包见本行） | [下载 APK、Linux 应用与校验文件](https://github.com/BA2F/LiveRelay/releases/tag/v1.0.0-beta.1) |
 | MVP 0.4 | 上一版（调试证书签名），保留历史附件 | [历史 APK、Linux 应用与校验文件](https://github.com/BA2F/LiveRelay/releases/tag/mvp-0.4) |
 | MVP 0.3 | 上一本机功能版，保留历史附件 | [历史 APK、Linux 应用与校验文件](https://github.com/BA2F/LiveRelay/releases/tag/mvp-0.3) |
 | MVP 0.2 | 上一版侧载包 | [下载 APK 与校验文件](https://github.com/BA2F/LiveRelay/releases/tag/mvp-0.2) |

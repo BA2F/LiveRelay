@@ -2,6 +2,17 @@
 
 记录对使用者有影响的版本变化。安装包、校验文件和最终发布说明以 [GitHub Releases](https://github.com/BA2F/LiveRelay/releases)为准；制品身份另见 [发布记录](docs/60_quality/releases/)。
 
+## v1.0.0-beta.2 — 云端明文放行与摇篮（报平安与自动交接），2026-10-15
+
+[Release](https://github.com/BA2F/LiveRelay/releases/tag/v1.0.0-beta.2) · [完整版本说明](docs/60_quality/releases/v1.0.0-beta.2.md)
+
+- Android 全局放行明文 HTTP：云端当前为 IP + HTTP 部署；实测确认当前 Flutter 引擎在 Android 上并不拦 Dart 层明文，本次放行作为厂商 ROM 与后续 Android 版本收紧的兼容性保险。桌面端不受影响。
+- Android 构建钉版本：integration_test 插件的动态版本依赖钉到本地版本，网络波动不再卡死构建。
+- 摇篮（报平安与自动交接）：手动／自动报平安（签名记录上传云端）、摇篮计划（周期／提前／宽限／提醒邮箱／接收者）、云端服务超期提醒本人与宽限期后取件通知、手动交接新增"上传到云端摇篮"出口。云端服务已部署于阿里云 ECS（当前干跑模式，待 SMTP 凭据后真发邮件）。
+- 与 beta.1 同签名，可直接覆盖升级。
+
+- 验证：318 项自动化测试；小米13 实测连接云端、报平安、计划保存；ECS 摇篮干跑提醒／通知／重置与本人记录提醒演练通过；明文 A/B 实测见发布说明。SMTP 真发信与两项界面人工走查未做。
+
 ## v1.0.0-beta.1 — 桌面重建与合并导入，2026-10-14
 
 [Release](https://github.com/BA2F/LiveRelay/releases/tag/v1.0.0-beta.1) · [完整版本说明](docs/60_quality/releases/v1.0.0-beta.1.md)
