@@ -31,6 +31,7 @@ import 'package:live_relay/presentation/pages/gate_page.dart';
 import 'package:live_relay/presentation/pages/originals_page.dart';
 import 'package:live_relay/presentation/pages/recycle_page.dart';
 import 'package:live_relay/presentation/pages/device_transfer_page.dart';
+import 'package:live_relay/presentation/pages/cradle_page.dart';
 import 'package:live_relay/presentation/dialogs/card_dialogs.dart';
 import 'package:live_relay/presentation/widgets/release_preview_panel.dart';
 
@@ -194,6 +195,36 @@ void main() {
       expect(topUpButton.onPressed, isNull);
       expect(find.text('云端：未配置'), findsOneWidget);
       expect(find.text('配置云端'), findsOneWidget);
+      await tester.pumpWidget(const SizedBox());
+      c.dispose();
+    },
+  );
+
+  testWidgets(
+    'cradle page shows cloud state, check-in button and plan editor',
+    (tester) async {
+      final c = SnapshotController();
+      await tester.pumpWidget(app(c, const CradlePage()));
+      await tester.pumpAndSettle();
+      expect(find.text('报平安与自动交接'), findsOneWidget);
+      expect(find.text('云端：未配置'), findsOneWidget);
+      expect(find.text('最近报平安：尚无记录'), findsOneWidget);
+      final checkInButton = tester.widget<FilledButton>(
+        find.widgetWithText(FilledButton, '报平安'),
+      );
+      expect(checkInButton.onPressed, isNull);
+      expect(find.text('摇篮计划'), findsOneWidget);
+      expect(find.textContaining('第 6 天开始提醒你'), findsOneWidget);
+      await tester.scrollUntilVisible(
+        find.text('还没有已验证的接收者身份：先到「交接」页完成接收者核对。'),
+        200,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.pumpAndSettle();
+      expect(
+        find.text('还没有已验证的接收者身份：先到「交接」页完成接收者核对。'),
+        findsOneWidget,
+      );
       await tester.pumpWidget(const SizedBox());
       c.dispose();
     },
