@@ -58,6 +58,12 @@ SMTP：`CRADLE_SMTP_MODE=ssl`（端口 465）或 `starttls`（端口 587）。�
 - 测试数据（假计划、假记录、状态文件）已清理；接真发信待本人提供 SMTP 凭据。
 - 修复记录（2026-10-15 晚）：初版按"客户卷＝数据根一级子目录"扫描，实际 copyparty 布局为 `users/<客户>/`；本人手机实测报平安（记录落进 `users/test3/`）暴露了这个问题。已改为最多三层递归发现（客户键用相对路径，`users__test3`），深浅两种布局都验证过，容器已更新。此后本人在 test3 卷的真实报平安记录可被服务看见。
 
+## SMTP 真发（2026-10-17）
+
+- 发信源：网易企业邮箱（`smtphz.qiye.163.com:994`，SSL）。发件地址与授权码由本人提供，只写入服务器上的 compose（`chmod 600`，不入库）；容器从干跑切为真发。
+- 首封真发暴露干跑掩盖的 bug：`EmailMessage["Subject"] = Header(...)` 在 Python 3.12 抛 `'Header' object is not subscriptable`（dry-run 不经过 smtplib，测不出）；改为字符串赋值后重发成功（提交 7476b28）。
+- 全真演练：把真实报平安记录模拟成 6.5 天前 → 本人 QQ 邮箱收到提醒邮件「【留灯】你已经 7 天没有报平安」✓。演练后记录时间已恢复。
+
 ## 待办
 
 - SMTP 凭据（本人提供后改 compose 的 CHANGE-ME 并去掉 `CRADLE_DRY_RUN`，重启即真发）
