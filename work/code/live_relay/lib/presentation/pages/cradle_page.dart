@@ -370,38 +370,41 @@ class _CradlePageState extends State<CradlePage> {
               const SizedBox(height: 12),
               Row(
                 children: [
-                  const Text('周期'),
-                  const SizedBox(width: 8),
-                  SizedBox(
-                    width: 64,
+                  Expanded(
                     child: TextField(
                       controller: _period,
                       keyboardType: TextInputType.number,
                       onChanged: (_) => setState(() {}),
-                      decoration: const InputDecoration(isDense: true),
+                      decoration: const InputDecoration(
+                        labelText: '周期（天）',
+                        isDense: true,
+                      ),
                     ),
                   ),
-                  const Text(' 天 · 提前 '),
-                  SizedBox(
-                    width: 64,
+                  const SizedBox(width: 8),
+                  Expanded(
                     child: TextField(
                       controller: _remindBefore,
                       keyboardType: TextInputType.number,
                       onChanged: (_) => setState(() {}),
-                      decoration: const InputDecoration(isDense: true),
+                      decoration: const InputDecoration(
+                        labelText: '提前（天）',
+                        isDense: true,
+                      ),
                     ),
                   ),
-                  const Text(' 天提醒 · 宽限 '),
-                  SizedBox(
-                    width: 64,
+                  const SizedBox(width: 8),
+                  Expanded(
                     child: TextField(
                       controller: _grace,
                       keyboardType: TextInputType.number,
                       onChanged: (_) => setState(() {}),
-                      decoration: const InputDecoration(isDense: true),
+                      decoration: const InputDecoration(
+                        labelText: '宽限（天）',
+                        isDense: true,
+                      ),
                     ),
                   ),
-                  const Text(' 天'),
                 ],
               ),
               const SizedBox(height: 8),
