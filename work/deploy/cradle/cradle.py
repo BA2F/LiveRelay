@@ -30,7 +30,6 @@ import smtplib
 import ssl
 import time
 from datetime import datetime, timezone
-from email.header import Header
 from email.message import EmailMessage
 from pathlib import Path
 
@@ -79,7 +78,7 @@ def send_mail(to: str, subject: str, body: str) -> None:
     message = EmailMessage()
     message["From"] = sender
     message["To"] = to
-    message["Subject"] = Header(subject, "utf-8")
+    message["Subject"] = subject
     message.set_content(body, charset="utf-8")
     if mode == "starttls":
         with smtplib.SMTP(host, port, timeout=30) as smtp:
