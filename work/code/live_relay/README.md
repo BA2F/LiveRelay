@@ -7,7 +7,7 @@
 - Flutter stable，Dart 版本符合 `pubspec.yaml`（当前约束 `^3.13.2`）；依赖锁定于 `pubspec.lock`。
 - Android SDK、Java 17+；Android 最低 API 24。最近可运行工具链和验证结果见 [质量记录](../../../docs/60_quality/00_测试与验证策略.md)。
 - Agent 开发任务使用 [AGENTS.md](../../../AGENTS.md)指定的 Linux 工作区。
-- Linux 桌面需要 Flutter desktop 工具链、GTK 与 libsecret 开发依赖；Windows runner 已生成，Windows 编译及安全存储需在 Windows 验证。
+- Linux 桌面需要 Flutter desktop 工具链、GTK 与 libsecret 开发依赖。Windows 桌面需要 Visual Studio 的“使用 C++ 的桌面开发”工作负载；Windows debug／release 编译、启动和生产入口首次建库已在本机 Windows 11 验证，Windows 指纹与密钥环存储仍未验收。
 - Linux 的音频格式转换及视频采样帧需要本机 `ffmpeg` 和 `ffprobe`。语音页接受 WAV、MP3、M4A、MP4、WebM，每次最多 2 MB，完整音轨最多 60 秒；超限明确拒绝，不截断。Agent 的视频预览可检查四帧，完整音轨需单独准备或转写核对后使用。Android 保持原有 WAV 语音入口。
 
 ## 运行
@@ -43,7 +43,7 @@ flutter test integration_test/restore_recovery_desktop_test.dart -d linux --dart
 
 不要将原用户资料库或真实个人资料作为回归输入。真实服务和实体硬件的验收需单独记录，不用离线测试代替。
 
-桌面工作台及独立窗口的原生验证使用 `test_driver/native_driver.dart`，目标分别为 `integration_test/desktop_workbench_test.dart` 和 `integration_test/desktop_windows_test.dart`。同一 checkout 的 Linux 构建共用 bundle，所有原生验证必须顺序执行；完成后重新以 `--target lib/main.dart` 构建正常客户端，集成入口不能作为交付软件。
+桌面工作台的原生验证使用 `test_driver/native_driver.dart`，目标为 `integration_test/desktop_workbench_test.dart`。同一 checkout 的 Linux 构建共用 bundle，所有原生验证必须顺序执行；完成后重新以 `--target lib/main.dart` 构建正常客户端，集成入口不能作为交付软件。
 
 普通生产入口的首次引导与重开验证使用 `integration_test/desktop_startup_test.dart`，直接调用 `lib/main.dart`，不注入业务服务。必须明确隔离 XDG 数据及临时目录；系统凭据存储使用空内存夹具，不读取本人密钥环。该用例通过真实页面创建 Header v3、回输恢复凭证、选择工作台、在防抖保存前保存锁定，然后卸载页面/控制器并重新调用生产入口解锁，验证加密草稿与起始布局保留。还覆盖双卡选择/数量对象核对/取消/确认回收/界面恢复、工作台切换/重新选择/默认恢复及输入框聚焦时的Ctrl+Shift+P命令。重建组装发生在同一个原生进程内，不冒充进程异常退出；后者见独立关闭用例。
 
@@ -58,6 +58,20 @@ flutter build linux --debug --target lib/main.dart --no-pub
 ```
 
 双屏自动验收使用 X11 窗口实际中心点确定当前显示器，再移至不包含该中心点的另一显示器，并断言目标窗口中心已离开原屏。镜像显示器不能证明跨屏；Wayland不使用X11的全局坐标断言。自动程序移动和本人手动标题栏跨屏分别记录。
+
+Windows 生产入口验证在隔离的虚构资料库上运行，路径特意位于 `%APPDATA%` 下，以覆盖拒绝元数据重命名的 Windows 配置目录：
+
+```powershell
+flutter test integration_test/windows_vault_creation_test.dart -d windows
+```
+
+`test/core/file_commit_test.dart` 在 Windows 使用 `%APPDATA%` 沙箱；其中的跨卷用例默认跳过，指向另一块磁盘上的可写目录时运行，用来确定性地覆盖退化提交：
+
+```powershell
+flutter test test/core/file_commit_test.dart --dart-define=LIVERELAY_SECOND_VOLUME=E:/LiveRelayProbe
+```
+
+`test/core/recoverable_header_test.dart` 与 `test/infrastructure/vault_restore_transaction_test.dart` 覆盖提交的可恢复性，后者在 Windows 通过 SDK 自带 `dart` 拉起崩溃子进程。范围与取舍见 [Windows 桌面适配验证](../../../docs/60_quality/2026-10-18_Windows桌面适配验证.md)。
 
 `formal_foundation_desktop_test.dart` 使用临时目录和真实 SQLCipher，验证首次设置、偏好保存、统一卡片视图、平台能力提示、重新解锁和备份核对。可传入 `--dart-define=FOUNDATION_SCREENSHOTS=/绝对输出目录` 保存虚构资料截图。
 

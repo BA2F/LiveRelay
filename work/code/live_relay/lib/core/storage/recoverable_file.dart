@@ -1,5 +1,7 @@
 import 'dart:io';
 
+import 'file_commit.dart';
+
 /// Keeps a flushed predecessor across platforms whose rename may first unlink
 /// the destination. Sidecars end in .tmp and never enter a vault archive.
 class RecoverableFile {
@@ -61,7 +63,7 @@ class RecoverableFile {
     await checkpoint?.call('pendingWritten');
     // No explicit deletion of the canonical file. The predecessor remains
     // recoverable even if the platform unlinks before replacing it.
-    await pending.rename(file.path);
+    await commitFile(pending, file);
     await checkpoint?.call('replaced');
   }
 }

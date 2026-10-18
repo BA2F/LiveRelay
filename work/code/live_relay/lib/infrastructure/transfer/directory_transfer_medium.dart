@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'package:path/path.dart' as path;
 
 import '../../core/ports/transfer_medium.dart';
+import '../../core/storage/file_commit.dart';
 
 /// A user-chosen directory acting as the transfer medium: a USB stick, a
 /// mounted LAN share, or a mounted WebDAV drive all look the same here.
@@ -75,7 +76,7 @@ class DirectoryTransferMedium implements TransferMedium {
     final temporary = File('${file.path}.tmp');
     try {
       await temporary.writeAsBytes(bytes, flush: true);
-      await temporary.rename(file.path);
+      await commitFile(temporary, file);
     } on Object {
       if (await temporary.exists()) await temporary.delete();
       rethrow;

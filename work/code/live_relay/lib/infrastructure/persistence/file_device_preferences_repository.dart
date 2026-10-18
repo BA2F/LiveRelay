@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import '../../core/ports/device_preferences_repository.dart';
+import '../../core/storage/file_commit.dart';
 
 class FileDevicePreferencesRepository implements DevicePreferencesRepository {
   FileDevicePreferencesRepository(this.file);
@@ -23,7 +24,7 @@ class FileDevicePreferencesRepository implements DevicePreferencesRepository {
     final temporary = File('${target.path}.tmp');
     try {
       await temporary.writeAsString(jsonEncode(data), flush: true);
-      await temporary.rename(target.path);
+      await commitFile(temporary, target);
     } finally {
       if (await temporary.exists()) await temporary.delete();
     }

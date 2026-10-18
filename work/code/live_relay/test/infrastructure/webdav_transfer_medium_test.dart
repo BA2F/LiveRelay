@@ -233,12 +233,16 @@ void main() {
       ),
     );
 
-    // A port with nothing listening: connection failure, not a crash.
+    // A port with nothing listening: connection failure, not a crash. Some
+    // Windows hosts need about two seconds before the refused loopback
+    // connection reports SocketException, so the budget has to stay above
+    // that; the case still has to surface a connection failure rather than
+    // being reported as a timeout.
     final dead = WebDavTransferMedium(
       baseUrl: Uri.parse('http://127.0.0.1:1/'),
       username: 'user',
       password: 'pass',
-      timeout: const Duration(seconds: 2),
+      timeout: const Duration(seconds: 15),
     );
     await expectLater(
       dead.list(),

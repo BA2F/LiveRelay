@@ -10,6 +10,45 @@ Future<void> fixture(Directory directory, String marker) async {
   await File('${directory.path}/vault.sqlite').writeAsString('fixture-$marker');
 }
 
+/// Runs the crash worker with the Dart executable that owns this test run.
+///
+/// `flutter test` runs inside the engine's flutter_tester, so
+/// `Platform.resolvedExecutable` is not a Dart CLI. The SDK copy beside
+/// FLUTTER_ROOT is preferred; on Windows a bare `dart` name is a `.bat`
+/// launcher that only the shell resolves, so the shell runs it.
+Future<ProcessResult> runCrashWorker(
+  Directory vault,
+  Directory staged,
+  String stage,
+) {
+  final arguments = [
+    'run',
+    'test/support/restore_crash_worker.dart',
+    vault.path,
+    staged.path,
+    stage,
+  ];
+  final flutterRoot = Platform.environment['FLUTTER_ROOT'];
+  final sdkDart = flutterRoot == null
+      ? null
+      : File(
+          [
+            flutterRoot,
+            'bin',
+            'cache',
+            'dart-sdk',
+            'bin',
+            Platform.isWindows ? 'dart.exe' : 'dart',
+          ].join(Platform.pathSeparator),
+        );
+  if (sdkDart != null && sdkDart.existsSync()) {
+    return Process.run(sdkDart.path, arguments);
+  }
+  return Platform.isWindows
+      ? Process.run('cmd', ['/c', 'dart', ...arguments])
+      : Process.run('dart', arguments);
+}
+
 void main() {
   for (final stage in [
     'journal.pendingWritten',
@@ -33,13 +72,7 @@ void main() {
         final staged = await root.createTemp('liverelay-restore-');
         await fixture(vault, 'old');
         await fixture(staged, 'new');
-        final process = await Process.run('dart', [
-          'run',
-          'test/support/restore_crash_worker.dart',
-          vault.path,
-          staged.path,
-          stage,
-        ]);
+        final process = await runCrashWorker(vault, staged, stage);
         expect(
           process.exitCode,
           87,
@@ -76,13 +109,7 @@ void main() {
         final vault = Directory('${root.path}/vault');
         final staged = await root.createTemp('liverelay-restore-');
         await fixture(staged, 'new');
-        final process = await Process.run('dart', [
-          'run',
-          'test/support/restore_crash_worker.dart',
-          vault.path,
-          staged.path,
-          stage,
-        ]);
+        final process = await runCrashWorker(vault, staged, stage);
         expect(
           process.exitCode,
           87,

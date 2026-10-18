@@ -8,6 +8,7 @@ import 'package:http/http.dart' as http;
 import 'package:sherpa_onnx/sherpa_onnx.dart' as sherpa;
 
 import '../../core/ports/speech_provider.dart';
+import '../../core/storage/file_commit.dart';
 import 'pcm_wave.dart';
 
 class LocalSenseVoiceProvider implements SpeechProvider {
@@ -135,7 +136,7 @@ class LocalSenseVoiceProvider implements SpeechProvider {
       if (generation != _generation) throw const FormatException('已取消模型安装');
       final target = await _installed;
       if (await target.exists()) await target.delete(recursive: true);
-      await staging.rename(target.path);
+      await commitDirectory(staging, target);
     } finally {
       if (await staging.exists()) await staging.delete(recursive: true);
     }

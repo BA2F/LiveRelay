@@ -8,6 +8,7 @@ import 'package:uuid/uuid.dart';
 
 import '../../core/domain/entities.dart';
 import '../../core/ports/vault_blob_store.dart';
+import '../../core/storage/file_commit.dart';
 
 class EncryptedBlobException implements Exception {
   const EncryptedBlobException(this.message);
@@ -77,7 +78,7 @@ class EncryptedBlobStore implements VaultBlobStore {
     await file.parent.create(recursive: true);
     try {
       await temporary.writeAsBytes(bytes, flush: true);
-      await temporary.rename(file.path);
+      await commitFile(temporary, file);
     } on Object {
       if (await temporary.exists()) await temporary.delete();
       rethrow;
@@ -116,7 +117,7 @@ class EncryptedBlobStore implements VaultBlobStore {
         ..add(box.mac.bytes)
         ..add(box.cipherText);
       await temporary.writeAsBytes(output.takeBytes(), flush: true);
-      await temporary.rename(target.path);
+      await commitFile(temporary, target);
       final digest = await _sha256.hash(clearBytes);
       return VaultBlob(
         id: id,

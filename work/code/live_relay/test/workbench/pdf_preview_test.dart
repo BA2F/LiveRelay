@@ -1,10 +1,16 @@
 import 'dart:async';
+import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:live_relay/application/preview_session.dart';
 import 'package:live_relay/presentation/widgets/local_pdf_preview.dart';
+
+/// The embedded PDF preview runs only on the Linux playback backend; every
+/// other platform reports the unsupported state instead, so these cases are
+/// verified on Linux.
+final bool _linuxBackendOnly = !Platform.isLinux;
 
 void main() {
   testWidgets('disposed PDF waits for pending reads and wipes late bytes', (
@@ -37,7 +43,7 @@ void main() {
     expect(session.cleanups, isEmpty);
     expect(tester.takeException(), isNull);
     session.dispose();
-  });
+  }, skip: _linuxBackendOnly);
 
   testWidgets('oversized PDF is rejected and wiped before native parsing', (
     tester,
@@ -61,7 +67,7 @@ void main() {
     await tester.pump();
     expect(session.cleanups, isEmpty);
     session.dispose();
-  });
+  }, skip: _linuxBackendOnly);
 }
 
 class PendingPreviewSession extends ChangeNotifier implements PreviewSession {

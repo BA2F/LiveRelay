@@ -6,6 +6,7 @@ import 'package:cryptography/cryptography.dart';
 import 'package:path/path.dart' as path;
 
 import '../../core/storage/recoverable_file.dart';
+import '../../core/storage/file_commit.dart';
 
 import '../../core/ports/vault_installation.dart';
 import '../../core/storage/vault_failures.dart';
@@ -184,9 +185,9 @@ class VaultRestoreTransaction implements VaultInstallation {
                 await _headerDigest(vault) != state['newHeader']) {
               throw const VaultRecoveryException();
             }
-            await vault.rename(incoming.path);
+            await commitDirectory(vault, incoming);
           }
-          await rollback.rename(vault.path);
+          await commitDirectory(rollback, vault);
         } else if (!await vault.exists() ||
             await _headerDigest(vault) != state['oldHeader']) {
           throw const VaultRecoveryException();
@@ -204,13 +205,13 @@ class VaultRestoreTransaction implements VaultInstallation {
         if (await _headerDigest(originalStaging) != state['newHeader']) {
           throw const VaultRecoveryException();
         }
-        await originalStaging.rename(incoming.path);
+        await commitDirectory(originalStaging, incoming);
       }
       if (!await vault.exists() && await incoming.exists()) {
         if (await _headerDigest(incoming) != state['newHeader']) {
           throw const VaultRecoveryException();
         }
-        await incoming.rename(vault.path);
+        await commitDirectory(incoming, vault);
       }
       if (!await vault.exists() ||
           await _headerDigest(vault) != state['newHeader']) {
@@ -271,13 +272,13 @@ class VaultRestoreTransaction implements VaultInstallation {
     );
     try {
       await checkpoint?.call('intentWritten');
-      await staged.rename(incoming.path);
+      await commitDirectory(staged, incoming);
       await checkpoint?.call('incomingPrepared');
       await checkpoint?.call('beforeOriginalMove');
-      if (hadVault) await vault.rename(rollback.path);
+      if (hadVault) await commitDirectory(vault, rollback);
       await checkpoint?.call('originalMoved');
       await checkpoint?.call('beforeIncomingInstall');
-      await incoming.rename(vault.path);
+      await commitDirectory(incoming, vault);
       await checkpoint?.call('incomingInstalled');
       await verifyInstalled();
       await checkpoint?.call('installedVerified');

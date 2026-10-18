@@ -2,6 +2,14 @@
 
 记录对使用者有影响的版本变化。安装包、校验文件和最终发布说明以 [GitHub Releases](https://github.com/BA2F/LiveRelay/releases)为准；制品身份另见 [发布记录](docs/60_quality/releases/)。
 
+## 未发布 — Windows 桌面适配，2026-10-18
+
+尚无可下载制品；本轮在 `main`（v1.0.0-beta.2 之后）上提供源码变化和 Windows 本机验证，不改变已发布包。
+
+- 修复 Windows 上无法创建资料库：偏好、Header、原件与模型安装不再假定文件系统一定接受 `rename`。带 EFS 加密属性的 `%APPDATA%`／`%LOCALAPPDATA%` 会拒绝元数据重命名（Dart 报 `ERROR_NOT_SAME_DEVICE`，`errno 17`），提交改为覆盖写入后删除 sidecar；目录提交退化为递归复制后删除暂存目录。Linux 与普通 NTFS 路径仍走原来的原子 rename。
+- Windows 11 debug／release 构建、启动与生产入口首次设置到进入工作台已在本机验证，新增 Windows 原生验证用例；恢复事务 13 项子进程检查在 Windows 通过。
+- 内嵌 PDF 与音视频预览只在 Linux 播放后端启用，相关用例按平台跳过，Windows 上显示不支持。
+
 ## v1.0.0-beta.2 — 云端明文放行与摇篮（报平安与自动交接），2026-10-15
 
 [Release](https://github.com/BA2F/LiveRelay/releases/tag/v1.0.0-beta.2) · [完整版本说明](docs/60_quality/releases/v1.0.0-beta.2.md)
