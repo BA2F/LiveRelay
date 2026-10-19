@@ -1,6 +1,6 @@
 {
   "repository": "https://github.com/BA2F/LiveRelay",
-  "recordedOn": "2026-10-15",
+  "recordedOn": "2026-10-19",
   "records": [
     {
       "tag": "mvp-0.1",
@@ -228,6 +228,53 @@
         "downloadUrl": "https://github.com/BA2F/LiveRelay/releases/download/v1.0.0-beta.2/SHA256SUMS"
       },
       "verification": "318 automated tests and static analysis; simulator A/B probe for cleartext HTTP (both configurations reach the cloud; evidence in work/artifacts/cleartext-ab-2026-10-15); phone (Xiaomi 13) real checks of cloud connection, check-in upload and cradle plan save; ECS cradle dry run (remind at 6.5d, notify at 11d, reset after re-check-in) plus a reminder drill against the owner's real record; the customer-volume discovery bug was found by the real record and fixed. APK manifest, single-ABI contents and v2 certificate checked with aapt2/apksigner; all uploaded asset sizes/digests match local files. SMTP delivery remains dry-run; two UI walkthroughs pending.",
+      "releaseAttestation": false
+    },
+    {
+      "tag": "v1.0.0-beta.3",
+      "name": "LiveRelay v1.0.0-beta.3 — Windows 适配与本机／远程交接分流",
+      "url": "https://github.com/BA2F/LiveRelay/releases/tag/v1.0.0-beta.3",
+      "publishedAt": "2026-10-19T09:41:24Z",
+      "buildDate": "2026-10-19",
+      "sourceCommit": "e89358d083a2a3939959637ef3cb1babe93627c8",
+      "provenance": "Android and Linux release built from committed source e89358d, application 1.0.0-beta.3+6, same dedicated release key as beta.1/beta.2. Windows adaptation is source-only in this release (Windows 11 build, startup and production-entry vault creation verified on Windows; no Windows binary attached). Linux built inside an isolated Ubuntu 22.04.5 rootfs via scripts/build_linux_ubuntu22.py with full-ELF ABI audit and an Xvfb smoke launch of the final bundle. Annotated tag is fixed at sourceCommit.",
+      "prerelease": true,
+      "packageName": "app.liverelay.live_relay",
+      "versionName": "1.0.0-beta.3",
+      "versionCode": 6,
+      "minSdk": 24,
+      "targetSdk": 36,
+      "signatureScheme": "v2",
+      "signingCertificate": "CN=LiveRelay (dedicated release key)",
+      "certificateSha256": "7dee1b1faa8904777869b634f5fc2e50cfe4acb32e09543201476d8e14531cc7",
+      "androidAbi": "arm64-v8a",
+      "apk": {
+        "fileName": "LiveRelay-v1.0.0-beta.3-Android.apk",
+        "bytes": 83113515,
+        "sha256": "d1682e049fc5f43c7762f7111519f8b1c6be855d6d22fa989c38033bbfa8abf5",
+        "downloadUrl": "https://github.com/BA2F/LiveRelay/releases/download/v1.0.0-beta.3/LiveRelay-v1.0.0-beta.3-Android.apk"
+      },
+      "linux": {
+        "fileName": "LiveRelay-v1.0.0-beta.3-Linux-x86_64.tar.gz",
+        "bytes": 58075818,
+        "sha256": "85ed2c3e63b17df52de0ee28f2a5f60e751c17f917434972ca33a3898c45ba7c",
+        "downloadUrl": "https://github.com/BA2F/LiveRelay/releases/download/v1.0.0-beta.3/LiveRelay-v1.0.0-beta.3-Linux-x86_64.tar.gz"
+      },
+      "checksumFile": {
+        "fileName": "SHA256SUMS",
+        "bytes": 212,
+        "sha256": "1a40601589a0324dbeacfd5a3a6a65cb540db760f8e9257f7731caeabd6ae17b",
+        "downloadUrl": "https://github.com/BA2F/LiveRelay/releases/download/v1.0.0-beta.3/SHA256SUMS"
+      },
+      "linuxArchitecture": "x86_64",
+      "linuxBuildDistribution": "Ubuntu22.04",
+      "linuxBuildGlibc": "2.35",
+      "linuxMaximumAbi": {
+        "GLIBC": "2.34",
+        "GLIBCXX": "3.4.29",
+        "CXXABI": "1.3.7"
+      },
+      "verification": "Static analysis clean and 332 tests passed / 3 skipped; Android release built with the dedicated key, aapt2/apksigner verified package name, versionName, versionCode 6, arm64-only contents and v2 certificate; Linux built in the isolated Ubuntu 22.04.5 rootfs via scripts/build_linux_ubuntu22.py, full-ELF ABI audit passed, and the final bundle stayed alive in an Xvfb smoke launch (Impeller and media_kit loaded; expected secret-service warning without a keyring); QR payload and widget tests passed, no real-device scan walkthrough yet; all 3 uploaded asset sizes/digests match local files.",
       "releaseAttestation": false
     }
   ]

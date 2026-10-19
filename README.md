@@ -14,7 +14,7 @@ LiveRelay（留灯）用来记录那些需要长期保存、在关键时候又�
 - **整理与修订**：按文字、类型和状态查找卡片；编辑保留历史修订，支持拆分、组合、回收和恢复。
 - **密码库**：密码默认遮挡，按需显示或复制并保留历史；支持 Edge 密码 CSV 导入和安全随机密码生成。
 - **安全与恢复**：日常可使用密码、指纹、密钥文件或组合条件解锁；独立恢复凭证可进入安全重设，更换安全材料时整库换钥。
-- **手动交接**：为接收者建立独立身份，核对完整指纹；本人逐项选择记录、级别、历史和原件，生成签名加密的交付包，接收者以只读方式查看。
+- **本机与远程交接**：本机交接用长期密码打开只读快照，密码条目可交付账号、网址、备注和当前密码，卡片可附带原件；跨设备或云端取件仍用接收者独立身份，导入公开身份或手机扫码添加，核对完整指纹后导出签名加密的交付包。
 - **备份与多设备**：导出完整加密备份，或分别导出数据库包和原件包；可通过磁盘、目录或 WebDAV 搬运整库，同一资料库的多台设备可以按修订合并导入。
 - **本地语音**：使用 sherpa-onnx SenseVoice 在本机转写录音和 WAV 文件，转写结果与原件关联保存，模型可自行下载或导入。
 - **可选 Agent**：接入 OpenAI Responses 兼容服务，外发前检查内容并授权，结果先核对再保存。Linux 上可选隔离 Bash。
@@ -33,8 +33,9 @@ LiveRelay（留灯）用来记录那些需要长期保存、在关键时候又�
 
 安装包通过 [GitHub Releases](https://github.com/BA2F/LiveRelay/releases) 分发，不进入 Git 历史。
 
-- **Android**：7.0 / API 24 及以上，arm64。最新版本 [v1.0.0-beta.2](https://github.com/BA2F/LiveRelay/releases/tag/v1.0.0-beta.2)。
-- **Linux**：x86_64，glibc 2.35 及以上。[v1.0.0-beta.1](https://github.com/BA2F/LiveRelay/releases/tag/v1.0.0-beta.1) 提供完整应用包。
+- **Android**：7.0 / API 24 及以上，arm64。最新版本 [v1.0.0-beta.3](https://github.com/BA2F/LiveRelay/releases/tag/v1.0.0-beta.3)。
+- **Linux**：x86_64，glibc 2.35 及以上。最新版本 [v1.0.0-beta.3](https://github.com/BA2F/LiveRelay/releases/tag/v1.0.0-beta.3) 提供完整应用包。
+- **Windows**：本版本提供源码支持（Windows 11 已验证构建、启动与首次建库），暂不提供 Windows 安装包。
 
 每个发布页同时提供 `SHA256SUMS`，下载后可校验：
 
