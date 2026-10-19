@@ -530,6 +530,12 @@ abstract class AppLocalizations {
   /// **'我是接收者 · 打开独立只读资料库'**
   String get recipientEntry;
 
+  /// No description provided for @recipientCreate.
+  ///
+  /// In zh, this message translates to:
+  /// **'创建接收者身份'**
+  String get recipientCreate;
+
   /// No description provided for @tabRecord.
   ///
   /// In zh, this message translates to:

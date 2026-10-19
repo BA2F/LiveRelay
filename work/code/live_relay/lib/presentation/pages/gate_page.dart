@@ -470,7 +470,7 @@ class _UnlockVaultPageState extends State<UnlockVaultPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          if (controller.recipientExists) const RecipientEntryButton(),
+          const RecipientEntryButton(),
           const HandoffViewEntryButton(),
           TextField(
             controller: _password,

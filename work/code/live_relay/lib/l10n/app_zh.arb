@@ -86,6 +86,7 @@
   "unlockRecovery": "忘记密码？使用独立恢复凭证",
   "unlockBiometric": "使用指纹解锁",
   "recipientEntry": "我是接收者 · 打开独立只读资料库",
+  "recipientCreate": "创建接收者身份",
 
   "tabRecord": "记录",
   "tabCards": "卡片",

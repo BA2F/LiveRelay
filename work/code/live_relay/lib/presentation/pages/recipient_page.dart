@@ -13,29 +13,43 @@ import '../widgets/read_only_snapshot.dart';
 
 Future<void> openRecipientEntry(BuildContext context) async {
   final controller = context.read<AppController>();
-  if (controller.recipient == null) return;
+  final service = controller.recipient;
+  if (service == null) return;
+  // 从设置页进入时会先锁定所有者资料库；锁定会卸载当前页面，所以先抓住
+  // Navigator，再执行锁定和跳转。
+  final navigator = Navigator.of(context, rootNavigator: true);
   if (controller.isUnlocked) await controller.lock();
-  if (context.mounted) {
-    await Navigator.push<void>(
-      context,
-      MaterialPageRoute(
-        builder: (_) => RecipientPage(service: controller.recipient!),
-      ),
-    );
-  }
+  if (!navigator.mounted) return;
+  await navigator.push<void>(
+    MaterialPageRoute(builder: (_) => RecipientPage(service: service)),
+  );
 }
 
+/// 解锁页与引导页的接收者入口：已有身份时打开只读资料库，没有身份时提供
+/// 创建入口。内部监听接收者服务，创建完成后无需重新进入页面即可切换文案。
 class RecipientEntryButton extends StatelessWidget {
   const RecipientEntryButton({super.key});
   @override
-  Widget build(BuildContext context) =>
-      context.watch<AppController>().recipient == null
-      ? const SizedBox.shrink()
-      : TextButton.icon(
-          onPressed: () => openRecipientEntry(context),
-          icon: const Icon(Icons.mark_email_read_outlined),
-          label: Text(AppLocalizations.of(context).recipientEntry),
-        );
+  Widget build(BuildContext context) {
+    final service = context.watch<AppController>().recipient;
+    if (service == null) return const SizedBox.shrink();
+    return ListenableBuilder(
+      listenable: service,
+      builder: (context, _) => TextButton.icon(
+        onPressed: () => openRecipientEntry(context),
+        icon: Icon(
+          service.exists
+              ? Icons.mark_email_read_outlined
+              : Icons.person_add_alt_1_outlined,
+        ),
+        label: Text(
+          service.exists
+              ? AppLocalizations.of(context).recipientEntry
+              : AppLocalizations.of(context).recipientCreate,
+        ),
+      ),
+    );
+  }
 }
 
 class RecipientPage extends StatefulWidget {

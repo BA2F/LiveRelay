@@ -240,6 +240,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get recipientEntry => 'I\'m a recipient · Open the read-only vault';
 
   @override
+  String get recipientCreate => 'Create a recipient identity';
+
+  @override
   String get tabRecord => 'Record';
 
   @override

@@ -233,6 +233,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get recipientEntry => '我是接收者 · 打开独立只读资料库';
 
   @override
+  String get recipientCreate => '创建接收者身份';
+
+  @override
   String get tabRecord => '记录';
 
   @override

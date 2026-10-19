@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:live_relay/presentation/design_system/atoms.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -32,14 +34,33 @@ import 'package:live_relay/presentation/pages/originals_page.dart';
 import 'package:live_relay/presentation/pages/recycle_page.dart';
 import 'package:live_relay/presentation/pages/device_transfer_page.dart';
 import 'package:live_relay/presentation/pages/cradle_page.dart';
+import 'package:live_relay/presentation/pages/profile_page.dart';
 import 'package:live_relay/presentation/dialogs/card_dialogs.dart';
 import 'package:live_relay/presentation/widgets/release_preview_panel.dart';
+import 'package:live_relay/application/recipient_service.dart';
+import 'package:live_relay/application/identity/recipient_runtime.dart';
+import 'package:live_relay/infrastructure/identity/file_recipient_store.dart';
 
 VaultBackupService snapshotBackup(VaultSession session) => VaultBackupService(
   session: session,
   archive: LifeVaultArchiveService(),
   restoreTransaction: () => throw UnsupportedError('UI snapshot only'),
 );
+
+/// 只切换“是否存在身份”的接收者服务，避免 UI 测试访问真实身份文件。
+class FakeRecipientService extends RecipientService {
+  FakeRecipientService()
+    : super(
+        RecipientRuntime(FileRecipientStore(() async => Directory.systemTemp)),
+      );
+  bool _exists = false;
+  @override
+  bool get exists => _exists;
+  void setExists(bool value) {
+    _exists = value;
+    notifyListeners();
+  }
+}
 
 class _NoConnection implements WebDavConnectionRepository {
   @override
@@ -51,56 +72,64 @@ class _NoConnection implements WebDavConnectionRepository {
 }
 
 class SnapshotController extends AppController {
-  SnapshotController() : this._(fixtureSession());
-  SnapshotController._(VaultSession session)
-    : this._withSettings(session, AgentSettingsService(TestAiSettings()));
+  SnapshotController({RecipientService? recipient})
+    : this._(fixtureSession(), recipient: recipient);
+  SnapshotController._(VaultSession session, {RecipientService? recipient})
+    : this._withSettings(
+        session,
+        AgentSettingsService(TestAiSettings()),
+        recipient: recipient,
+      );
   SnapshotController._withSettings(
     VaultSession session,
-    AgentSettingsService settings,
-  ) : this._withServices(
-        session,
-        settings,
-        VaultContentService(vault: session, ocr: TestOcr()),
-        VaultSnapshotQuery(session),
-      );
+    AgentSettingsService settings, {
+    RecipientService? recipient,
+  }) : this._withServices(
+         session,
+         settings,
+         VaultContentService(vault: session, ocr: TestOcr()),
+         VaultSnapshotQuery(session),
+         recipient: recipient,
+       );
   SnapshotController._withServices(
     VaultSession session,
     AgentSettingsService settings,
     VaultContentService content,
-    VaultSnapshotQuery snapshots,
-  ) : super(
-        records: VaultRecordsApplication(
-          vault: session,
-          content: content,
-          snapshots: snapshots,
-        ),
-        session: session,
-        backup: snapshotBackup(session),
-        // The fixture never exports or imports through the medium; the
-        // transfer service only needs wiring that satisfies the controller.
-        transfer: DeviceTransferService(
-          backup: snapshotBackup(session),
-          archive: LifeVaultArchiveService(),
-        ),
-        merge: VaultMergeService(
-          session: session,
-          archive: LifeVaultArchiveService(),
-          backup: snapshotBackup(session),
-          restoreTransaction: () => throw UnsupportedError('UI fixture only'),
-        ),
-        webDav: WebDavConnectionService(_NoConnection()),
-        content: content,
-        agent: AgentService(
-          vault: session,
-          configuration: settings,
-          provider: RecordingAi(),
-        ),
-        agentSettings: settings,
-        outboundConsent: OutboundConsentService(TestOutboundConsent()),
-        agentReview: AgentReviewService(session),
-        snapshotQuery: snapshots,
-        prepareEnvironment: () async {},
-      ) {
+    VaultSnapshotQuery snapshots, {
+    super.recipient,
+  }) : super(
+         records: VaultRecordsApplication(
+           vault: session,
+           content: content,
+           snapshots: snapshots,
+         ),
+         session: session,
+         backup: snapshotBackup(session),
+         // The fixture never exports or imports through the medium; the
+         // transfer service only needs wiring that satisfies the controller.
+         transfer: DeviceTransferService(
+           backup: snapshotBackup(session),
+           archive: LifeVaultArchiveService(),
+         ),
+         merge: VaultMergeService(
+           session: session,
+           archive: LifeVaultArchiveService(),
+           backup: snapshotBackup(session),
+           restoreTransaction: () => throw UnsupportedError('UI fixture only'),
+         ),
+         webDav: WebDavConnectionService(_NoConnection()),
+         content: content,
+         agent: AgentService(
+           vault: session,
+           configuration: settings,
+           provider: RecordingAi(),
+         ),
+         agentSettings: settings,
+         outboundConsent: OutboundConsentService(TestOutboundConsent()),
+         agentReview: AgentReviewService(session),
+         snapshotQuery: snapshots,
+         prepareEnvironment: () async {},
+       ) {
     final now = DateTime.utc(2026, 10, 1);
     cards = [
       LifeCard(
@@ -173,6 +202,33 @@ Widget app(
 );
 
 void main() {
+  testWidgets(
+    'recipient identity creation is reachable from unlock and settings',
+    (tester) async {
+      final recipient = FakeRecipientService();
+      final c = SnapshotController(recipient: recipient);
+      addTearDown(c.dispose);
+
+      await tester.pumpWidget(app(c, const UnlockVaultPage()));
+      await tester.pumpAndSettle();
+      expect(find.text('创建接收者身份'), findsOneWidget);
+
+      await tester.pumpWidget(app(c, const Scaffold(body: ProfilePage())));
+      await tester.pumpAndSettle();
+      expect(find.text('创建接收者身份'), findsOneWidget);
+
+      recipient.setExists(true);
+      await tester.pumpAndSettle();
+      expect(find.text('创建接收者身份'), findsNothing);
+
+      await tester.pumpWidget(app(c, const UnlockVaultPage()));
+      await tester.pumpAndSettle();
+      expect(find.text('我是接收者 · 打开独立只读资料库'), findsOneWidget);
+
+      await tester.pumpWidget(const SizedBox());
+    },
+  );
+
   testWidgets(
     'device transfer page gates export behind unlock and offers import',
     (tester) async {

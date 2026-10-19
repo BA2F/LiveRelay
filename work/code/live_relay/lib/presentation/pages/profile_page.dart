@@ -18,6 +18,7 @@ import 'speech_input_page.dart';
 import 'identity_page.dart';
 import 'local_backup_page.dart';
 import 'device_transfer_page.dart';
+import 'recipient_page.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key, this.onOpenExtensions});
@@ -91,6 +92,18 @@ class _ProfilePageState extends State<ProfilePage> {
               context,
               MaterialPageRoute(builder: (_) => const IdentityPage()),
             ),
+          ),
+        if (controller.recipient != null)
+          ListenableBuilder(
+            listenable: controller.recipient!,
+            builder: (context, _) => controller.recipient!.exists
+                ? const SizedBox.shrink()
+                : ListTile(
+                    leading: const Icon(Icons.person_add_alt_1_outlined),
+                    title: Text(l10n.recipientCreate),
+                    subtitle: const Text('在本机建立独立只读身份，用于接收别人的交接'),
+                    onTap: () => openRecipientEntry(context),
+                  ),
           ),
         const SizedBox(height: 24),
         if (preferences != null) AppearanceSettings(preferences: preferences),

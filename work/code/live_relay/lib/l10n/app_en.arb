@@ -77,6 +77,7 @@
   "unlockRecovery": "Forgot the password? Use the recovery credential",
   "unlockBiometric": "Unlock with fingerprint",
   "recipientEntry": "I'm a recipient · Open the read-only vault",
+  "recipientCreate": "Create a recipient identity",
 
   "tabRecord": "Record",
   "tabCards": "Cards",
