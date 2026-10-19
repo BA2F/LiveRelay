@@ -9,6 +9,7 @@ import '../../core/domain/entities.dart';
 import '../design_system/atoms.dart';
 import '../model_labels.dart';
 import '../widgets/release_preview_panel.dart';
+import 'manual_handoff_page.dart';
 
 ReleasePolicy _policy(AppController c, String type, String id) =>
     c.releasePolicies
@@ -24,6 +25,8 @@ class HandoffPage extends StatefulWidget {
 
 class _HandoffPageState extends State<HandoffPage> {
   final selected = <String>{};
+  // Card id -> original blob ids included with that card.
+  final originals = <String, List<String>>{};
   String? _password, _error;
   DateTime? _updatedAt;
   bool _busy = false;
@@ -94,12 +97,110 @@ class _HandoffPageState extends State<HandoffPage> {
 
   List<ScopedRecord> get _selections => [
     for (final key in selected)
-      ScopedRecord(
-        key.startsWith('card/') ? 'card' : 'credential',
-        key.substring(key.indexOf('/') + 1),
-        key.startsWith('card/') ? VisibilityLevel.full : VisibilityLevel.secret,
-      ),
+      if (key.startsWith('card/'))
+        ScopedRecord(
+          'card',
+          key.substring(key.indexOf('/') + 1),
+          (originals[key.substring(key.indexOf('/') + 1)]?.isNotEmpty ?? false)
+              ? VisibilityLevel.original
+              : VisibilityLevel.full,
+          originalIds:
+              originals[key.substring(key.indexOf('/') + 1)] ?? const [],
+        )
+      else
+        ScopedRecord(
+          'credential',
+          key.substring(key.indexOf('/') + 1),
+          VisibilityLevel.secret,
+        ),
   ];
+
+  Future<List<VaultBlob>> _availableOriginals(
+    AppController controller,
+    String cardId,
+  ) async {
+    final sources = await controller.cardSources(cardId);
+    return controller.blobs
+        .where((blob) => sources.any((source) => source.blobId == blob.id))
+        .toList();
+  }
+
+  Future<void> _toggleOriginals(String cardId, bool value) async {
+    if (!value) {
+      setState(() => originals.remove(cardId));
+      return;
+    }
+    final available = await _availableOriginals(
+      context.read<AppController>(),
+      cardId,
+    );
+    if (!mounted) return;
+    if (available.isEmpty) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('这张卡片没有关联原件')));
+      return;
+    }
+    setState(() => originals[cardId] = [for (final blob in available) blob.id]);
+  }
+
+  Future<void> _chooseOriginals(String cardId) async {
+    final available = await _availableOriginals(
+      context.read<AppController>(),
+      cardId,
+    );
+    if (!mounted) return;
+    final ids = <String>{...?originals[cardId]};
+    final result = await showDialog<List<String>>(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, refresh) => AlertDialog(
+          title: const Text('交付哪些原件'),
+          content: SizedBox(
+            width: 480,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text('勾选的文件会完整交付，包括图片、录音等原始内容。'),
+                  for (final blob in available)
+                    CheckboxListTile(
+                      value: ids.contains(blob.id),
+                      title: Text(blob.originalName),
+                      onChanged: (value) => refresh(() {
+                        if (value == true) {
+                          ids.add(blob.id);
+                        } else {
+                          ids.remove(blob.id);
+                        }
+                      }),
+                    ),
+                  if (available.isEmpty) const Text('此卡片没有关联原件'),
+                ],
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('取消'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(context, ids.toList()),
+              child: const Text('确认原件范围'),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (result == null || !mounted) return;
+    setState(() {
+      if (result.isEmpty) {
+        originals.remove(cardId);
+      } else {
+        originals[cardId] = result;
+      }
+    });
+  }
 
   Future<void> _save() async {
     final controller = context.read<AppController>();
@@ -170,7 +271,7 @@ class _HandoffPageState extends State<HandoffPage> {
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
       children: [
-        const Text('接收者在这台设备上打开程序，输入交接密码就能查看下面选定的内容；没有选择的记录不会出现在交接里。'),
+        const Text('本机交接：接收者在这台设备上打开程序，输入交接密码就能查看下面选定的内容；没有选择的记录不会出现在交接里。'),
         const SizedBox(height: 16),
         Card(
           child: ListTile(
@@ -221,6 +322,7 @@ class _HandoffPageState extends State<HandoffPage> {
                         selected.addAll(all);
                       } else {
                         selected.removeAll(all);
+                        originals.clear();
                       }
                     }),
             );
@@ -232,21 +334,60 @@ class _HandoffPageState extends State<HandoffPage> {
             builder: (context) {
               final key =
                   '${record is LifeCard ? 'card' : 'credential'}/${record.id}';
-              return CheckboxListTile(
-                value: selected.contains(key),
-                title: Text(record.title),
-                subtitle: Text(
-                  record is LifeCard ? '卡片 · 交付完整正文' : '密码条目 · 交付当前密码',
-                ),
-                onChanged: _busy
-                    ? null
-                    : (value) => setState(() {
-                        if (value == true) {
-                          selected.add(key);
-                        } else {
-                          selected.remove(key);
-                        }
-                      }),
+              final card = record is LifeCard;
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  CheckboxListTile(
+                    value: selected.contains(key),
+                    title: Text(record.title),
+                    subtitle: Text(
+                      card ? '卡片 · 交付完整正文' : '密码条目 · 交付账号、网址、备注和当前密码',
+                    ),
+                    onChanged: _busy
+                        ? null
+                        : (value) => setState(() {
+                            if (value == true) {
+                              selected.add(key);
+                            } else {
+                              selected.remove(key);
+                              if (card) originals.remove(record.id);
+                            }
+                          }),
+                  ),
+                  if (card && selected.contains(key)) ...[
+                    CheckboxListTile(
+                      contentPadding: const EdgeInsets.only(
+                        left: 32,
+                        right: 16,
+                      ),
+                      value: originals.containsKey(record.id),
+                      title: const Text('附带原件'),
+                      subtitle: Text(
+                        originals[record.id] == null
+                            ? '不交付原件'
+                            : '${originals[record.id]!.length} 个原件',
+                      ),
+                      onChanged: _busy
+                          ? null
+                          : (value) =>
+                                _toggleOriginals(record.id, value ?? false),
+                    ),
+                    if (originals[record.id]?.isNotEmpty ?? false)
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: Padding(
+                          padding: const EdgeInsets.only(left: 32, bottom: 8),
+                          child: TextButton(
+                            onPressed: _busy
+                                ? null
+                                : () => _chooseOriginals(record.id),
+                            child: const Text('选择具体原件'),
+                          ),
+                        ),
+                      ),
+                  ],
+                ],
               );
             },
           ),
@@ -263,6 +404,20 @@ class _HandoffPageState extends State<HandoffPage> {
         FilledButton(
           onPressed: _busy ? null : _save,
           child: const Text('保存交接内容'),
+        ),
+        const SizedBox(height: 24),
+        const Divider(),
+        ListTile(
+          contentPadding: EdgeInsets.zero,
+          leading: const Icon(Icons.people_outline),
+          title: const Text('远程接收者'),
+          subtitle: const Text('导入接收者身份，导出交接包，或上传到云端摇篮'),
+          trailing: const Icon(Icons.chevron_right),
+          onTap: _busy
+              ? null
+              : () => Navigator.of(context).push<void>(
+                  MaterialPageRoute(builder: (_) => const ManualHandoffPage()),
+                ),
         ),
       ],
     );

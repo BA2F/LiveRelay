@@ -76,6 +76,10 @@ class _ReadOnlyRecordState extends State<_ReadOnlyRecord> {
               '授权级别：${VisibilityLevel.values.singleWhere((v) => v.name == record['level']).label}',
             ),
             SelectableText(record['body'] as String),
+            if ((record['website'] as String? ?? '').isNotEmpty)
+              Text('网址：${record['website']}'),
+            if ((record['notes'] as String? ?? '').isNotEmpty)
+              SelectableText('备注：${record['notes']}'),
             if (record['secret'] != null)
               Row(
                 children: [

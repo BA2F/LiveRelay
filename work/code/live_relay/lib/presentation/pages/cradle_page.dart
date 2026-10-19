@@ -414,7 +414,7 @@ class _CradlePageState extends State<CradlePage> {
               const SizedBox(height: 8),
               if (_availableRecipients.isEmpty)
                 Text(
-                  '还没有已验证的接收者身份：先到「交接」页完成接收者核对。',
+                  '还没有已验证的接收者身份：先到「交接」页的「远程接收者」完成核对。',
                   style: theme.textTheme.bodySmall,
                 )
               else ...[

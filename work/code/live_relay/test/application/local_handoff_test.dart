@@ -13,6 +13,7 @@ import 'package:live_relay/core/domain/entities.dart';
 import 'package:live_relay/core/ai/review_source.dart';
 import 'package:live_relay/core/ai/conversation_attachment.dart';
 import 'package:live_relay/core/identity/local_identity.dart';
+import 'package:live_relay/infrastructure/blob/encrypted_blob_store.dart';
 import 'package:live_relay/infrastructure/persistence/app_database.dart';
 import 'package:live_relay/infrastructure/persistence/sqlite_vault_repository.dart';
 
@@ -269,4 +270,85 @@ void main() {
       }
     },
   );
+
+  test(
+    'handoff snapshot carries credential website, notes and originals',
+    () async {
+      final root = await Directory.systemTemp.createTemp('handoff-content-');
+      final repository = SqliteVaultRepository(AppDatabase.inMemory());
+      final session = fixtureSession(
+        directory: Directory('${root.path}/owner'),
+        openRepository: (_, _) async => repository,
+        blobStore: EncryptedBlobStore(),
+      );
+      try {
+        await Directory('${root.path}/owner').create(recursive: true);
+        await session.prepare();
+        await session.openWithKey(Uint8List(32));
+        session.markUnlocked();
+        final owner = LocalHandoffService(session, originals: session);
+        final credential = await repository.saveCredential(
+          const CredentialDraft(
+            title: '虚构账户',
+            username: 'fictional-user',
+            secret: 'fictional-secret',
+            website: 'https://example.invalid',
+            notes: '虚构备注',
+          ),
+        );
+        final card = await repository.createCard(
+          const CardDraft(title: '虚构卡片', content: '虚构正文'),
+        );
+        final blob = await session.writeOriginal(
+          bytes: Uint8List.fromList(utf8.encode('fictional-original')),
+          originalName: 'photo.jpg',
+          mimeType: 'image/jpeg',
+          mediaKind: BlobMediaKind.image,
+        );
+        await repository.registerBlobRow(blob);
+        await repository.setCardOriginals(card.id, [blob.id]);
+
+        final snapshot = await owner.snapshotFor([
+          ScopedRecord('credential', credential.id, VisibilityLevel.secret),
+          ScopedRecord(
+            'card',
+            card.id,
+            VisibilityLevel.original,
+            originalIds: [blob.id],
+          ),
+        ]);
+        final records = (snapshot['records'] as List).cast<Map>();
+        final credentialRecord = records.singleWhere(
+          (record) => record['type'] == 'credential',
+        );
+        expect(credentialRecord['website'], 'https://example.invalid');
+        expect(credentialRecord['notes'], '虚构备注');
+        expect(credentialRecord['secret'], 'fictional-secret');
+        final cardRecord = records.singleWhere(
+          (record) => record['type'] == 'card',
+        );
+        expect(cardRecord['originalIds'], [blob.id]);
+        final originals = snapshot['originals'] as Map;
+        expect((originals[blob.id] as Map)['name'], 'photo.jpg');
+        expect((originals[blob.id] as Map)['bytes'], isA<String>());
+      } finally {
+        await session.close();
+        session.dispose();
+        await root.delete(recursive: true);
+      }
+    },
+  );
+
+  test('public identity survives the QR payload round trip', () async {
+    final identity = await LocalIdentity.create('虚构接收者');
+    addTearDown(identity.dispose);
+    final payload = jsonEncode(await identity.publicData());
+    final decoded = LocalIdentity.validatePublic(
+      Map<String, Object?>.from(jsonDecode(payload) as Map),
+    );
+    expect(
+      await LocalIdentity.fingerprintOf(decoded),
+      await identity.fingerprint(),
+    );
+  });
 }

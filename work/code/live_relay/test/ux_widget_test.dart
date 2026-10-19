@@ -272,13 +272,13 @@ void main() {
       expect(find.text('摇篮计划'), findsOneWidget);
       expect(find.textContaining('第 6 天开始提醒你'), findsOneWidget);
       await tester.scrollUntilVisible(
-        find.text('还没有已验证的接收者身份：先到「交接」页完成接收者核对。'),
+        find.text('还没有已验证的接收者身份：先到「交接」页的「远程接收者」完成核对。'),
         200,
         scrollable: find.byType(Scrollable).first,
       );
       await tester.pumpAndSettle();
       expect(
-        find.text('还没有已验证的接收者身份：先到「交接」页完成接收者核对。'),
+        find.text('还没有已验证的接收者身份：先到「交接」页的「远程接收者」完成核对。'),
         findsOneWidget,
       );
       await tester.pumpWidget(const SizedBox());

@@ -138,6 +138,7 @@ class LocalHandoffService {
       }
       ReleasePreview preview;
       final history = <Map<String, Object?>>[];
+      String? website, notes;
       if (selection.type == 'card') {
         final card = await r.getCard(selection.id);
         if (card == null || card.isDeleted) throw StateError('所选卡片已经不存在');
@@ -188,6 +189,8 @@ class LocalHandoffService {
           (c) => c.id == selection.id,
         );
         preview = ReleasePreview.credential(entry, selection.level);
+        website = entry.website;
+        notes = entry.notes;
         if (selection.history) {
           if (selection.level.index < VisibilityLevel.secret.index) {
             throw StateError('密码历史需要密码级别及另行勾选');
@@ -211,6 +214,8 @@ class LocalHandoffService {
         'title': preview.title,
         'body': preview.body,
         if (preview.secret != null) 'secret': preview.secret,
+        if (website != null && website.isNotEmpty) 'website': website,
+        if (notes != null && notes.isNotEmpty) 'notes': notes,
         'history': history,
         'originalIds': selection.originalIds,
       });

@@ -1,8 +1,10 @@
+import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:qr_flutter/qr_flutter.dart';
 
 import '../controllers/app_controller.dart';
 import '../../application/recipient_service.dart';
@@ -22,6 +24,41 @@ Future<void> openRecipientEntry(BuildContext context) async {
   if (!navigator.mounted) return;
   await navigator.push<void>(
     MaterialPageRoute(builder: (_) => RecipientPage(service: service)),
+  );
+}
+
+/// 显示只含公开身份的二维码，供所有者当面扫描添加。
+Future<void> showRecipientQr(
+  BuildContext context,
+  LocalIdentity identity,
+) async {
+  final payload = jsonEncode(await identity.publicData());
+  if (!context.mounted) return;
+  await showDialog<void>(
+    context: context,
+    builder: (context) => Dialog(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text('接收者公开身份', style: Theme.of(context).textTheme.titleLarge),
+            const SizedBox(height: 16),
+            QrImageView(data: payload, size: 240),
+            const SizedBox(height: 12),
+            const Text(
+              '请所有者当面扫码。二维码只包含公开身份，不包含私钥。',
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 8),
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('关闭'),
+            ),
+          ],
+        ),
+      ),
+    ),
   );
 }
 
@@ -257,6 +294,12 @@ class _RecipientPageState extends State<RecipientPage> {
                                 }
                               }),
                         child: const Text('导出公开身份给所有者'),
+                      ),
+                      OutlinedButton(
+                        onPressed: busy
+                            ? null
+                            : () => showRecipientQr(context, identity),
+                        child: const Text('显示二维码给所有者'),
                       ),
                       OutlinedButton(
                         onPressed: busy

@@ -43,7 +43,7 @@ class TrackingBlobStore implements VaultBlobStore {
 VaultSession fixtureSession({
   Directory? directory,
   OpenVaultRepository? openRepository,
-  TrackingBlobStore? blobStore,
+  VaultBlobStore? blobStore,
 }) => VaultSession(
   installationFactory: (directory) => VaultRestoreTransaction(directory),
   resolveDirectory: () async => directory ?? Directory('/unused-test-vault'),

@@ -1,6 +1,10 @@
+import 'dart:convert';
 import 'dart:typed_data';
 
+import 'package:flutter/foundation.dart'
+    show defaultTargetPlatform, TargetPlatform;
 import 'package:flutter/material.dart';
+import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:provider/provider.dart';
 
 import '../controllers/app_controller.dart';
@@ -13,6 +17,16 @@ import '../../core/identity/local_identity.dart';
 import '../../infrastructure/transfer/webdav_transfer_medium.dart';
 import '../dialogs/local_file_dialogs.dart';
 import '../model_labels.dart';
+
+/// Parses a scanned recipient QR. Returns null for unrelated or malformed codes.
+Map<String, Object?>? decodeRecipientQr(String raw) {
+  try {
+    final decoded = jsonDecode(raw);
+    return decoded is Map ? Map<String, Object?>.from(decoded) : null;
+  } on FormatException {
+    return null;
+  }
+}
 
 class ManualHandoffPage extends StatefulWidget {
   const ManualHandoffPage({super.key});
@@ -43,18 +57,35 @@ class _ManualHandoffPageState extends State<ManualHandoffPage> {
   }
 
   Future<void> chooseRecipient() async {
-    final service = context.read<AppController>().handoff!;
     final public = await pickLocalJson(title: '选择接收者公开身份');
     if (public == null || !mounted) return;
+    await acceptRecipient(public, scanned: false);
+  }
+
+  Future<void> scanRecipient() async {
+    final public = await Navigator.of(context).push<Map<String, Object?>>(
+      MaterialPageRoute(builder: (_) => const _ScanRecipientPage()),
+    );
+    if (public == null || !mounted) return;
+    await acceptRecipient(public, scanned: true);
+  }
+
+  Future<void> acceptRecipient(
+    Map<String, Object?> public, {
+    required bool scanned,
+  }) async {
+    final service = context.read<AppController>().handoff!;
     await run(() async {
       LocalIdentity.validatePublic(public);
       final fp = await LocalIdentity.fingerprintOf(public);
       if (!mounted) return;
-      final confirmed = await askFingerprint(
-        context,
-        fp,
-        LocalIdentity.displayName(public),
-      );
+      final confirmed = scanned
+          ? await confirmScannedRecipient(public, fp)
+          : await askFingerprint(
+              context,
+              fp,
+              LocalIdentity.displayName(public),
+            );
       if (confirmed == null || !mounted) return;
       await service.confirmRecipient(public, confirmed);
       if (!mounted) return;
@@ -67,6 +98,43 @@ class _ManualHandoffPageState extends State<ManualHandoffPage> {
       });
     });
   }
+
+  /// 当面扫码时二维码本身就是独立信道，只核对名称和指纹，不再要求手输
+  /// 完整指纹；文件导入仍走完整指纹核对。
+  Future<String?> confirmScannedRecipient(
+    Map<String, Object?> public,
+    String fingerprint,
+  ) => showDialog<String>(
+    context: context,
+    builder: (context) => AlertDialog(
+      title: const Text('确认接收者'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('名称：${LocalIdentity.displayName(public)}'),
+          const SizedBox(height: 8),
+          const Text('完整指纹：'),
+          SelectableText(
+            fingerprint,
+            style: const TextStyle(fontFamily: 'monospace'),
+          ),
+          const SizedBox(height: 8),
+          const Text('确认名称和指纹与对方设备上显示的一致。'),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('取消'),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.pop(context, fingerprint),
+          child: const Text('确认添加'),
+        ),
+      ],
+    ),
+  );
 
   void clearRecipient() {
     setState(() {
@@ -255,17 +323,17 @@ class _ManualHandoffPageState extends State<ManualHandoffPage> {
     final controller = context.watch<AppController>();
     if (!controller.isUnlocked) {
       return Scaffold(
-        appBar: AppBar(title: const Text('真实限定范围交接')),
+        appBar: AppBar(title: const Text('远程接收者交接')),
         body: const Center(child: Text('资料库已锁定')),
       );
     }
     return Scaffold(
-      appBar: AppBar(title: const Text('真实限定范围交接')),
+      appBar: AppBar(title: const Text('远程接收者交接')),
       body: ListView(
         padding: const EdgeInsets.all(24),
         children: [
           const Text(
-            '接收者不必在场。导入他的公开身份并核对完整指纹，选好本次交付内容后打包；'
+            '接收者不必在场。导入或当面扫码取得他的公开身份，核对指纹后选好本次交付内容并打包；'
             '接收者打开交接包时，由他的设备验证私钥。',
           ),
           const SizedBox(height: 20),
@@ -274,10 +342,23 @@ class _ManualHandoffPageState extends State<ManualHandoffPage> {
           if (recipient == null)
             Align(
               alignment: Alignment.centerLeft,
-              child: FilledButton.icon(
-                onPressed: busy ? null : chooseRecipient,
-                icon: const Icon(Icons.person_search_outlined),
-                label: const Text('导入接收者公开身份'),
+              child: Wrap(
+                spacing: 12,
+                runSpacing: 8,
+                children: [
+                  FilledButton.icon(
+                    onPressed: busy ? null : chooseRecipient,
+                    icon: const Icon(Icons.person_search_outlined),
+                    label: const Text('导入接收者公开身份'),
+                  ),
+                  if (defaultTargetPlatform == TargetPlatform.android ||
+                      defaultTargetPlatform == TargetPlatform.iOS)
+                    OutlinedButton.icon(
+                      onPressed: busy ? null : scanRecipient,
+                      icon: const Icon(Icons.qr_code_scanner),
+                      label: const Text('扫码添加接收者'),
+                    ),
+                ],
               ),
             )
           else
@@ -391,4 +472,51 @@ class _ManualHandoffPageState extends State<ManualHandoffPage> {
       ),
     );
   }
+}
+
+class _ScanRecipientPage extends StatefulWidget {
+  const _ScanRecipientPage();
+  @override
+  State<_ScanRecipientPage> createState() => _ScanRecipientPageState();
+}
+
+class _ScanRecipientPageState extends State<_ScanRecipientPage> {
+  final controller = MobileScannerController();
+  bool handled = false;
+
+  @override
+  void dispose() {
+    controller.dispose();
+    super.dispose();
+  }
+
+  void onDetect(BarcodeCapture capture) {
+    if (handled || capture.barcodes.isEmpty) return;
+    final raw = capture.barcodes.first.rawValue;
+    if (raw == null) return;
+    final decoded = decodeRecipientQr(raw);
+    if (decoded == null) return;
+    handled = true;
+    controller.stop();
+    Navigator.pop(context, decoded);
+  }
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+    appBar: AppBar(title: const Text('扫描接收者二维码')),
+    body: Stack(
+      children: [
+        MobileScanner(controller: controller, onDetect: onDetect),
+        const Positioned(
+          left: 24,
+          right: 24,
+          bottom: 32,
+          child: Text(
+            '对准接收者设备上的二维码。只读取公开身份，不读取私钥。',
+            textAlign: TextAlign.center,
+          ),
+        ),
+      ],
+    ),
+  );
 }
