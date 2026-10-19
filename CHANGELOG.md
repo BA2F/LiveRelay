@@ -8,6 +8,7 @@
 
 - 修复 Windows 上无法创建资料库：偏好、Header、原件与模型安装不再假定文件系统一定接受 `rename`。带 EFS 加密属性的 `%APPDATA%`／`%LOCALAPPDATA%` 会拒绝元数据重命名（Dart 报 `ERROR_NOT_SAME_DEVICE`，`errno 17`），提交改为覆盖写入后删除 sidecar；目录提交退化为递归复制后删除暂存目录。Linux 与普通 NTFS 路径仍走原来的原子 rename。
 - Windows 11 debug／release 构建、启动与生产入口首次设置到进入工作台已在本机验证，新增 Windows 原生验证用例；恢复事务 13 项子进程检查在 Windows 通过。
+- 统一 Windows 界面字体：Flutter 在 Windows 默认给英文与数字用 Segoe UI、中文按字形回退到另一套字体，同一行会混两套字面和字重。Windows 下整站改用 Microsoft YaHei UI（回退 Microsoft YaHei／Segoe UI／Arial），其他平台沿用各自的系统主题。
 - 内嵌 PDF 与音视频预览只在 Linux 播放后端启用，相关用例按平台跳过，Windows 上显示不支持。
 
 ## v1.0.0-beta.2 — 云端明文放行与摇篮（报平安与自动交接），2026-10-15
