@@ -4,7 +4,6 @@ import 'package:provider/provider.dart';
 import '../controllers/app_controller.dart';
 import '../../core/identity/local_identity.dart';
 import '../dialogs/local_file_dialogs.dart';
-import 'manual_handoff_page.dart';
 
 class IdentityPage extends StatefulWidget {
   const IdentityPage({super.key});
@@ -137,20 +136,6 @@ class _IdentityPageState extends State<IdentityPage> {
                         }
                       }),
                 child: const Text('导出公开身份'),
-              ),
-              const Divider(),
-              ListTile(
-                title: const Text('接收者验证与限定范围交接'),
-                subtitle: const Text('核对指纹、验证私钥、选择本次交接的具体内容'),
-                trailing: const Icon(Icons.chevron_right),
-                onTap: busy
-                    ? null
-                    : () => Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => const ManualHandoffPage(),
-                        ),
-                      ),
               ),
               if (error != null) Text(error!),
               if (busy) const LinearProgressIndicator(),

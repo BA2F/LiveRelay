@@ -169,6 +169,42 @@ class LocalHandoffService {
     return raw == null ? {} : Map<String, Object?>.from(jsonDecode(raw) as Map);
   }
 
+  /// Records the recipient the owner checked through an independent channel.
+  ///
+  /// The recipient is usually absent while the owner prepares a handoff, so
+  /// possession of the private key is proven when they open the package. This
+  /// binding keeps the owner's fingerprint check and lets cradle plans pick the
+  /// recipient by name; the package itself is still encrypted to that identity.
+  Future<void> confirmRecipient(
+    Map<String, Object?> recipient,
+    String confirmedFingerprint,
+  ) {
+    final input = Map<String, Object?>.unmodifiable(recipient);
+    return _owned(() => _confirmRecipient(input, confirmedFingerprint));
+  }
+
+  Future<void> _confirmRecipient(
+    Map<String, Object?> recipient,
+    String confirmedFingerprint,
+  ) async {
+    LocalIdentity.validatePublic(recipient);
+    final fp = await LocalIdentity.fingerprintOf(recipient);
+    if (confirmedFingerprint != fp) {
+      throw const FormatException('请通过独立渠道核对并完整输入接收者指纹');
+    }
+    final epoch = session.sessionGeneration;
+    final bindings = await recipients();
+    bindings[fp] = {
+      'public': recipient,
+      'verifiedAt': DateTime.now().toUtc().toIso8601String(),
+    };
+    if (epoch != session.sessionGeneration) throw StateError('身份核对已取消');
+    await _repository.writeLocalValue(
+      'handoff.recipients',
+      jsonEncode(bindings),
+    );
+  }
+
   Future<Uint8List> _createChallenge(
     Map<String, Object?> recipient,
     String confirmedFingerprint,

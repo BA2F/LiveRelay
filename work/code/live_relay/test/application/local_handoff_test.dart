@@ -212,4 +212,56 @@ void main() {
       }
     },
   );
+
+  test(
+    'fingerprint-confirmed recipient exports without a challenge round trip',
+    () async {
+      final root = await Directory.systemTemp.createTemp('handoff-direct-');
+      final repository = SqliteVaultRepository(AppDatabase.inMemory());
+      final session = fixtureSession(
+        directory: Directory('${root.path}/owner'),
+        openRepository: (_, _) async => repository,
+      );
+      final receiver = createRecipientService(
+        () async => Directory('${root.path}/recipient'),
+      );
+      try {
+        await session.prepare();
+        await session.openWithKey(Uint8List(32));
+        session.markUnlocked();
+        final owner = LocalHandoffService(session, originals: session);
+        await owner.saveProfile('虚构所有者', '', '');
+        await receiver.initialize();
+        await receiver.create('虚构接收者', 'recipient-password');
+        final public = await receiver.identity!.publicData();
+        final recipientFp = await receiver.identity!.fingerprint();
+
+        await expectLater(
+          owner.confirmRecipient(public, List.filled(64, 'f').join()),
+          throwsFormatException,
+        );
+        expect(await owner.recipients(), isEmpty);
+
+        await owner.confirmRecipient(public, recipientFp);
+        expect(await owner.recipients(), contains(recipientFp));
+
+        final card = await repository.createCard(
+          const CardDraft(title: '直接交付', content: '没有挑战往返的正文'),
+        );
+        final wire = await owner.exportScope(recipientFp, [
+          ScopedRecord('card', card.id, VisibilityLevel.summary),
+        ]);
+        final ownerFp = await LocalIdentity.fingerprintOf(
+          await owner.publicIdentity(),
+        );
+        await receiver.receive(wire, ownerFp);
+        expect(jsonEncode(receiver.snapshot), contains('没有挑战往返的正文'));
+      } finally {
+        receiver.dispose();
+        await session.close();
+        session.dispose();
+        await root.delete(recursive: true);
+      }
+    },
+  );
 }

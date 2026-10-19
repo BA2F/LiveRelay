@@ -28,9 +28,8 @@ void main() {
   ) async {
     final appData = Platform.environment['APPDATA'];
     expect(appData, isNotNull, reason: 'Windows verification needs %APPDATA%');
-    final sandbox = await Directory(
-      '$appData\\liverelay-windows-verification',
-    ).create(recursive: true);
+    final sandbox = await Directory('$appData\\liverelay-windows-verification')
+        .create(recursive: true);
     final root = await sandbox.createTemp('run-');
     addTearDown(() async {
       if (await root.exists()) await root.delete(recursive: true);
@@ -145,5 +144,15 @@ void main() {
     await until(() => find.byType(DesktopWorkbench).evaluate().isNotEmpty);
     await until(() => find.byType(WorkbenchSidebar).evaluate().isNotEmpty);
     await shot('06-workbench');
+
+    // 接收者不在场：交接准备只由本人选内容，接收者在打开包时验证私钥。
+    await tap(find.byTooltip('更多'));
+    await tap(find.text('交接准备'));
+    await until(() => find.text('真实限定范围交接').evaluate().isNotEmpty);
+    expect(find.text('本人选择本次交付内容；接收者验证通过后即可取走'), findsOneWidget);
+    await tap(find.text('真实限定范围交接'));
+    await until(() => find.text('1 · 接收者').evaluate().isNotEmpty);
+    expect(find.text('导入接收者公开身份'), findsOneWidget);
+    expect(find.textContaining('接收者不必在场'), findsOneWidget);
   });
 }

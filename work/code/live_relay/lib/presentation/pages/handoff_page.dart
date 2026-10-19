@@ -56,7 +56,7 @@ class HandoffPage extends StatelessWidget {
           ListTile(
             leading: const Icon(Icons.send_outlined),
             title: const Text('真实限定范围交接'),
-            subtitle: const Text('核对接收者身份，本人明确选择本次交付内容'),
+            subtitle: const Text('本人选择本次交付内容；接收者验证通过后即可取走'),
             trailing: const Icon(Icons.chevron_right),
             onTap: c.isBusy
                 ? null

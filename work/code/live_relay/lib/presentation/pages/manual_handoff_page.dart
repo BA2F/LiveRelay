@@ -21,22 +21,12 @@ class ManualHandoffPage extends StatefulWidget {
 }
 
 class _ManualHandoffPageState extends State<ManualHandoffPage> {
-  Map<String, Object?> recipients = {};
-  String? selected, error;
+  Map<String, Object?>? recipient;
+  String? fingerprint, error;
   bool busy = false;
   final levels = <String, VisibilityLevel>{},
       histories = <String>{},
       originals = <String, List<String>>{};
-  @override
-  void initState() {
-    super.initState();
-    refresh();
-  }
-
-  Future<void> refresh() async {
-    final data = await context.read<AppController>().handoff!.recipients();
-    if (mounted) setState(() => recipients = data);
-  }
 
   Future<void> run(Future<void> Function() action) async {
     setState(() {
@@ -45,7 +35,6 @@ class _ManualHandoffPageState extends State<ManualHandoffPage> {
     });
     try {
       await action();
-      await refresh();
     } on Object catch (e) {
       if (mounted) setState(() => error = '$e');
     } finally {
@@ -53,25 +42,40 @@ class _ManualHandoffPageState extends State<ManualHandoffPage> {
     }
   }
 
-  Future<void> challenge() async {
+  Future<void> chooseRecipient() async {
     final service = context.read<AppController>().handoff!;
     final public = await pickLocalJson(title: '选择接收者公开身份');
     if (public == null || !mounted) return;
-    LocalIdentity.validatePublic(public);
-    final fp = await LocalIdentity.fingerprintOf(public);
-    if (!mounted) return;
-    final confirmed = await askFingerprint(
-      context,
-      fp,
-      LocalIdentity.displayName(public),
-    );
-    if (confirmed == null) return;
-    final bytes = await service.createChallenge(public, confirmed);
-    try {
-      await saveLocalBytes(bytes, 'Recipient-challenge.lrchallenge');
-    } finally {
-      bytes.fillRange(0, bytes.length, 0);
-    }
+    await run(() async {
+      LocalIdentity.validatePublic(public);
+      final fp = await LocalIdentity.fingerprintOf(public);
+      if (!mounted) return;
+      final confirmed = await askFingerprint(
+        context,
+        fp,
+        LocalIdentity.displayName(public),
+      );
+      if (confirmed == null || !mounted) return;
+      await service.confirmRecipient(public, confirmed);
+      if (!mounted) return;
+      setState(() {
+        recipient = public;
+        fingerprint = confirmed;
+        levels.clear();
+        histories.clear();
+        originals.clear();
+      });
+    });
+  }
+
+  void clearRecipient() {
+    setState(() {
+      recipient = null;
+      fingerprint = null;
+      levels.clear();
+      histories.clear();
+      originals.clear();
+    });
   }
 
   Future<void> chooseOriginals(String cardId) async {
@@ -200,7 +204,10 @@ class _ManualHandoffPageState extends State<ManualHandoffPage> {
       ),
     );
     if (approved == null || !controller.isUnlocked) return;
-    final bytes = await controller.handoff!.exportScope(selected!, selections);
+    final bytes = await controller.handoff!.exportScope(
+      fingerprint!,
+      selections,
+    );
     try {
       if (!controller.isUnlocked) return;
       if (approved == 'local') {
@@ -216,18 +223,14 @@ class _ManualHandoffPageState extends State<ManualHandoffPage> {
   /// Uploads the exported package as this recipient's pre-authorized cradle
   /// package. The name follows CradleRecipient.packageNameFor so the cradle
   /// service's pickup mail points at this exact file.
-  Future<void> uploadToCradle(
-    AppController controller,
-    Uint8List bytes,
-  ) async {
+  Future<void> uploadToCradle(AppController controller, Uint8List bytes) async {
     final connection = await controller.webDavConnection();
     if (connection == null) {
       throw StateError('还没有配置云端连接：先到「设备间搬运」里配置云端');
     }
-    final binding = recipients[selected];
-    final public = binding is Map ? binding['public'] : null;
-    if (public is! Map) throw StateError('接收者身份已失效，请重新核对');
-    final label = LocalIdentity.displayName(Map<String, Object?>.from(public));
+    final public = recipient;
+    if (public == null) throw StateError('请先选择接收者');
+    final label = LocalIdentity.displayName(public);
     final packageName = CradleRecipient.packageNameFor(label);
     final medium = WebDavTransferMedium(
       baseUrl: connection.baseUrl,
@@ -236,18 +239,14 @@ class _ManualHandoffPageState extends State<ManualHandoffPage> {
       timeout: const Duration(seconds: 120),
     );
     try {
-      await CradleService(controller.handoff!).uploadPackage(
-        medium,
-        packageName: packageName,
-        bytes: bytes,
-      );
+      await CradleService(controller.handoff!)
+          .uploadPackage(medium, packageName: packageName, bytes: bytes);
     } finally {
       medium.close();
     }
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('已上传到云端摇篮：$packageName')),
-      );
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('已上传到云端摇篮：$packageName')));
     }
   }
 
@@ -256,135 +255,138 @@ class _ManualHandoffPageState extends State<ManualHandoffPage> {
     final controller = context.watch<AppController>();
     if (!controller.isUnlocked) {
       return Scaffold(
-        appBar: AppBar(title: const Text('接收者与本次交接')),
+        appBar: AppBar(title: const Text('真实限定范围交接')),
         body: const Center(child: Text('资料库已锁定')),
       );
     }
     return Scaffold(
-      appBar: AppBar(title: const Text('接收者与本次交接')),
+      appBar: AppBar(title: const Text('真实限定范围交接')),
       body: ListView(
         padding: const EdgeInsets.all(24),
         children: [
-          const Text('先验证接收者，再选择本次交付范围并导出。'),
-          Wrap(
-            spacing: 8,
-            children: [
-              OutlinedButton(
-                onPressed: busy ? null : () => run(challenge),
-                child: const Text('导入身份并生成验证挑战'),
-              ),
-              OutlinedButton(
-                onPressed: busy
-                    ? null
-                    : () => run(() async {
-                        final proof = await pickLocalJson(title: '选择接收者挑战响应');
-                        if (proof != null) {
-                          await controller.handoff!.acceptProof(proof);
-                        }
-                      }),
-                child: const Text('导入响应，完成验证'),
-              ),
-            ],
+          const Text(
+            '接收者不必在场。导入他的公开身份并核对完整指纹，选好本次交付内容后打包；'
+            '接收者打开交接包时，由他的设备验证私钥。',
           ),
-          for (final r in recipients.entries)
-            CheckboxListTile(
-              value: selected == r.key,
-              onChanged: busy
-                  ? null
-                  : (v) => setState(() => selected = v! ? r.key : null),
-              title: Text(
-                LocalIdentity.displayName(
-                  Map<String, Object?>.from((r.value as Map)['public'] as Map),
+          const SizedBox(height: 20),
+          Text('1 · 接收者', style: Theme.of(context).textTheme.titleMedium),
+          const SizedBox(height: 8),
+          if (recipient == null)
+            Align(
+              alignment: Alignment.centerLeft,
+              child: FilledButton.icon(
+                onPressed: busy ? null : chooseRecipient,
+                icon: const Icon(Icons.person_search_outlined),
+                label: const Text('导入接收者公开身份'),
+              ),
+            )
+          else
+            Card(
+              child: ListTile(
+                leading: const Icon(Icons.badge_outlined),
+                title: Text(LocalIdentity.displayName(recipient!)),
+                subtitle: SelectableText(
+                  fingerprint!,
+                  style: const TextStyle(fontFamily: 'monospace'),
+                ),
+                trailing: TextButton(
+                  onPressed: busy ? null : clearRecipient,
+                  child: const Text('重新选择'),
                 ),
               ),
-              subtitle: Text(r.key),
             ),
-          const Divider(),
-          for (final record in <InformationCard>[
-            ...controller.cards,
-            ...controller.credentials,
-          ]) ...[
-            Builder(
-              builder: (context) {
-                final key =
-                    '${record is LifeCard ? 'card' : 'credential'}/${record.id}';
-                final level = levels[key];
-                return Column(
-                  children: [
-                    ListTile(
-                      title: Text(record.title),
-                      subtitle: Text(record is LifeCard ? '卡片' : '密码条目'),
-                      trailing: DropdownButton<VisibilityLevel>(
-                        value: level ?? VisibilityLevel.hidden,
-                        items: [
-                          for (final v in VisibilityLevel.values)
-                            DropdownMenuItem(
-                              value: v,
-                              child: Text(
-                                [
-                                  '不交付',
-                                  '仅存在',
-                                  '摘要',
-                                  '完整正文',
-                                  '密码',
-                                  '原件',
-                                ][v.index],
+          if (recipient != null) ...[
+            const SizedBox(height: 24),
+            Text('2 · 交付内容', style: Theme.of(context).textTheme.titleMedium),
+            const SizedBox(height: 8),
+            const Text('逐条选择这次交付的范围；没有选择的记录保持私密。'),
+            const Divider(),
+            for (final record in <InformationCard>[
+              ...controller.cards,
+              ...controller.credentials,
+            ]) ...[
+              Builder(
+                builder: (context) {
+                  final key =
+                      '${record is LifeCard ? 'card' : 'credential'}/${record.id}';
+                  final level = levels[key];
+                  return Column(
+                    children: [
+                      ListTile(
+                        title: Text(record.title),
+                        subtitle: Text(record is LifeCard ? '卡片' : '密码条目'),
+                        trailing: DropdownButton<VisibilityLevel>(
+                          value: level ?? VisibilityLevel.hidden,
+                          items: [
+                            for (final v in VisibilityLevel.values)
+                              DropdownMenuItem(
+                                value: v,
+                                child: Text(
+                                  [
+                                    '不交付',
+                                    '仅存在',
+                                    '摘要',
+                                    '完整正文',
+                                    '密码',
+                                    '原件',
+                                  ][v.index],
+                                ),
                               ),
-                            ),
-                        ],
-                        onChanged: busy
-                            ? null
-                            : (v) => setState(() {
-                                if (v == VisibilityLevel.hidden) {
-                                  levels.remove(key);
-                                } else {
-                                  levels[key] = v!;
-                                }
-                                histories.remove(key);
-                                originals.remove(record.id);
-                              }),
-                      ),
-                    ),
-                    if (level != null &&
-                        level.index >=
-                            (record is LifeCard
-                                ? VisibilityLevel.full.index
-                                : VisibilityLevel.secret.index))
-                      CheckboxListTile(
-                        value: histories.contains(key),
-                        title: const Text('另行附带完整修订历史'),
-                        onChanged: busy
-                            ? null
-                            : (v) => setState(() {
-                                if (v!) {
-                                  histories.add(key);
-                                } else {
+                          ],
+                          onChanged: busy
+                              ? null
+                              : (v) => setState(() {
+                                  if (v == VisibilityLevel.hidden) {
+                                    levels.remove(key);
+                                  } else {
+                                    levels[key] = v!;
+                                  }
                                   histories.remove(key);
-                                }
-                              }),
-                      ),
-                    if (record is LifeCard && level == VisibilityLevel.original)
-                      TextButton(
-                        onPressed: busy
-                            ? null
-                            : () => chooseOriginals(record.id),
-                        child: Text(
-                          '选择原件 · ${originals[record.id]?.length ?? 0} 个',
+                                  originals.remove(record.id);
+                                }),
                         ),
                       ),
-                  ],
-                );
-              },
+                      if (level != null &&
+                          level.index >=
+                              (record is LifeCard
+                                  ? VisibilityLevel.full.index
+                                  : VisibilityLevel.secret.index))
+                        CheckboxListTile(
+                          value: histories.contains(key),
+                          title: const Text('另行附带完整修订历史'),
+                          onChanged: busy
+                              ? null
+                              : (v) => setState(() {
+                                  if (v!) {
+                                    histories.add(key);
+                                  } else {
+                                    histories.remove(key);
+                                  }
+                                }),
+                        ),
+                      if (record is LifeCard &&
+                          level == VisibilityLevel.original)
+                        TextButton(
+                          onPressed: busy
+                              ? null
+                              : () => chooseOriginals(record.id),
+                          child: Text(
+                            '选择原件 · ${originals[record.id]?.length ?? 0} 个',
+                          ),
+                        ),
+                    ],
+                  );
+                },
+              ),
+            ],
+            if (error != null) Text(error!),
+            if (busy) const LinearProgressIndicator(),
+            FilledButton(
+              onPressed: busy || levels.isEmpty ? null : () => run(export),
+              child: const Text('核对本次范围并导出交接包'),
             ),
-          ],
-          if (error != null) Text(error!),
-          if (busy) const LinearProgressIndicator(),
-          FilledButton(
-            onPressed: busy || selected == null || levels.isEmpty
-                ? null
-                : () => run(export),
-            child: const Text('核对本次范围并导出交接包'),
-          ),
+          ] else if (error != null)
+            Text(error!),
         ],
       ),
     );
