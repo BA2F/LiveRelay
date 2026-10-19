@@ -36,15 +36,17 @@ Future<void> commitFile(File pending, File target) async {
 /// directory. Callers authenticate or verify the installed tree before
 /// committing the operation.
 Future<void> commitDirectory(Directory pending, Directory target) async {
+  // POSIX rename replaces an existing empty directory, so the contract check
+  // must happen before the attempt rather than only in the copy fallback.
+  if (await FileSystemEntity.type(target.path, followLinks: false) !=
+      FileSystemEntityType.notFound) {
+    throw FileSystemException('目标目录已存在，拒绝覆盖', target.path);
+  }
   try {
     await pending.rename(target.path);
     return;
   } on FileSystemException {
     if (!await pending.exists()) rethrow;
-  }
-  if (await FileSystemEntity.type(target.path, followLinks: false) !=
-      FileSystemEntityType.notFound) {
-    throw FileSystemException('目标目录已存在，拒绝覆盖', target.path);
   }
   await _copyTree(pending, target);
   await pending.delete(recursive: true);
