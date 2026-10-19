@@ -251,6 +251,11 @@ void main() {
         final wire = await owner.exportScope(recipientFp, [
           ScopedRecord('card', card.id, VisibilityLevel.summary),
         ]);
+        final snapshot = await owner.snapshotFor([
+          ScopedRecord('card', card.id, VisibilityLevel.summary),
+        ]);
+        expect(snapshot['version'], 1);
+        expect((snapshot['records'] as List).single['body'], '没有挑战往返的正文');
         final ownerFp = await LocalIdentity.fingerprintOf(
           await owner.publicIdentity(),
         );

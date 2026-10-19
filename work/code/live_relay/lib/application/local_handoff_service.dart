@@ -99,6 +99,125 @@ class LocalHandoffService {
     return _owned(() => _exportScope(fingerprint, input));
   }
 
+  /// Builds the scoped snapshot without sealing it.
+  ///
+  /// The local handoff view encrypts this payload with the shared handoff
+  /// password; the package export encrypts the same payload to the recipient
+  /// identity. Both paths therefore keep one set of scope rules.
+  Future<Map<String, Object?>> snapshotFor(List<ScopedRecord> selections) {
+    final input = List<ScopedRecord>.unmodifiable([
+      for (final selection in selections)
+        ScopedRecord(
+          selection.type,
+          selection.id,
+          selection.level,
+          history: selection.history,
+          originalIds: List.unmodifiable(selection.originalIds),
+        ),
+    ]);
+    return _owned(() => _snapshotOf(input));
+  }
+
+  Future<Map<String, Object?>> _snapshotOf(
+    List<ScopedRecord> selections,
+  ) async {
+    if (!session.isUnlocked || selections.isEmpty || selections.length > 200) {
+      throw StateError('请选择 1–200 条明确授权的记录');
+    }
+    final r = _repository;
+    final records = <Map<String, Object?>>[],
+        files = <String, Object?>{},
+        seen = <String>{};
+    final blobs = await r.listBlobs();
+    var total = 0;
+    for (final selection in selections) {
+      if (!['card', 'credential'].contains(selection.type) ||
+          selection.level == VisibilityLevel.hidden ||
+          !seen.add('${selection.type}/${selection.id}')) {
+        throw const FormatException('交接范围包含重复或无效记录');
+      }
+      ReleasePreview preview;
+      final history = <Map<String, Object?>>[];
+      if (selection.type == 'card') {
+        final card = await r.getCard(selection.id);
+        if (card == null || card.isDeleted) throw StateError('所选卡片已经不存在');
+        preview = ReleasePreview.card(card, selection.level);
+        if (selection.history) {
+          if (selection.level.index < VisibilityLevel.full.index) {
+            throw StateError('低可见级别不能附带完整历史');
+          }
+          for (final rev in await r.cardHistory(card.id)) {
+            history.add({
+              'number': rev.number,
+              'title': rev.title,
+              'body': rev.content,
+              'date': rev.createdAt.toUtc().toIso8601String(),
+            });
+          }
+        }
+        if (selection.originalIds.isNotEmpty) {
+          if (selection.level != VisibilityLevel.original) {
+            throw StateError('只有原件级别可附带明确选择的原件');
+          }
+          final sources = await r.cardSources(card.id);
+          for (final id in selection.originalIds) {
+            if (!sources.any((s) => s.blobId == id)) {
+              throw StateError('原件不属于所选卡片');
+            }
+            if (files.containsKey(id)) continue;
+            final blob = blobs.singleWhere((b) => b.id == id);
+            total += blob.byteLength;
+            if (total > 64 * 1024 * 1024) {
+              throw StateError('本地交接原件总计不能超过 64 MB');
+            }
+            final clear = await originals.readOriginal(blob);
+            try {
+              files[id] = {
+                'name': blob.originalName,
+                'mimeType': blob.mimeType,
+                'bytes': HeaderEncoding.binary(clear),
+              };
+            } finally {
+              OwnerCrypto.wipe(clear);
+            }
+          }
+        }
+      } else {
+        if (selection.originalIds.isNotEmpty) throw StateError('密码条目没有原件');
+        final entry = (await r.listCredentials()).singleWhere(
+          (c) => c.id == selection.id,
+        );
+        preview = ReleasePreview.credential(entry, selection.level);
+        if (selection.history) {
+          if (selection.level.index < VisibilityLevel.secret.index) {
+            throw StateError('密码历史需要密码级别及另行勾选');
+          }
+          for (final rev in await r.credentialHistory(entry.id)) {
+            history.add({
+              'number': rev.number,
+              'title': rev.title,
+              'username': rev.username,
+              'secret': rev.secret,
+              'website': rev.website,
+              'notes': rev.notes,
+            });
+          }
+        }
+      }
+      records.add({
+        'type': selection.type,
+        'id': selection.id,
+        'level': selection.level.name,
+        'title': preview.title,
+        'body': preview.body,
+        if (preview.secret != null) 'secret': preview.secret,
+        'history': history,
+        'originalIds': selection.originalIds,
+      });
+    }
+    return {'version': 1, 'records': records, 'originals': files};
+  }
+
   VaultRepository get _repository {
     if (!session.isUnlocked) throw StateError('请先解锁所有者资料库');
     return session.repository;
@@ -314,101 +433,7 @@ class LocalHandoffService {
     final binding = (await recipients())[recipientFingerprint];
     if (binding is! Map) throw StateError('请先验证接收者身份');
     final recipient = Map<String, Object?>.from(binding['public'] as Map);
-    final records = <Map<String, Object?>>[],
-        files = <String, Object?>{},
-        seen = <String>{};
-    final blobs = await r.listBlobs();
-    var total = 0;
-    for (final selection in selections) {
-      if (!['card', 'credential'].contains(selection.type) ||
-          selection.level == VisibilityLevel.hidden ||
-          !seen.add('${selection.type}/${selection.id}')) {
-        throw const FormatException('交接范围包含重复或无效记录');
-      }
-      ReleasePreview preview;
-      final history = <Map<String, Object?>>[];
-      if (selection.type == 'card') {
-        final card = await r.getCard(selection.id);
-        if (card == null || card.isDeleted) throw StateError('所选卡片已经不存在');
-        preview = ReleasePreview.card(card, selection.level);
-        if (selection.history) {
-          if (selection.level.index < VisibilityLevel.full.index) {
-            throw StateError('低可见级别不能附带完整历史');
-          }
-          for (final rev in await r.cardHistory(card.id)) {
-            history.add({
-              'number': rev.number,
-              'title': rev.title,
-              'body': rev.content,
-              'date': rev.createdAt.toUtc().toIso8601String(),
-            });
-          }
-        }
-        if (selection.originalIds.isNotEmpty) {
-          if (selection.level != VisibilityLevel.original) {
-            throw StateError('只有原件级别可附带明确选择的原件');
-          }
-          final sources = await r.cardSources(card.id);
-          for (final id in selection.originalIds) {
-            if (!sources.any((s) => s.blobId == id)) {
-              throw StateError('原件不属于所选卡片');
-            }
-            if (files.containsKey(id)) continue;
-            final blob = blobs.singleWhere((b) => b.id == id);
-            total += blob.byteLength;
-            if (total > 64 * 1024 * 1024) {
-              throw StateError('本地交接原件总计不能超过 64 MB');
-            }
-            final clear = await originals.readOriginal(blob);
-            try {
-              files[id] = {
-                'name': blob.originalName,
-                'mimeType': blob.mimeType,
-                'bytes': HeaderEncoding.binary(clear),
-              };
-            } finally {
-              OwnerCrypto.wipe(clear);
-            }
-          }
-        }
-      } else {
-        if (selection.originalIds.isNotEmpty) throw StateError('密码条目没有原件');
-        final entry = (await r.listCredentials()).singleWhere(
-          (c) => c.id == selection.id,
-        );
-        preview = ReleasePreview.credential(entry, selection.level);
-        if (selection.history) {
-          if (selection.level.index < VisibilityLevel.secret.index) {
-            throw StateError('密码历史需要密码级别及另行勾选');
-          }
-          for (final rev in await r.credentialHistory(entry.id)) {
-            history.add({
-              'number': rev.number,
-              'title': rev.title,
-              'username': rev.username,
-              'secret': rev.secret,
-              'website': rev.website,
-              'notes': rev.notes,
-            });
-          }
-        }
-      }
-      records.add({
-        'type': selection.type,
-        'id': selection.id,
-        'level': selection.level.name,
-        'title': preview.title,
-        'body': preview.body,
-        if (preview.secret != null) 'secret': preview.secret,
-        'history': history,
-        'originalIds': selection.originalIds,
-      });
-    }
-    final clear = LocalIdentity.encodeJson({
-      'version': 1,
-      'records': records,
-      'originals': files,
-    });
+    final clear = LocalIdentity.encodeJson(await _snapshotOf(selections));
     if (clear.length > 128 * 1024 * 1024) {
       OwnerCrypto.wipe(clear);
       throw StateError('交接包过大');

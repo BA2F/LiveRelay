@@ -11,6 +11,7 @@ import '../design_system/atoms.dart';
 import '../dialogs/backup_dialogs.dart';
 import '../dialogs/security_dialogs.dart';
 import '../dialogs/transfer_dialogs.dart';
+import 'handoff_view_page.dart';
 import 'recipient_page.dart';
 
 class _GateScaffold extends StatelessWidget {
@@ -171,7 +172,8 @@ class _SetupVaultPageState extends State<SetupVaultPage> {
       if (mounted) {
         setState(
           () => _creationError =
-              controller.lastError ?? AppLocalizations.of(context).setupCreateFailed,
+              controller.lastError ??
+              AppLocalizations.of(context).setupCreateFailed,
         );
       }
     }
@@ -304,9 +306,7 @@ class _SetupVaultPageState extends State<SetupVaultPage> {
                   ? (_generated == null
                         ? l10n.setupPhraseHelperEmpty
                         : l10n.setupPhraseHelperGenerated)
-                  : l10n.setupPasswordHelper(
-                      VaultPasswordPolicy.minimumLength,
-                    ),
+                  : l10n.setupPasswordHelper(VaultPasswordPolicy.minimumLength),
               helperMaxLines: 3,
               errorMaxLines: 2,
               errorText: !_useGenerator && _password.text.isNotEmpty
@@ -471,6 +471,7 @@ class _UnlockVaultPageState extends State<UnlockVaultPage> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           if (controller.recipientExists) const RecipientEntryButton(),
+          const HandoffViewEntryButton(),
           TextField(
             controller: _password,
             obscureText: _obscure,

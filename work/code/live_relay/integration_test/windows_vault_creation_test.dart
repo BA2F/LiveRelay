@@ -9,6 +9,7 @@ import 'package:integration_test/integration_test.dart';
 import 'package:provider/provider.dart';
 
 import 'package:live_relay/infrastructure/app_composition.dart';
+import 'package:live_relay/core/domain/entities.dart';
 import 'package:live_relay/presentation/app.dart';
 import 'package:live_relay/presentation/workbench/desktop_workbench.dart';
 import 'package:live_relay/presentation/workbench/workbench_sidebar.dart';
@@ -145,14 +146,49 @@ void main() {
     await until(() => find.byType(WorkbenchSidebar).evaluate().isNotEmpty);
     await shot('06-workbench');
 
-    // 接收者不在场：交接准备只由本人选内容，接收者在打开包时验证私钥。
+    // 交接准备：本人选内容、设长期密码，接收者在本机用密码查看。
+    await controller.createCard(
+      const CardDraft(title: '交接测试卡片', content: '接收者能看到这段内容'),
+    );
+    await tester.pumpAndSettle();
     await tap(find.byTooltip('更多'));
     await tap(find.text('交接准备'));
-    await until(() => find.text('真实限定范围交接').evaluate().isNotEmpty);
-    expect(find.text('本人选择本次交付内容；接收者验证通过后即可取走'), findsOneWidget);
-    await tap(find.text('真实限定范围交接'));
-    await until(() => find.text('1 · 接收者').evaluate().isNotEmpty);
-    expect(find.text('导入接收者公开身份'), findsOneWidget);
-    expect(find.textContaining('接收者不必在场'), findsOneWidget);
+    await until(() => find.text('交接内容').evaluate().isNotEmpty);
+    expect(find.text('还没有交接密码'), findsOneWidget);
+    expect(find.text('交接测试卡片'), findsOneWidget);
+
+    await tap(find.byType(DropdownButton<VisibilityLevel>));
+    await tap(find.text('完整正文').last);
+    await tap(find.text('设置密码'));
+    final passwordFields = find.descendant(
+      of: find.byType(AlertDialog),
+      matching: find.byType(TextField),
+    );
+    await tester.enterText(passwordFields.at(0), 'verify-2026');
+    await tester.enterText(passwordFields.at(1), 'verify-2026');
+    await tap(find.text('确定'));
+    await tap(find.text('保存交接内容'));
+
+    final viewFile = File('${support.path}\\live_relay\\handoff-view.json');
+    for (var i = 0; i < 100 && !await viewFile.exists(); i++) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+    expect(await viewFile.exists(), isTrue, reason: '交接内容没有写入本机');
+    expect(await viewFile.readAsString(), isNot(contains('接收者能看到这段内容')));
+
+    await controller.lock();
+    await tester.pumpAndSettle();
+    await until(() => find.text('查看交接内容').evaluate().isNotEmpty);
+    await tap(find.text('查看交接内容'));
+    await tester.enterText(
+      find.descendant(
+        of: find.byType(AlertDialog),
+        matching: find.byType(TextField),
+      ),
+      'verify-2026',
+    );
+    await tap(find.text('查看'));
+    await until(() => find.text('交接测试卡片').evaluate().isNotEmpty);
+    expect(find.textContaining('接收者能看到这段内容'), findsOneWidget);
   });
 }

@@ -7,6 +7,7 @@ import 'package:flutter/foundation.dart';
 import '../../application/vault_session.dart';
 import '../../application/vault_snapshot_query.dart';
 import '../../application/local_handoff_service.dart';
+import '../../application/handoff_view_service.dart';
 import '../../application/recipient_service.dart';
 import '../../application/vault_security_service.dart';
 import '../../application/device_transfer_service.dart';
@@ -70,6 +71,7 @@ class AppController extends ChangeNotifier implements PreviewSession {
     this._conversationApplication,
     this._securityService,
     this.handoff,
+    this.handoffView,
     this.recipient,
   }) {
     _agentSubscriptions = [
@@ -111,6 +113,7 @@ class AppController extends ChangeNotifier implements PreviewSession {
         ownerProfile = await handoff!.profile();
       });
   final LocalHandoffService? handoff;
+  final HandoffViewService? handoffView;
   final RecipientService? recipient;
 
   /// 本机是否已有独立接收者身份；正式入口据此决定是否显示接收者入口。
@@ -246,8 +249,10 @@ class AppController extends ChangeNotifier implements PreviewSession {
   set isBusy(bool value) => _uiBusy = value;
   bool agentCommandsAvailable = false;
   OutboundConsentService get outboundConsent => _outboundConsent;
-  Future<void> grantOutbound(OutboundDestination destination, OutboundKind kind) =>
-      _run(() => _outboundConsent.grant(destination, kind));
+  Future<void> grantOutbound(
+    OutboundDestination destination,
+    OutboundKind kind,
+  ) => _run(() => _outboundConsent.grant(destination, kind));
   Future<void> revokeOutbound(String destinationId) =>
       _run(() => _outboundConsent.revoke(destinationId));
   AiProviderSettings get aiSettings => _agentSettings.settings;
@@ -700,6 +705,7 @@ class AppController extends ChangeNotifier implements PreviewSession {
     await _recordMutation(() => records.restoreCardRevision(id, number));
     await _clearMergeAfterEdit(id);
   }
+
   Future<CardDeletionPreview> previewCardDeletion(List<String> ids) =>
       records.previewCardDeletion(ids);
   Future<void> trashCards(
