@@ -156,9 +156,9 @@ void main() {
     await until(() => find.text('交接内容').evaluate().isNotEmpty);
     expect(find.text('还没有交接密码'), findsOneWidget);
     expect(find.text('交接测试卡片'), findsOneWidget);
+    expect(find.text('全选'), findsOneWidget);
 
-    await tap(find.byType(DropdownButton<VisibilityLevel>));
-    await tap(find.text('完整正文').last);
+    await tap(find.widgetWithText(CheckboxListTile, '交接测试卡片'));
     await tap(find.text('设置密码'));
     final passwordFields = find.descendant(
       of: find.byType(AlertDialog),

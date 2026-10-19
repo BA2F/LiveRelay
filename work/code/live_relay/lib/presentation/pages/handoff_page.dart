@@ -23,9 +23,7 @@ class HandoffPage extends StatefulWidget {
 }
 
 class _HandoffPageState extends State<HandoffPage> {
-  final levels = <String, VisibilityLevel>{},
-      histories = <String>{},
-      originals = <String, List<String>>{};
+  final selected = <String>{};
   String? _password, _error;
   DateTime? _updatedAt;
   bool _busy = false;
@@ -95,14 +93,11 @@ class _HandoffPageState extends State<HandoffPage> {
   }
 
   List<ScopedRecord> get _selections => [
-    for (final item in levels.entries)
+    for (final key in selected)
       ScopedRecord(
-        item.key.startsWith('card/') ? 'card' : 'credential',
-        item.key.substring(item.key.indexOf('/') + 1),
-        item.value,
-        history: histories.contains(item.key),
-        originalIds:
-            originals[item.key.substring(item.key.indexOf('/') + 1)] ?? [],
+        key.startsWith('card/') ? 'card' : 'credential',
+        key.substring(key.indexOf('/') + 1),
+        key.startsWith('card/') ? VisibilityLevel.full : VisibilityLevel.secret,
       ),
   ];
 
@@ -168,59 +163,6 @@ class _HandoffPageState extends State<HandoffPage> {
         .showSnackBar(const SnackBar(content: Text('新密码会在下次保存交接内容时生效')));
   }
 
-  Future<void> chooseOriginals(String cardId) async {
-    final controller = context.read<AppController>();
-    final sources = await controller.cardSources(cardId);
-    final available = controller.blobs
-        .where((b) => sources.any((s) => s.blobId == b.id))
-        .toList();
-    if (!mounted) return;
-    final ids = <String>{...?originals[cardId]};
-    final result = await showDialog<List<String>>(
-      context: context,
-      builder: (context) => StatefulBuilder(
-        builder: (context, refresh) => AlertDialog(
-          title: const Text('交付哪些原件'),
-          content: SizedBox(
-            width: 480,
-            child: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Text('勾选的文件会完整交付，包括图片、录音等原始内容。'),
-                  for (final blob in available)
-                    CheckboxListTile(
-                      value: ids.contains(blob.id),
-                      title: Text(blob.originalName),
-                      onChanged: (v) => refresh(() {
-                        if (v!) {
-                          ids.add(blob.id);
-                        } else {
-                          ids.remove(blob.id);
-                        }
-                      }),
-                    ),
-                  if (available.isEmpty) const Text('此卡片没有关联原件'),
-                ],
-              ),
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('取消'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.pop(context, ids.toList()),
-              child: const Text('确认原件范围'),
-            ),
-          ],
-        ),
-      ),
-    );
-    if (result != null && mounted) setState(() => originals[cardId] = result);
-  }
-
   @override
   Widget build(BuildContext context) {
     final c = context.watch<AppController>();
@@ -249,78 +191,65 @@ class _HandoffPageState extends State<HandoffPage> {
         const SizedBox(height: 20),
         Text('交接内容', style: Theme.of(context).textTheme.titleLarge),
         const SizedBox(height: 4),
-        const Text('逐条设置接收者能看到的范围；不选择就不交付。'),
+        const Text('勾选要交给接收者的内容；没勾的不会出现。'),
+        const SizedBox(height: 8),
+        Builder(
+          builder: (context) {
+            final all = <String>[
+              for (final record in <InformationCard>[
+                ...c.cards,
+                ...c.credentials,
+              ])
+                '${record is LifeCard ? 'card' : 'credential'}/${record.id}',
+            ];
+            final checked = all.where(selected.contains).length;
+            return CheckboxListTile(
+              value: all.isEmpty
+                  ? false
+                  : checked == all.length
+                  ? true
+                  : checked == 0
+                  ? false
+                  : null,
+              tristate: true,
+              title: const Text('全选'),
+              subtitle: Text('已选 $checked / ${all.length} 条'),
+              onChanged: _busy
+                  ? null
+                  : (value) => setState(() {
+                      if (value == true) {
+                        selected.addAll(all);
+                      } else {
+                        selected.removeAll(all);
+                      }
+                    }),
+            );
+          },
+        ),
         const Divider(),
-        for (final record in <InformationCard>[
-          ...c.cards,
-          ...c.credentials,
-        ]) ...[
+        for (final record in <InformationCard>[...c.cards, ...c.credentials])
           Builder(
             builder: (context) {
               final key =
                   '${record is LifeCard ? 'card' : 'credential'}/${record.id}';
-              final level = levels[key];
-              return Column(
-                children: [
-                  ListTile(
-                    title: Text(record.title),
-                    subtitle: Text(record is LifeCard ? '卡片' : '密码条目'),
-                    trailing: DropdownButton<VisibilityLevel>(
-                      value: level ?? VisibilityLevel.hidden,
-                      items: [
-                        for (final v in VisibilityLevel.values)
-                          DropdownMenuItem(
-                            value: v,
-                            child: Text(
-                              ['不交付', '仅存在', '摘要', '完整正文', '密码', '原件'][v.index],
-                            ),
-                          ),
-                      ],
-                      onChanged: _busy
-                          ? null
-                          : (v) => setState(() {
-                              if (v == VisibilityLevel.hidden) {
-                                levels.remove(key);
-                              } else {
-                                levels[key] = v!;
-                              }
-                              histories.remove(key);
-                              originals.remove(record.id);
-                            }),
-                    ),
-                  ),
-                  if (level != null &&
-                      level.index >=
-                          (record is LifeCard
-                              ? VisibilityLevel.full.index
-                              : VisibilityLevel.secret.index))
-                    CheckboxListTile(
-                      value: histories.contains(key),
-                      title: const Text('附带完整修订历史'),
-                      onChanged: _busy
-                          ? null
-                          : (v) => setState(() {
-                              if (v!) {
-                                histories.add(key);
-                              } else {
-                                histories.remove(key);
-                              }
-                            }),
-                    ),
-                  if (record is LifeCard && level == VisibilityLevel.original)
-                    TextButton(
-                      onPressed: _busy
-                          ? null
-                          : () => chooseOriginals(record.id),
-                      child: Text(
-                        '选择原件 · ${originals[record.id]?.length ?? 0} 个',
-                      ),
-                    ),
-                ],
+              return CheckboxListTile(
+                value: selected.contains(key),
+                title: Text(record.title),
+                subtitle: Text(
+                  record is LifeCard ? '卡片 · 交付完整正文' : '密码条目 · 交付当前密码',
+                ),
+                onChanged: _busy
+                    ? null
+                    : (value) => setState(() {
+                        if (value == true) {
+                          selected.add(key);
+                        } else {
+                          selected.remove(key);
+                        }
+                      }),
               );
             },
           ),
-        ],
         if (_error != null)
           Padding(
             padding: const EdgeInsets.symmetric(vertical: 12),
