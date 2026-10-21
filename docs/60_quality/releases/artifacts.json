@@ -1,6 +1,6 @@
 {
   "repository": "https://github.com/BA2F/LiveRelay",
-  "recordedOn": "2026-10-19",
+  "recordedOn": "2026-10-21",
   "records": [
     {
       "tag": "mvp-0.1",
@@ -275,6 +275,53 @@
         "CXXABI": "1.3.7"
       },
       "verification": "Static analysis clean and 332 tests passed / 3 skipped; Android release built with the dedicated key, aapt2/apksigner verified package name, versionName, versionCode 6, arm64-only contents and v2 certificate; Linux built in the isolated Ubuntu 22.04.5 rootfs via scripts/build_linux_ubuntu22.py, full-ELF ABI audit passed, and the final bundle stayed alive in an Xvfb smoke launch (Impeller and media_kit loaded; expected secret-service warning without a keyring); QR payload and widget tests passed, no real-device scan walkthrough yet; all 3 uploaded asset sizes/digests match local files.",
+      "releaseAttestation": false
+    },
+    {
+      "tag": "v1.0.0-beta.4",
+      "name": "LiveRelay v1.0.0-beta.4 — 取件码交接与摇篮邮件",
+      "url": "https://github.com/BA2F/LiveRelay/releases/tag/v1.0.0-beta.4",
+      "publishedAt": "2026-10-21T09:14:05Z",
+      "buildDate": "2026-10-21",
+      "sourceCommit": "273e0a79c711e1d2782ae7ee44f825a0c8dc3c95",
+      "provenance": "Android and Linux release built from committed source 273e0a7, application 1.0.0-beta.4+7, same dedicated release key as beta.1-beta.3. Default handoff is now a per-recipient password package (pickup code, editable email draft) with a recipient open flow; cradle plan v2 carries per-recipient subject/body and the server sends the owner draft. Linux built inside an isolated Ubuntu 22.04.5 rootfs via scripts/build_linux_ubuntu22.py with full-ELF ABI audit and an Xvfb smoke launch. Annotated tag is fixed at sourceCommit.",
+      "prerelease": true,
+      "packageName": "app.liverelay.live_relay",
+      "versionName": "1.0.0-beta.4",
+      "versionCode": 7,
+      "minSdk": 24,
+      "targetSdk": 36,
+      "signatureScheme": "v2",
+      "signingCertificate": "CN=LiveRelay (dedicated release key)",
+      "certificateSha256": "7dee1b1faa8904777869b634f5fc2e50cfe4acb32e09543201476d8e14531cc7",
+      "androidAbi": "arm64-v8a",
+      "apk": {
+        "fileName": "LiveRelay-v1.0.0-beta.4-Android.apk",
+        "bytes": 83113843,
+        "sha256": "a008ec0f0174813370d462fa702ad57219b53e2ea0dc931f210fecbe6e3257b9",
+        "downloadUrl": "https://github.com/BA2F/LiveRelay/releases/download/v1.0.0-beta.4/LiveRelay-v1.0.0-beta.4-Android.apk"
+      },
+      "linux": {
+        "fileName": "LiveRelay-v1.0.0-beta.4-Linux-x86_64.tar.gz",
+        "bytes": 58054485,
+        "sha256": "61af9648c53abe42fb3af9cecdf1ca82febcef194a43298d7af8e667dfb12f76",
+        "downloadUrl": "https://github.com/BA2F/LiveRelay/releases/download/v1.0.0-beta.4/LiveRelay-v1.0.0-beta.4-Linux-x86_64.tar.gz"
+      },
+      "checksumFile": {
+        "fileName": "SHA256SUMS",
+        "bytes": 212,
+        "sha256": "7138cb300a2011760841c24bcf8a7694f37a7c10afb8975df70cfe1b276db961",
+        "downloadUrl": "https://github.com/BA2F/LiveRelay/releases/download/v1.0.0-beta.4/SHA256SUMS"
+      },
+      "linuxArchitecture": "x86_64",
+      "linuxBuildDistribution": "Ubuntu22.04",
+      "linuxBuildGlibc": "2.35",
+      "linuxMaximumAbi": {
+        "GLIBC": "2.34",
+        "GLIBCXX": "3.4.29",
+        "CXXABI": "1.3.7"
+      },
+      "verification": "Static analysis clean and 336 tests passed / 3 skipped; Android release built from 273e0a7 with the dedicated key, aapt2/apksigner verified package name, versionName 1.0.0-beta.4, versionCode 7, minSdk 24, targetSdk 36, arm64-only contents and v2 certificate; Linux built in the isolated Ubuntu 22.04.5 rootfs via scripts/build_linux_ubuntu22.py, full-ELF ABI audit passed, no debugger native_assets.json in the archive, and the final bundle stayed alive for 20s in an Xvfb smoke launch (Impeller and media_kit loaded; expected secret-service warning without a keyring); cradle service dry run passed for v2 draft trigger and test mail; Android emulator layout walkthrough of the handoff list, add-recipient dialog and recipient detail page; all 3 uploaded asset sizes/digests match local files. Real ECS mail, real WebDAV upload from a phone, real-device package download/open, formal security review and Windows manual walkthrough remain unverified.",
       "releaseAttestation": false
     }
   ]

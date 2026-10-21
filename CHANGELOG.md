@@ -2,6 +2,18 @@
 
 记录对使用者有影响的版本变化。安装包、校验文件和最终发布说明以 [GitHub Releases](https://github.com/BA2F/LiveRelay/releases)为准；制品身份另见 [发布记录](docs/60_quality/releases/)。
 
+## v1.0.0-beta.4 — 取件码交接与摇篮邮件，2026-10-21
+
+[Release](https://github.com/BA2F/LiveRelay/releases/tag/v1.0.0-beta.4) · [完整版本说明](docs/60_quality/releases/v1.0.0-beta.4.md)
+
+- 交接默认路径改为按接收者分份的取件码包：每位接收者独立选内容、设取件码、写邮件草稿，包用 Argon2id + AES-256-GCM 加密；接收者装 App 后用「打开交接包」输码查看，不需要身份、指纹或二维码。旧的接收者身份路径保留为严格模式，入口移到「资料库设置 → 更多设置」。
+- 交接页顶部是「交给他人」列表，支持添加接收者、全选/复制范围、预览、上传/更新、发送测试邮件、停用和删除；邮件草稿可改，取件码可删、可换，旧包保留给已发出的邮件。摇篮计划升为 v2，按每人的 `subject`/`body` 原样发送；v1 计划继续走旧模板。
+- 摇篮页接收者改为只读列表；有未上传或待更新的接收者时禁止保存计划并提示先处理；云端旧计划里有本机没有的接收者时给出警告。
+- 解锁页收成一个「打开交接包」；备份恢复、介质导入、密钥文件解锁和独立恢复收进「更多」；接收者身份入口从解锁页、首次引导和「我的」移除。
+- 手机布局：交接页先显示「交给他人」，接收者详情整页可滚动；安卓模拟器走过列表、添加接收者和详情布局，320dp/200% 文字测试通过。
+- 验证：`flutter analyze` 无问题；336 项测试通过、3 跳过、0 失败；Android Release APK（versionCode 7，arm64，v2，与 beta.1/2/3 同证书）与 Ubuntu 22.04.5 隔离 rootfs 构建的 Linux 包（最大 ABI GLIBC 2.34／GLIBCXX 3.4.29／CXXABI 1.3.7，Xvfb 冒烟存活）已核对；摇篮服务 v2 草稿触发与测试邮件干跑通过。
+- 限制：邮件仍带同一个 WebDAV 账号密码，接收者可读客户卷里的计划；云端为 IP+HTTP；服务端可见邮件里的取件码。真实 ECS 发信、真实 WebDAV 上传和真机打开包未在本轮走查。
+
 ## v1.0.0-beta.3 — Windows 适配与本机／远程交接分流，2026-10-19
 
 [Release](https://github.com/BA2F/LiveRelay/releases/tag/v1.0.0-beta.3) · [完整版本说明](docs/60_quality/releases/v1.0.0-beta.3.md)

@@ -86,7 +86,7 @@ flutter build windows --release
 
 产物：`build/app/outputs/flutter-apk/app-release.apk`。Java 不在环境路径时，设置 `JAVA_HOME` 和对应 `PATH` 后构建。本机使用 Android Studio 自带 JBR；它是环境配置，不写入仓库。
 
-当前 Release 配置使用内部 Android Debug 证书。正式发布前需配置发布签名并完成安全/真机验收。已发布 APK 的版本、源码提交、证书和校验值见 [发布记录](../../../docs/60_quality/releases/)，流程见 [RELEASING](../../../RELEASING.md)。
+Release 配置在 `android/key.properties` 存在时使用专用 release keystore；文件缺失时才回退 debug 证书，回退产物不得对外发布。已发布 APK 的版本、源码提交、证书和校验值见 [发布记录](../../../docs/60_quality/releases/)，流程见 [RELEASING](../../../RELEASING.md)。
 
 Arch／新 glibc 环境的原生插件可能引入旧发行版不存在的符号；MVP0.3 的 secure-storage 插件实际要求 `GLIBC_2.38`，无法在 Ubuntu22.04 启动。MVP0.4已从Ubuntu22.04构建并检查全部ELF；后续Linux发布继续使用已验证的 [隔离构建脚本](../../../scripts/build_linux_ubuntu22.py)：
 
