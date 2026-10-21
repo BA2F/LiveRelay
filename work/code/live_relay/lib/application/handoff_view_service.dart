@@ -8,11 +8,11 @@ import '../core/security/header_encoding.dart';
 import '../core/security/owner_crypto.dart';
 import '../core/storage/file_commit.dart';
 
-/// A long-term, password-protected read-only handoff kept beside the vault.
+/// A long-term, password-protected read-only handoff.
 ///
-/// The recipient reads it on the same machine from the unlock screen. The
-/// password is shared with the recipient and replaces the recipient identity
-/// key as the gate: whoever knows the password can open the snapshot.
+/// The same envelope is used for the local view kept beside the vault and for
+/// the package a recipient downloads from the cloud. [encode] and [openBytes]
+/// work without a file so the cloud path can upload the bytes directly.
 class HandoffViewService {
   HandoffViewService(this._resolveFile);
 
@@ -28,7 +28,7 @@ class HandoffViewService {
   Future<DateTime?> updatedAt() async {
     final file = await _file();
     if (!await file.exists()) return null;
-    final envelope = await _readEnvelope(file);
+    final envelope = _readEnvelopeJson(await file.readAsString());
     return DateTime.tryParse(envelope['updatedAt'] as String);
   }
 
@@ -43,13 +43,15 @@ class HandoffViewService {
     }
   }
 
-  Future<void> save({
+  /// Builds the encrypted envelope without touching a file.
+  ///
+  /// Callers wipe the returned bytes after upload. [snapshot] is not copied;
+  /// the caller must not keep mutable views into it.
+  Future<Uint8List> encode({
     required String password,
     required Map<String, Object?> snapshot,
   }) async {
-    if (password.isEmpty) throw const FormatException('交接密码不能为空');
-    final file = await _file();
-    await file.parent.create(recursive: true);
+    if (password.isEmpty) throw const FormatException('取件密码不能为空');
     final salt = OwnerCrypto.random(16);
     final key = await OwnerCrypto.password(password, salt);
     try {
@@ -70,12 +72,9 @@ class HandoffViewService {
           key,
           HeaderEncoding.encode(header),
         );
-        final pending = File('${file.path}.tmp');
-        await pending.writeAsString(
-          jsonEncode({...header, 'box': box}),
-          flush: true,
+        return Uint8List.fromList(
+          utf8.encode(jsonEncode({...header, 'box': box})),
         );
-        await commitFile(pending, file);
       } finally {
         clear.fillRange(0, clear.length, 0);
       }
@@ -84,10 +83,36 @@ class HandoffViewService {
     }
   }
 
+  Future<void> save({
+    required String password,
+    required Map<String, Object?> snapshot,
+  }) async {
+    final bytes = await encode(password: password, snapshot: snapshot);
+    try {
+      final file = await _file();
+      await file.parent.create(recursive: true);
+      final pending = File('${file.path}.tmp');
+      await pending.writeAsBytes(bytes, flush: true);
+      await commitFile(pending, file);
+    } finally {
+      bytes.fillRange(0, bytes.length, 0);
+    }
+  }
+
   Future<Map<String, Object?>> open(String password) async {
     final file = await _file();
     if (!await file.exists()) throw StateError('本机还没有可查看的交接内容');
-    final envelope = await _readEnvelope(file);
+    return openBytes(await file.readAsBytes(), password);
+  }
+
+  /// Opens an envelope received as a file (the recipient flow).
+  Future<Map<String, Object?>> openBytes(
+    Uint8List bytes,
+    String password,
+  ) async {
+    final envelope = _readEnvelopeJson(
+      utf8.decode(bytes, allowMalformed: false),
+    );
     final salt = HeaderEncoding.decodeBinary(envelope['salt'], 16);
     final box = OwnerCrypto.map(envelope['box'], {
       'nonce',
@@ -118,14 +143,14 @@ class HandoffViewService {
         OwnerCrypto.wipe(clear);
       }
     } on SecretBoxAuthenticationError {
-      throw const FormatException('交接密码不正确');
+      throw const FormatException('取件码或交接密码不正确');
     } finally {
       key.destroy();
     }
   }
 
-  Future<Map<String, Object?>> _readEnvelope(File file) async {
-    final decoded = jsonDecode(await file.readAsString());
+  Map<String, Object?> _readEnvelopeJson(String text) {
+    final decoded = jsonDecode(text);
     if (decoded is! Map<String, Object?> ||
         decoded['version'] != 1 ||
         decoded['kind'] != kind ||

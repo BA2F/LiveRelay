@@ -197,5 +197,12 @@ class WebDavTransferMedium implements TransferMedium {
     }
   }
 
+  @override
+  Future<void> delete(String name) async {
+    final response = await _request('DELETE', _url(name));
+    if (response.statusCode == 404) return;
+    if (!_ok(response.statusCode)) _failure('删除云端文件', response.statusCode);
+  }
+
   void close() => _client.close();
 }

@@ -76,4 +76,9 @@ class FileSetTransferMedium implements TransferMedium {
       throw StateError('已取消保存 $name；可稍后重新导出，已保存的文件不会重复生成');
     }
   }
+
+  @override
+  Future<void> delete(String name) async {
+    _files.remove(name);
+  }
 }

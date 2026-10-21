@@ -5,21 +5,22 @@
 > 依赖：Docker 与 Docker Compose；一个可发信的 SMTP 账号；copyparty 客户卷（见 ../copyparty/）
 > 设计：tasks/specs/2026-10-15_报平安与自动交接.md
 
-App 把两样东西写进云端客户卷（`/srv/tttahzun/data/liverelay-drive/users/<客户>/`，copyparty 云布局）：
+App 把三样东西写进云端客户卷（`/srv/tttahzun/data/liverelay-drive/users/<客户>/`，copyparty 云布局）：
 
 - `liverelay-checkin.json`：最近一次报平安（覆盖写；手动按钮与"打开 App 自动记一次"）
-- `liverelay-cradle-plan.json`：摇篮计划（周期／提前提醒／宽限期／提醒邮箱／接收者名单）
+- `liverelay-cradle-plan.json`：摇篮计划（周期／提前提醒／宽限期／提醒邮箱／接收者名单／每人的邮件草稿）
+- `liverelay-cradle-test.json`：App 请求发送的一封测试邮件（发完即删，结果写 `liverelay-cradle-test-result.json`）
 
 摇篮服务只读这些文件（数据目录只读挂载），按下面的规则发邮件：
 
 | 距上次报平安 | 动作 |
 | --- | --- |
 | ≥ 周期 − 提前（默认第 6 天） | 每天一次提醒本人（plan 里的 ownerEmail） |
-| ≥ 周期 + 宽限（默认第 10 天） | 给每个接收者各发一次取件邮件（网址／账号／密码／文件名） |
+| ≥ 周期 + 宽限（默认第 10 天） | 给每个接收者各发一次取件邮件；版本 2 计划按 `subject`／`body` 原样发送，版本 1 计划走旧模板（网址／账号／密码／文件名） |
 
 时间基准用**文件修改时间（服务器时钟）**，不用记录里的设备时间；还没有报平安记录时用计划的修改时间兜底。本人重新报平安后自动重置，提醒与通知重新开始计。
 
-信任边界（本人已拍板接受，见 spec）：服务端控制何时通知，理论上可以提前通知；包内容始终是加密的（HPKE，只有接收者能打开），服务端读不到。
+信任边界（本人已拍板接受，见 spec）：服务端控制何时通知，理论上可以提前通知。版本 2 计划的邮件正文由本人在 App 里写，默认包含取件码；服务端保存并原样发送，所以这一版服务端能看到取件码，也能据此解密对应的包。包内容本身仍是加密的；如果本人把取件码从草稿里删掉，服务端就只拿到加密包，读不到内容。这是 2026-10-21 交接取件包流程的明确取舍，后续再改成每人只读账号或一次性取件链接。
 
 ## 部署（ECS / 1Panel）
 
@@ -64,7 +65,14 @@ SMTP：`CRADLE_SMTP_MODE=ssl`（端口 465）或 `starttls`（端口 587）。�
 - 首封真发暴露干跑掩盖的 bug：`EmailMessage["Subject"] = Header(...)` 在 Python 3.12 抛 `'Header' object is not subscriptable`（dry-run 不经过 smtplib，测不出）；改为字符串赋值后重发成功（提交 7476b28）。
 - 全真演练：把真实报平安记录模拟成 6.5 天前 → 本人 QQ 邮箱收到提醒邮件「【留灯】你已经 7 天没有报平安」✓。演练后记录时间已恢复。
 
+## 取件包与测试邮件（2026-10-21）
+
+- App 的「交接 → 交给他人」为每位接收者生成一份密码包（Argon2id + AES-256-GCM），文件名 `liverelay-handoff-<8 位 ASCII ID>.lrshare`，上传到客户卷。
+- 计划升为版本 2：每位接收者带 `subject`／`body`，正文由用户在 App 内编辑，默认包含取件链接、WebDAV 账号密码、取件码、App 下载地址和留言。服务端原样发送；版本 1 计划继续走旧模板。
+- 测试邮件：App 写 `liverelay-cradle-test.json`，服务端发送后写 `liverelay-cradle-test-result.json`（`requestedAt`／`sentAt`／`error`）并删除请求；不影响正式提醒和通知状态。
+- 取件码由 App 生成（12 位，分组显示），也可自定义（至少 12 位）。
+
 ## 待办
 
-- SMTP 凭据（本人提供后改 compose 的 CHANGE-ME 并去掉 `CRADLE_DRY_RUN`，重启即真发）
-- 第二段：App 上传预授权 `.lrshare` 包 + 取件通知文案里的取件闭环
+- 第二步安全收口：每人一个只读账号或一次性取件链接，避免把同一个 WebDAV 账号发给所有接收者；HTTPS；发送状态回写；服务端不存取件码。
+- 接收者当前需要手动下载 `.lrshare` 并用 App「打开交接包」打开；浏览器直接查看的取件页后置。

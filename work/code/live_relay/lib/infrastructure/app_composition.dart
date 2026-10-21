@@ -29,6 +29,7 @@ import '../application/vault_records_application.dart';
 import '../application/vault_security_service.dart';
 import '../application/local_handoff_service.dart';
 import '../application/handoff_view_service.dart';
+import '../application/handoff_delivery_service.dart';
 import '../presentation/controllers/recipient_service.dart';
 import '../application/identity/recipient_runtime.dart';
 import 'identity/file_recipient_store.dart';
@@ -174,6 +175,13 @@ AppController createAppController([
     vault: session,
     ocr: ocrProvider ?? GoogleMlKitOcrProvider(),
   );
+  final handoff = LocalHandoffService(session, originals: session);
+  final handoffView = HandoffViewService(
+    () async => File(
+      '${(applicationDirectory ?? await getApplicationSupportDirectory()).path}'
+      '/live_relay/handoff-view.json',
+    ),
+  );
   return AppController(
     capabilities: currentDeviceCapabilities(),
     records: VaultRecordsApplication(
@@ -191,12 +199,12 @@ AppController createAppController([
       snapshots: snapshots,
     ),
     session: session,
-    handoff: LocalHandoffService(session, originals: session),
-    handoffView: HandoffViewService(
-      () async => File(
-        '${(applicationDirectory ?? await getApplicationSupportDirectory()).path}'
-        '/live_relay/handoff-view.json',
-      ),
+    handoff: handoff,
+    handoffView: handoffView,
+    delivery: HandoffDeliveryService(
+      session: session,
+      handoff: handoff,
+      view: handoffView,
     ),
     recipient: createRecipientService(() async {
       final support =

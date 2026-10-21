@@ -6,6 +6,7 @@ import '../controllers/app_controller.dart';
 import '../../application/device_capabilities.dart';
 import '../pages/recycle_page.dart';
 import '../pages/security_settings_page.dart';
+import '../pages/recipient_page.dart';
 import 'backup_dialogs.dart';
 import 'ai_settings_dialog.dart';
 import 'capability_dialog.dart';
@@ -27,7 +28,10 @@ Future<void> showVaultSettings(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text('资料库设置', style: Theme.of(context).textTheme.headlineSmall),
+            Text(
+              '资料库设置',
+              style: Theme.of(sheetContext).textTheme.headlineSmall,
+            ),
             const SizedBox(height: 12),
             ListTile(
               contentPadding: EdgeInsets.zero,
@@ -95,7 +99,7 @@ Future<void> showVaultSettings(
                 ),
               ),
             const Divider(),
-            Text('备份状态', style: Theme.of(context).textTheme.titleMedium),
+            Text('备份状态', style: Theme.of(sheetContext).textTheme.titleMedium),
             const SizedBox(height: 8),
             Text(
               controller.lastBackupExport == null
@@ -119,7 +123,7 @@ Future<void> showVaultSettings(
               contentPadding: EdgeInsets.zero,
               leading: Icon(
                 Icons.settings_backup_restore,
-                color: Theme.of(context).colorScheme.error,
+                color: Theme.of(sheetContext).colorScheme.error,
               ),
               title: const Text('从加密备份恢复'),
               subtitle: const Text('验证成功后替换当前加密资料库，失败时保留原库'),
@@ -160,6 +164,27 @@ Future<void> showVaultSettings(
                 );
               },
             ),
+            if (controller.recipient != null) ...[
+              const Divider(),
+              Text('更多设置', style: Theme.of(sheetContext).textTheme.titleMedium),
+              const SizedBox(height: 8),
+              ListenableBuilder(
+                listenable: controller.recipient!,
+                builder: (tileContext, _) => ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: const Icon(Icons.badge_outlined),
+                  title: Text(
+                    controller.recipient!.exists ? '打开接收者身份' : '创建接收者身份',
+                  ),
+                  subtitle: const Text('严格模式：用接收者私钥打开旧式限定范围交接包；新流程用取件码'),
+                  onTap: () async {
+                    Navigator.pop(sheetContext);
+                    if (!context.mounted) return;
+                    await openRecipientEntry(context);
+                  },
+                ),
+              ),
+            ],
             const Divider(),
             FilledButton.tonalIcon(
               onPressed: () async {

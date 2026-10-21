@@ -8,6 +8,7 @@ import '../../application/vault_session.dart';
 import '../../application/vault_snapshot_query.dart';
 import '../../application/local_handoff_service.dart';
 import '../../application/handoff_view_service.dart';
+import '../../application/handoff_delivery_service.dart';
 import '../../application/recipient_service.dart';
 import '../../application/vault_security_service.dart';
 import '../../application/device_transfer_service.dart';
@@ -72,6 +73,7 @@ class AppController extends ChangeNotifier implements PreviewSession {
     this._securityService,
     this.handoff,
     this.handoffView,
+    this.delivery,
     this.recipient,
   }) {
     _agentSubscriptions = [
@@ -114,6 +116,7 @@ class AppController extends ChangeNotifier implements PreviewSession {
       });
   final LocalHandoffService? handoff;
   final HandoffViewService? handoffView;
+  final HandoffDeliveryService? delivery;
   final RecipientService? recipient;
 
   /// 本机是否已有独立接收者身份；正式入口据此决定是否显示接收者入口。

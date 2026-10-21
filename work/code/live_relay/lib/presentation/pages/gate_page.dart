@@ -12,7 +12,6 @@ import '../dialogs/backup_dialogs.dart';
 import '../dialogs/security_dialogs.dart';
 import '../dialogs/transfer_dialogs.dart';
 import 'handoff_view_page.dart';
-import 'recipient_page.dart';
 
 class _GateScaffold extends StatelessWidget {
   const _GateScaffold({required this.title, required this.child});
@@ -458,6 +457,63 @@ class _UnlockVaultPageState extends State<UnlockVaultPage> {
     }
   }
 
+  Future<void> _showMoreUnlockOptions(AppController controller) async {
+    final l10n = AppLocalizations.of(context);
+    await showModalBottomSheet<void>(
+      context: context,
+      useSafeArea: true,
+      showDragHandle: true,
+      builder: (sheetContext) => Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
+            child: Text(
+              l10n.captureMore,
+              style: Theme.of(sheetContext).textTheme.titleLarge,
+            ),
+          ),
+          ListTile(
+            leading: const Icon(Icons.settings_backup_restore),
+            title: Text(l10n.unlockRestore),
+            onTap: () {
+              Navigator.pop(sheetContext);
+              restoreFromBackup(context, controller);
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.import_export),
+            title: Text(l10n.setupImportMedium),
+            onTap: () {
+              Navigator.pop(sheetContext);
+              importFromMediumFlow(context, controller);
+            },
+          ),
+          if (controller.header?.keyFileEnabled == true)
+            ListTile(
+              leading: const Icon(Icons.description_outlined),
+              title: Text(l10n.unlockKeyFile),
+              onTap: () {
+                Navigator.pop(sheetContext);
+                unlockWithKeyFile(context, controller, _password.text);
+              },
+            ),
+          if (controller.header?.recoveryEnabled == true)
+            ListTile(
+              leading: const Icon(Icons.health_and_safety_outlined),
+              title: Text(l10n.unlockRecovery),
+              onTap: () {
+                Navigator.pop(sheetContext);
+                beginIndependentRecovery(context, controller);
+              },
+            ),
+          const SizedBox(height: 8),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final controller = context.watch<AppController>();
@@ -470,8 +526,7 @@ class _UnlockVaultPageState extends State<UnlockVaultPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const RecipientEntryButton(),
-          const HandoffViewEntryButton(),
+          const PickupEntryButton(),
           TextField(
             controller: _password,
             obscureText: _obscure,
@@ -513,39 +568,7 @@ class _UnlockVaultPageState extends State<UnlockVaultPage> {
             ),
           ),
           const SizedBox(height: 12),
-          OutlinedButton.icon(
-            onPressed: controller.isBusy
-                ? null
-                : () => restoreFromBackup(context, controller),
-            icon: const Icon(Icons.settings_backup_restore),
-            label: Text(l10n.unlockRestore),
-          ),
-          const SizedBox(height: 8),
-          OutlinedButton.icon(
-            onPressed: controller.isBusy
-                ? null
-                : () => importFromMediumFlow(context, controller),
-            icon: const Icon(Icons.import_export),
-            label: Text(l10n.setupImportMedium),
-          ),
-          if (controller.header?.keyFileEnabled == true)
-            OutlinedButton.icon(
-              onPressed: controller.isBusy
-                  ? null
-                  : () =>
-                        unlockWithKeyFile(context, controller, _password.text),
-              icon: const Icon(Icons.description_outlined),
-              label: Text(l10n.unlockKeyFile),
-            ),
-          if (controller.header?.recoveryEnabled == true)
-            TextButton(
-              onPressed: controller.isBusy
-                  ? null
-                  : () => beginIndependentRecovery(context, controller),
-              child: Text(l10n.unlockRecovery),
-            ),
           if (canUseBiometric) ...[
-            const SizedBox(height: 12),
             OutlinedButton.icon(
               onPressed: controller.isBusy
                   ? null
@@ -556,7 +579,15 @@ class _UnlockVaultPageState extends State<UnlockVaultPage> {
                 child: Text(l10n.unlockBiometric),
               ),
             ),
+            const SizedBox(height: 8),
           ],
+          TextButton.icon(
+            onPressed: controller.isBusy
+                ? null
+                : () => _showMoreUnlockOptions(controller),
+            icon: const Icon(Icons.more_horiz),
+            label: Text(l10n.captureMore),
+          ),
         ],
       ),
     );

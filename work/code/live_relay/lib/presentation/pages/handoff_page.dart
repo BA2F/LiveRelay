@@ -1,15 +1,18 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
 import '../controllers/app_controller.dart';
+import '../../application/handoff_delivery_service.dart';
 import '../../application/local_handoff_service.dart';
 import '../../application/release_preview.dart';
 import '../../core/domain/entities.dart';
+import '../../core/security/pickup_code.dart';
 import '../design_system/atoms.dart';
 import '../model_labels.dart';
 import '../widgets/release_preview_panel.dart';
-import 'manual_handoff_page.dart';
+import 'recipient_delivery_page.dart';
 
 ReleasePolicy _policy(AppController c, String type, String id) =>
     c.releasePolicies
@@ -27,14 +30,16 @@ class _HandoffPageState extends State<HandoffPage> {
   final selected = <String>{};
   // Card id -> original blob ids included with that card.
   final originals = <String, List<String>>{};
-  String? _password, _error;
+  String? _password, _error, _deliveryError;
   DateTime? _updatedAt;
-  bool _busy = false;
+  bool _busy = false, _deliveryBusy = false;
+  List<HandoffDelivery> _deliveries = const [];
 
   @override
   void initState() {
     super.initState();
     _load();
+    _loadDeliveries();
   }
 
   Future<void> _load() async {
@@ -42,6 +47,232 @@ class _HandoffPageState extends State<HandoffPage> {
     if (view == null) return;
     final updated = await view.updatedAt();
     if (mounted) setState(() => _updatedAt = updated);
+  }
+
+  Future<void> _loadDeliveries() async {
+    if (!mounted) return;
+    final service = context.read<AppController>().delivery;
+    if (service == null) return;
+    try {
+      final deliveries = await service.list();
+      if (mounted) setState(() => _deliveries = deliveries);
+    } on Object catch (error) {
+      if (mounted) setState(() => _deliveryError = '$error');
+    }
+  }
+
+  String _deliveryStatus(DeliveryStatus status) => switch (status) {
+    DeliveryStatus.draft => '草稿',
+    DeliveryStatus.uploaded => '已上传',
+    DeliveryStatus.needsUpdate => '待更新',
+    DeliveryStatus.disabled => '已停用',
+  };
+
+  Future<void> _addRecipient() async {
+    final controller = context.read<AppController>();
+    final service = controller.delivery;
+    if (service == null) return;
+    final connection = await controller.webDavConnection();
+    if (!mounted) return;
+    if (connection == null) {
+      setState(() => _deliveryError = '先到「设备间搬运」配置云端连接，再添加接收者');
+      return;
+    }
+    final label = TextEditingController();
+    final email = TextEditingController();
+    try {
+      final input = await showDialog<(String, String)>(
+        context: context,
+        builder: (context) => StatefulBuilder(
+          builder: (context, refresh) {
+            final ready =
+                label.text.trim().isNotEmpty &&
+                email.text.contains('@') &&
+                email.text.length >= 3;
+            return AlertDialog(
+              title: const Text('添加接收者'),
+              content: SizedBox(
+                width: 420,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    TextField(
+                      controller: label,
+                      autofocus: true,
+                      onChanged: (_) => refresh(() {}),
+                      decoration: const InputDecoration(labelText: '称呼'),
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: email,
+                      keyboardType: TextInputType.emailAddress,
+                      onChanged: (_) => refresh(() {}),
+                      decoration: const InputDecoration(labelText: '邮箱'),
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('取消'),
+                ),
+                FilledButton(
+                  onPressed: ready
+                      ? () => Navigator.pop(context, (
+                          label.text.trim(),
+                          email.text.trim(),
+                        ))
+                      : null,
+                  child: const Text('添加'),
+                ),
+              ],
+            );
+          },
+        ),
+      );
+      if (input == null || !mounted) return;
+      final scope = <ScopedRecord>[
+        for (final card in controller.cards)
+          ScopedRecord('card', card.id, VisibilityLevel.full),
+        for (final entry in controller.credentials)
+          ScopedRecord('credential', entry.id, VisibilityLevel.secret),
+      ];
+      setState(() {
+        _deliveryBusy = true;
+        _deliveryError = null;
+      });
+      final delivery = await service.add(
+        label: input.$1,
+        email: input.$2,
+        scope: scope,
+        connection: connection,
+      );
+      if (!mounted) return;
+      await Navigator.of(context).push<void>(
+        MaterialPageRoute(
+          builder: (_) => RecipientDeliveryPage(deliveryId: delivery.id),
+        ),
+      );
+      await _loadDeliveries();
+    } on Object catch (error) {
+      if (mounted) setState(() => _deliveryError = '$error');
+    } finally {
+      label.dispose();
+      email.dispose();
+      if (mounted) setState(() => _deliveryBusy = false);
+    }
+  }
+
+  Future<void> _openDelivery(HandoffDelivery delivery) async {
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute(
+        builder: (_) => RecipientDeliveryPage(deliveryId: delivery.id),
+      ),
+    );
+    await _loadDeliveries();
+  }
+
+  Future<void> _showCodes() async {
+    final revealed = <String>{};
+    await showDialog<void>(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, refresh) => AlertDialog(
+          title: const Text('取件码总览'),
+          content: SizedBox(
+            width: 520,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  const Text('这些码能打开对应的交接包，请只交给本人。'),
+                  const SizedBox(height: 12),
+                  for (final delivery in _deliveries)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  '${delivery.label} · ${delivery.email}',
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                              IconButton(
+                                tooltip: revealed.contains(delivery.id)
+                                    ? '遮住'
+                                    : '显示',
+                                onPressed: () => refresh(() {
+                                  if (!revealed.add(delivery.id)) {
+                                    revealed.remove(delivery.id);
+                                  }
+                                }),
+                                icon: Icon(
+                                  revealed.contains(delivery.id)
+                                      ? Icons.visibility_off_outlined
+                                      : Icons.visibility_outlined,
+                                ),
+                              ),
+                              IconButton(
+                                tooltip: '复制',
+                                onPressed: () async {
+                                  await Clipboard.setData(
+                                    ClipboardData(
+                                      text: PickupCode.format(
+                                        delivery.pickupCode,
+                                      ),
+                                    ),
+                                  );
+                                  if (context.mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text(
+                                          '已复制 ${delivery.label} 的取件码',
+                                        ),
+                                      ),
+                                    );
+                                  }
+                                },
+                                icon: const Icon(Icons.copy_outlined),
+                              ),
+                            ],
+                          ),
+                          Text(
+                            revealed.contains(delivery.id)
+                                ? PickupCode.format(delivery.pickupCode)
+                                : '••••-••••-••••',
+                            style: const TextStyle(
+                              fontFamily: 'monospace',
+                              fontSize: 16,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  if (_deliveries.isEmpty)
+                    const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 16),
+                      child: Text('还没有接收者'),
+                    ),
+                ],
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('关闭'),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   Future<String?> _askPassword({required bool confirm}) async {
@@ -271,7 +502,65 @@ class _HandoffPageState extends State<HandoffPage> {
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
       children: [
-        const Text('本机交接：接收者在这台设备上打开程序，输入交接密码就能查看下面选定的内容；没有选择的记录不会出现在交接里。'),
+        const Text('给不在身边的人：每位接收者一份交接包和一个取件码；到点后由云端摇篮按草稿发邮件。'),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                '交给他人',
+                style: Theme.of(context).textTheme.titleLarge,
+              ),
+            ),
+            TextButton(
+              onPressed: _deliveries.isEmpty ? null : _showCodes,
+              child: const Text('取件码总览'),
+            ),
+          ],
+        ),
+        for (final delivery in _deliveries)
+          ListTile(
+            contentPadding: EdgeInsets.zero,
+            isThreeLine: true,
+            leading: const Icon(Icons.person_outline),
+            title: Text(delivery.label),
+            subtitle: Text(
+              '${delivery.email}\n'
+              '${_deliveryStatus(delivery.status)} · ${delivery.scope.length} 条 · '
+              '取件码 ••••••',
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: _deliveryBusy ? null : () => _openDelivery(delivery),
+          ),
+        if (_deliveries.isEmpty)
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 8),
+            child: Text('还没有接收者。添加后按人设范围和取件码。'),
+          ),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: OutlinedButton.icon(
+            onPressed: _deliveryBusy ? null : _addRecipient,
+            icon: const Icon(Icons.person_add_alt_1_outlined),
+            label: const Text('添加接收者'),
+          ),
+        ),
+        if (_deliveryBusy) const LinearProgressIndicator(),
+        if (_deliveryError != null)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            child: Text(
+              _deliveryError!,
+              style: TextStyle(color: Theme.of(context).colorScheme.error),
+            ),
+          ),
+        const SizedBox(height: 24),
+        const Divider(),
+        Text('本机取件（同一台设备）', style: Theme.of(context).textTheme.titleLarge),
+        const SizedBox(height: 8),
+        const Text('接收者在这台设备上打开程序，输入交接密码就能查看下面选定的内容；没有选择的记录不会出现在交接里。'),
         const SizedBox(height: 16),
         Card(
           child: ListTile(
@@ -404,20 +693,6 @@ class _HandoffPageState extends State<HandoffPage> {
         FilledButton(
           onPressed: _busy ? null : _save,
           child: const Text('保存交接内容'),
-        ),
-        const SizedBox(height: 24),
-        const Divider(),
-        ListTile(
-          contentPadding: EdgeInsets.zero,
-          leading: const Icon(Icons.people_outline),
-          title: const Text('远程接收者'),
-          subtitle: const Text('导入接收者身份，导出交接包，或上传到云端摇篮'),
-          trailing: const Icon(Icons.chevron_right),
-          onTap: _busy
-              ? null
-              : () => Navigator.of(context).push<void>(
-                  MaterialPageRoute(builder: (_) => const ManualHandoffPage()),
-                ),
         ),
       ],
     );

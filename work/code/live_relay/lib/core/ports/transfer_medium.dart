@@ -42,4 +42,7 @@ abstract interface class TransferMedium {
   /// Writes a file through a temporary name so an interrupted write can never
   /// be mistaken for a complete package.
   Future<void> writeAtomic(String name, Uint8List bytes);
+
+  /// Removes a named file. A missing file is not an error.
+  Future<void> delete(String name);
 }

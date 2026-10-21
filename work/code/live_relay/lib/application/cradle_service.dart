@@ -57,13 +57,26 @@ class CradleService {
     required String packageName,
     required Uint8List bytes,
   }) {
+    _validatePackageName(packageName);
+    return medium.writeAtomic(packageName, bytes);
+  }
+
+  /// Removes a recipient's package. A missing file is not an error.
+  Future<void> deletePackage(
+    TransferMedium medium, {
+    required String packageName,
+  }) {
+    _validatePackageName(packageName);
+    return medium.delete(packageName);
+  }
+
+  static void _validatePackageName(String packageName) {
     if (packageName.isEmpty ||
         packageName.length > 200 ||
         packageName.contains('/') ||
         packageName.contains('\\')) {
       throw const FormatException('交接包文件名不合法');
     }
-    return medium.writeAtomic(packageName, bytes);
   }
 
   /// Reads the last check-in back from the cloud; null when none exists yet.

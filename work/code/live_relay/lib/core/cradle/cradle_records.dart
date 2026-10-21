@@ -63,6 +63,8 @@ class CradleRecipient {
     required this.cloudUrl,
     required this.cloudUser,
     required this.cloudPassword,
+    this.subject = '',
+    this.body = '',
   });
 
   /// Canonical cloud file name of this recipient's pre-authorized handoff
@@ -78,6 +80,11 @@ class CradleRecipient {
   final String cloudUser;
   final String cloudPassword;
 
+  /// Final plain-text email sent by the cradle service. Empty for version 1
+  /// plans, which fall back to the service's built-in template.
+  final String subject;
+  final String body;
+
   Map<String, Object?> toJson() => {
     'label': label,
     'email': email,
@@ -85,6 +92,8 @@ class CradleRecipient {
     'cloudUrl': cloudUrl,
     'cloudUser': cloudUser,
     'cloudPassword': cloudPassword,
+    'subject': subject,
+    'body': body,
   };
 
   static CradleRecipient parse(Object? raw) {
@@ -98,6 +107,15 @@ class CradleRecipient {
       return value;
     }
 
+    String optionalText(String key, int max) {
+      final value = data[key];
+      if (value == null) return '';
+      if (value is! String || value.length > max) {
+        throw const FormatException('摇篮接收者格式错误');
+      }
+      return value;
+    }
+
     return CradleRecipient(
       label: text('label', max: 100),
       email: text('email'),
@@ -105,6 +123,8 @@ class CradleRecipient {
       cloudUrl: text('cloudUrl', max: 500),
       cloudUser: text('cloudUser', max: 200),
       cloudPassword: text('cloudPassword', max: 200),
+      subject: optionalText('subject', 500),
+      body: optionalText('body', 20000),
     );
   }
 }
@@ -119,7 +139,8 @@ class CradlePlan {
   });
 
   static const kind = 'liverelay-cradle-plan';
-  static const version = 1;
+  static const version = 2;
+  static const supportedVersions = {1, 2};
   static const fileName = 'liverelay-cradle-plan.json';
   static const defaultPeriodDays = 7;
   static const defaultRemindBeforeDays = 1;
@@ -170,7 +191,7 @@ class CradlePlan {
     final graceDays = data['graceDays'];
     final recipients = data['recipients'];
     if (data['kind'] != kind ||
-        data['version'] != version ||
+        !supportedVersions.contains(data['version']) ||
         ownerEmail is! String ||
         ownerEmail.isEmpty ||
         ownerEmail.length > 300 ||

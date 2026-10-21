@@ -2,19 +2,21 @@
 """LiveRelay cradle service.
 
 Reads each customer volume under the data directory for
-`liverelay-cradle-plan.json` and `liverelay-checkin.json` (written by the
-LiveRelay app) and:
+`liverelay-cradle-plan.json`, `liverelay-checkin.json` and
+`liverelay-cradle-test.json` (written by the LiveRelay app) and:
 
 * reminds the owner by email once per day after
   `periodDays - remindBeforeDays` without a check-in;
 * notifies every recipient once after `periodDays + graceDays` without a
-  check-in, handing out the cloud account so they can fetch the encrypted
-  package themselves.
+  check-in, using the subject and body the owner wrote in the app (version 1
+  plans fall back to the built-in template);
+* sends a test mail requested by the app and leaves a result file.
 
 Timing follows trust-boundary decision A in
 tasks/specs/2026-10-15_报平安与自动交接.md: the service controls when to
 notify and could in principle notify early, while package contents stay
-HPKE-encrypted to the recipient key and are never readable here.
+encrypted and are never readable here. Version 2 plans carry the owner's
+final email text, including the pickup code when the owner kept it there.
 
 The baseline clock is the check-in file's mtime (server clock), falling
 back to the plan file's mtime while no check-in exists. State is one JSON
@@ -41,7 +43,10 @@ ONCE = os.environ.get("CRADLE_ONCE", "") == "1"
 
 CHECKIN_NAME = "liverelay-checkin.json"
 PLAN_NAME = "liverelay-cradle-plan.json"
+TEST_NAME = "liverelay-cradle-test.json"
+TEST_RESULT_NAME = "liverelay-cradle-test-result.json"
 PLAN_KIND = "liverelay-cradle-plan"
+PLAN_VERSIONS = (1, 2)
 RECIPIENT_FIELDS = ("label", "email", "package", "cloudUrl", "cloudUser", "cloudPassword")
 
 
@@ -98,7 +103,7 @@ def plan_problem(plan) -> str | None:
     problem found, or None when the plan is usable."""
     if not isinstance(plan, dict):
         return "not an object"
-    if plan.get("kind") != PLAN_KIND or plan.get("version") != 1:
+    if plan.get("kind") != PLAN_KIND or plan.get("version") not in PLAN_VERSIONS:
         return "kind/version"
     owner_email = plan.get("ownerEmail")
     period = plan.get("periodDays")
@@ -115,6 +120,7 @@ def plan_problem(plan) -> str | None:
     recipients = plan.get("recipients")
     if not isinstance(recipients, list):
         return "recipients"
+    version = plan.get("version")
     for recipient in recipients:
         if not isinstance(recipient, dict):
             return "recipient"
@@ -122,7 +128,65 @@ def plan_problem(plan) -> str | None:
             value = recipient.get(key)
             if not isinstance(value, str) or not value:
                 return f"recipient.{key}"
+        if version == 2:
+            subject = recipient.get("subject")
+            body = recipient.get("body")
+            if not isinstance(subject, str) or not subject.strip() or len(subject) > 500:
+                return "recipient.subject"
+            if not isinstance(body, str) or not body.strip() or len(body) > 20000:
+                return "recipient.body"
     return None
+
+
+def test_problem(request) -> str | None:
+    if not isinstance(request, dict):
+        return "not an object"
+    if request.get("kind") != "liverelay-cradle-test" or request.get("version") != 1:
+        return "kind/version"
+    to = request.get("to")
+    subject = request.get("subject")
+    body = request.get("body")
+    if not isinstance(to, str) or "@" not in to or len(to) > 300:
+        return "to"
+    if not isinstance(subject, str) or not subject.strip() or len(subject) > 500:
+        return "subject"
+    if not isinstance(body, str) or not body.strip() or len(body) > 20000:
+        return "body"
+    return None
+
+
+def process_test(customer: Path, now: datetime) -> None:
+    """Sends a test mail requested by the app and leaves a result file.
+
+    The request is removed even when invalid, so the app's next check of the
+    result can report the failure instead of retrying forever.
+    """
+    path = customer / TEST_NAME
+    if not path.is_file():
+        return
+    request = read_json(path)
+    result = {
+        "kind": "liverelay-cradle-test-result",
+        "version": 1,
+        "requestedAt": request.get("requestedAt") if isinstance(request, dict) else None,
+        "sentAt": None,
+        "error": None,
+    }
+    problem = test_problem(request)
+    if problem:
+        result["error"] = f"invalid test request ({problem})"
+    else:
+        try:
+            send_mail(request["to"], request["subject"], request["body"])
+        except Exception as error:  # noqa: BLE001 - reported to the app
+            result["error"] = str(error)
+        else:
+            result["sentAt"] = now.isoformat()
+    try:
+        write_state(customer / TEST_RESULT_NAME, result)
+        path.unlink(missing_ok=True)
+    except OSError as error:
+        log(f"{customer}: test result write/remove failed: {error}")
 
 
 def remind_subject(plan: dict, days: float) -> str:
@@ -171,13 +235,14 @@ def find_customers() -> list[tuple[str, Path]]:
         if len(Path(dirpath).parts) - root_parts >= 3:
             dirnames[:] = []
             continue
-        if CHECKIN_NAME in filenames or PLAN_NAME in filenames:
+        if CHECKIN_NAME in filenames or PLAN_NAME in filenames or TEST_NAME in filenames:
             relative = Path(dirpath).relative_to(DATA_DIR)
             customers.append(("__".join(relative.parts), Path(dirpath)))
     return sorted(customers)
 
 
 def process_customer(key: str, customer: Path, now: datetime) -> None:
+    process_test(customer, now)
     plan_path = customer / PLAN_NAME
     if not plan_path.is_file():
         return
@@ -211,8 +276,10 @@ def process_customer(key: str, customer: Path, now: datetime) -> None:
             email = recipient["email"]
             if email in notified:
                 continue
+            subject = recipient.get("subject") or notify_subject(recipient)
+            body = recipient.get("body") or notify_body(recipient, plan)
             try:
-                send_mail(email, notify_subject(recipient), notify_body(recipient, plan))
+                send_mail(email, subject, body)
             except Exception as error:  # noqa: BLE001 - logged, retried next round
                 log(f"{key}: notify {email} failed: {error}")
                 continue

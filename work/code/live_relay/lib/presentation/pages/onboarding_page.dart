@@ -9,7 +9,7 @@ import '../../l10n/app_localizations.dart';
 import '../dialogs/backup_dialogs.dart';
 import '../widgets/appearance_settings.dart';
 import 'gate_page.dart';
-import 'recipient_page.dart';
+import 'handoff_view_page.dart';
 
 class OnboardingPage extends StatefulWidget {
   const OnboardingPage({super.key});
@@ -37,7 +37,9 @@ class _OnboardingPageState extends State<OnboardingPage> {
     } on Object {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(AppLocalizations.of(context).onboardingSaveFailed)),
+          SnackBar(
+            content: Text(AppLocalizations.of(context).onboardingSaveFailed),
+          ),
         );
       }
     } finally {
@@ -51,7 +53,9 @@ class _OnboardingPageState extends State<OnboardingPage> {
     } on Object {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(AppLocalizations.of(context).onboardingSaveFailed)),
+          SnackBar(
+            content: Text(AppLocalizations.of(context).onboardingSaveFailed),
+          ),
         );
       }
     }
@@ -125,7 +129,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
                       label: Text(l10n.onboardingRestore),
                     ),
                     const SizedBox(height: 20),
-                    const RecipientEntryButton(),
+                    const PickupEntryButton(),
                   ],
                   const SizedBox(height: 28),
                   if (_step < 2)

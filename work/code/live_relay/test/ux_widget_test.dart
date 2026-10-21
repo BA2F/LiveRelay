@@ -203,7 +203,7 @@ Widget app(
 
 void main() {
   testWidgets(
-    'recipient identity creation is reachable from unlock and settings',
+    'recipient identity is reachable from settings, not the unlock page',
     (tester) async {
       final recipient = FakeRecipientService();
       final c = SnapshotController(recipient: recipient);
@@ -211,19 +211,42 @@ void main() {
 
       await tester.pumpWidget(app(c, const UnlockVaultPage()));
       await tester.pumpAndSettle();
-      expect(find.text('创建接收者身份'), findsOneWidget);
+      expect(find.text('创建接收者身份'), findsNothing);
+      expect(find.text('打开交接包'), findsOneWidget);
 
       await tester.pumpWidget(app(c, const Scaffold(body: ProfilePage())));
+      await tester.pumpAndSettle();
+      expect(find.text('创建接收者身份'), findsNothing);
+      await tester.scrollUntilVisible(
+        find.text('资料库设置'),
+        200,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.tap(find.text('资料库设置'));
+      await tester.pumpAndSettle();
+      final settingsScrollable = find
+          .descendant(
+            of: find.byType(BottomSheet),
+            matching: find.byType(Scrollable),
+          )
+          .first;
+      await tester.scrollUntilVisible(
+        find.text('创建接收者身份'),
+        200,
+        scrollable: settingsScrollable,
+      );
       await tester.pumpAndSettle();
       expect(find.text('创建接收者身份'), findsOneWidget);
 
       recipient.setExists(true);
       await tester.pumpAndSettle();
       expect(find.text('创建接收者身份'), findsNothing);
+      expect(find.text('打开接收者身份'), findsOneWidget);
 
       await tester.pumpWidget(app(c, const UnlockVaultPage()));
       await tester.pumpAndSettle();
-      expect(find.text('我是接收者 · 打开独立只读资料库'), findsOneWidget);
+      expect(find.text('创建接收者身份'), findsNothing);
+      expect(find.text('打开交接包'), findsOneWidget);
 
       await tester.pumpWidget(const SizedBox());
     },
@@ -272,15 +295,12 @@ void main() {
       expect(find.text('摇篮计划'), findsOneWidget);
       expect(find.textContaining('第 6 天开始提醒你'), findsOneWidget);
       await tester.scrollUntilVisible(
-        find.text('还没有已验证的接收者身份：先到「交接」页的「远程接收者」完成核对。'),
+        find.text('还没有接收者：先到「交接」页的「交给他人」添加。'),
         200,
         scrollable: find.byType(Scrollable).first,
       );
       await tester.pumpAndSettle();
-      expect(
-        find.text('还没有已验证的接收者身份：先到「交接」页的「远程接收者」完成核对。'),
-        findsOneWidget,
-      );
+      expect(find.text('还没有接收者：先到「交接」页的「交给他人」添加。'), findsOneWidget);
       await tester.pumpWidget(const SizedBox());
       c.dispose();
     },

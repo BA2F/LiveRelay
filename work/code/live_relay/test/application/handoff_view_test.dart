@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -57,6 +58,33 @@ void main() {
     expect(await service.accepts('new-family-2026'), isTrue);
     expect((await service.open('new-family-2026'))['records'], isEmpty);
   });
+
+  test(
+    'package bytes open with the pickup code without a local file',
+    () async {
+      final service = HandoffViewService(
+        () async => File('unused-in-bytes-test.json'),
+      );
+      final bytes = await service.encode(
+        password: 'ABCDEFGHJKLM',
+        snapshot: {
+          'version': 1,
+          'ownerName': '本人',
+          'records': [
+            {'title': '卡片', 'body': '只有取件码能看到', 'level': 'full'},
+          ],
+          'originals': <String, Object?>{},
+        },
+      );
+      expect(utf8.decode(bytes), isNot(contains('只有取件码能看到')));
+      final snapshot = await service.openBytes(bytes, 'ABCDEFGHJKLM');
+      expect((snapshot['records'] as List).single['body'], '只有取件码能看到');
+      await expectLater(
+        service.openBytes(bytes, 'WRONGCODE123'),
+        throwsFormatException,
+      );
+    },
+  );
 
   test('a missing handoff view reports it instead of opening', () async {
     final root = await Directory.systemTemp.createTemp('handoff-view-');

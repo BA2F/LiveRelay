@@ -209,33 +209,32 @@ Map<String, Future<void> Function()> maintenanceChecks() => {
           await f.dispose();
         }
       },
-  'restore with an all-factor policy still requires the local reset':
-      () async {
-        final f = await Fixture.make();
-        f.vault.dailyPolicy = 'all';
-        final bytes = Uint8List.fromList([99, 88]);
-        try {
-          final outcome = await f.backup.restore(
-            bytes,
-            'fixture-password',
-            clearUnlockedData: () => f.clears++,
-            refreshUnlockedData: f.refresh,
-          );
-          check(
-            f.transaction.committed &&
-                f.vault.state == VaultSessionState.recovering,
-            'All-factor restore bypassed the reset gate',
-          );
-          check(
-            outcome.requiresReset &&
-                !outcome.unlockedAfterRestore &&
-                f.refreshes == 0,
-            'Reset path refreshed projections or misreported',
-          );
-        } finally {
-          await f.dispose();
-        }
-      },
+  'restore with an all-factor policy still requires the local reset': () async {
+    final f = await Fixture.make();
+    f.vault.dailyPolicy = 'all';
+    final bytes = Uint8List.fromList([99, 88]);
+    try {
+      final outcome = await f.backup.restore(
+        bytes,
+        'fixture-password',
+        clearUnlockedData: () => f.clears++,
+        refreshUnlockedData: f.refresh,
+      );
+      check(
+        f.transaction.committed &&
+            f.vault.state == VaultSessionState.recovering,
+        'All-factor restore bypassed the reset gate',
+      );
+      check(
+        outcome.requiresReset &&
+            !outcome.unlockedAfterRestore &&
+            f.refreshes == 0,
+        'Reset path refreshed projections or misreported',
+      );
+    } finally {
+      await f.dispose();
+    }
+  },
   'failed archive authentication cannot replace active vault and clears consumed input':
       () async {
         final f = await Fixture.make();
@@ -657,7 +656,9 @@ class FakeRepository implements VaultRepository {
 class FakeArchive implements VaultArchive {
   Completer<Uint8List>? pending;
   final entered = Completer<void>();
-  final kinds = <String>[], snapshots = <String?>[], blobSubsets = <Set<String>?>[];
+  final kinds = <String>[],
+      snapshots = <String?>[],
+      blobSubsets = <Set<String>?>[];
   Uint8List? borrowedKey, firstOutput;
   StagedLifeVault? staged;
   ArchiveContainerSummary? containerSummary;
@@ -731,6 +732,12 @@ class FakeMedium implements TransferMedium {
     entries
       ..removeWhere((entry) => entry.name == name)
       ..add(MediumEntry(name: name, length: bytes.length));
+  }
+
+  @override
+  Future<void> delete(String name) async {
+    writes.remove(name);
+    entries.removeWhere((entry) => entry.name == name);
   }
 }
 

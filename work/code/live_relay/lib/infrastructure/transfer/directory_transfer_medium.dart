@@ -82,4 +82,10 @@ class DirectoryTransferMedium implements TransferMedium {
       rethrow;
     }
   }
+
+  @override
+  Future<void> delete(String name) async {
+    final file = _file(name);
+    if (await file.exists()) await file.delete();
+  }
 }

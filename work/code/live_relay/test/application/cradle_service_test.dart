@@ -37,6 +37,11 @@ class MemoryMedium implements TransferMedium {
   Future<void> writeAtomic(String name, Uint8List bytes) async {
     files[name] = Uint8List.fromList(bytes);
   }
+
+  @override
+  Future<void> delete(String name) async {
+    files.remove(name);
+  }
 }
 
 Future<CradleService> _unlockedCradle(Directory root) async {
@@ -63,9 +68,9 @@ void main() {
       expect(await cradle.readCheckin(medium), isNull);
 
       final uploaded = await cradle.uploadCheckin(medium, device: 'phone');
-      final raw =
-          jsonDecode(utf8.decode(medium.files[CheckinRecord.fileName]!))
-              as Map<String, Object?>;
+      final raw = jsonDecode(
+        utf8.decode(medium.files[CheckinRecord.fileName]!),
+      ) as Map<String, Object?>;
       expect(raw['kind'], CheckinRecord.kind);
       expect(raw['version'], CheckinRecord.version);
       expect(raw['device'], 'phone');
@@ -91,37 +96,43 @@ void main() {
     },
   );
 
-  test('pre-authorized packages upload under the canonical plan name', () async {
-    final root = await Directory.systemTemp.createTemp('cradle-unit-');
-    final cradle = await _unlockedCradle(root);
-    final medium = MemoryMedium();
+  test(
+    'pre-authorized packages upload under the canonical plan name',
+    () async {
+      final root = await Directory.systemTemp.createTemp('cradle-unit-');
+      final cradle = await _unlockedCradle(root);
+      final medium = MemoryMedium();
 
-    expect(
-      CradleRecipient.packageNameFor('家人'),
-      'liverelay-handoff-家人.lrshare',
-    );
-    expect(
-      CradleRecipient.packageNameFor(r'a/b\c'),
-      'liverelay-handoff-a_b_c.lrshare',
-    );
+      expect(
+        CradleRecipient.packageNameFor('家人'),
+        'liverelay-handoff-家人.lrshare',
+      );
+      expect(
+        CradleRecipient.packageNameFor(r'a/b\c'),
+        'liverelay-handoff-a_b_c.lrshare',
+      );
 
-    final bytes = Uint8List.fromList(utf8.encode('fake scoped delivery wire'));
-    await cradle.uploadPackage(
-      medium,
-      packageName: CradleRecipient.packageNameFor('家人'),
-      bytes: bytes,
-    );
-    expect(medium.files['liverelay-handoff-家人.lrshare'], bytes);
+      final bytes = Uint8List.fromList(
+        utf8.encode('fake scoped delivery wire'),
+      );
+      await cradle.uploadPackage(
+        medium,
+        packageName: CradleRecipient.packageNameFor('家人'),
+        bytes: bytes,
+      );
+      expect(medium.files['liverelay-handoff-家人.lrshare'], bytes);
 
-    expect(
-      () => cradle.uploadPackage(medium, packageName: 'bad/name', bytes: bytes),
-      throwsFormatException,
-    );
-    expect(
-      () => cradle.uploadPackage(medium, packageName: '', bytes: bytes),
-      throwsFormatException,
-    );
-  });
+      expect(
+        () =>
+            cradle.uploadPackage(medium, packageName: 'bad/name', bytes: bytes),
+        throwsFormatException,
+      );
+      expect(
+        () => cradle.uploadPackage(medium, packageName: '', bytes: bytes),
+        throwsFormatException,
+      );
+    },
+  );
 
   test('cradle plans round-trip and validate parameter ranges', () async {
     final root = await Directory.systemTemp.createTemp('cradle-unit-');
@@ -143,6 +154,8 @@ void main() {
           cloudUrl: 'http://example.com:3923/owner/',
           cloudUser: 'owner',
           cloudPassword: 'password',
+          subject: '【留灯】张三 给你留了内容',
+          body: '取件链接：http://example.com/family.lrshare\n取件码：ABCD-EFGH-JKLM',
         ),
       ],
     );
@@ -158,7 +171,33 @@ void main() {
     expect(readBack.graceDays, 3);
     expect(readBack.recipients.single.label, '家人');
     expect(readBack.recipients.single.email, 'someone@example.com');
-    expect(readBack.recipients.single.cloudUrl, 'http://example.com:3923/owner/');
+    expect(
+      readBack.recipients.single.cloudUrl,
+      'http://example.com:3923/owner/',
+    );
+    expect(readBack.recipients.single.subject, '【留灯】张三 给你留了内容');
+    expect(readBack.recipients.single.body, contains('取件码：ABCD-EFGH-JKLM'));
+
+    final versionOne = CradlePlan.parse({
+      'kind': CradlePlan.kind,
+      'version': 1,
+      'ownerEmail': 'owner@example.com',
+      'periodDays': 7,
+      'remindBeforeDays': 1,
+      'graceDays': 3,
+      'recipients': [
+        {
+          'label': '家人',
+          'email': 'someone@example.com',
+          'package': 'handoff/family.lrshare',
+          'cloudUrl': 'http://example.com:3923/owner/',
+          'cloudUser': 'owner',
+          'cloudPassword': 'password',
+        },
+      ],
+    });
+    expect(versionOne.recipients.single.subject, isEmpty);
+    expect(versionOne.recipients.single.body, isEmpty);
 
     expect(
       CradlePlan.validationError(

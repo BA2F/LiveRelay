@@ -18,10 +18,10 @@ import 'speech_input_page.dart';
 import 'identity_page.dart';
 import 'local_backup_page.dart';
 import 'device_transfer_page.dart';
-import 'recipient_page.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key, this.onOpenExtensions});
+
   /// 桌面传入时提供扩展入口；手机端暂不显示。
   final VoidCallback? onOpenExtensions;
   @override
@@ -51,7 +51,9 @@ class _ProfilePageState extends State<ProfilePage> {
     } on Object {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(AppLocalizations.of(context).settingsSaveFailed)),
+          SnackBar(
+            content: Text(AppLocalizations.of(context).settingsSaveFailed),
+          ),
         );
       }
     }
@@ -86,24 +88,12 @@ class _ProfilePageState extends State<ProfilePage> {
         if (controller.handoff != null)
           ListTile(
             leading: const Icon(Icons.badge_outlined),
-            title: const Text('本人身份与接收者'),
-            subtitle: const Text('编辑身份资料、验证接收者、限定范围交接'),
+            title: const Text('本人身份资料'),
+            subtitle: const Text('编辑显示名称、联系方式和公开身份'),
             onTap: () => Navigator.push(
               context,
               MaterialPageRoute(builder: (_) => const IdentityPage()),
             ),
-          ),
-        if (controller.recipient != null)
-          ListenableBuilder(
-            listenable: controller.recipient!,
-            builder: (context, _) => controller.recipient!.exists
-                ? const SizedBox.shrink()
-                : ListTile(
-                    leading: const Icon(Icons.person_add_alt_1_outlined),
-                    title: Text(l10n.recipientCreate),
-                    subtitle: const Text('在本机建立独立只读身份，用于接收别人的交接'),
-                    onTap: () => openRecipientEntry(context),
-                  ),
           ),
         const SizedBox(height: 24),
         if (preferences != null) AppearanceSettings(preferences: preferences),
@@ -196,9 +186,8 @@ class _ProfilePageState extends State<ProfilePage> {
                   controller.capability(item.$1),
                 );
               } else {
-                Navigator.of(context).push<void>(
-                  MaterialPageRoute(builder: (_) => page),
-                );
+                Navigator.of(context)
+                    .push<void>(MaterialPageRoute(builder: (_) => page));
               }
             },
           ),
@@ -206,7 +195,7 @@ class _ProfilePageState extends State<ProfilePage> {
         ListTile(
           leading: const LiveRelayLogo(size: 24),
           title: const Text('留灯 LiveRelay'),
-          subtitle: const Text('1.0.0-beta.2'),
+          subtitle: const Text('1.0.0-beta.4'),
           onTap: () => versionTap(context.read<DevelopmentControls?>()),
         ),
       ],

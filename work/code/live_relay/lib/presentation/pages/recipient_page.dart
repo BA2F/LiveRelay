@@ -9,7 +9,6 @@ import 'package:qr_flutter/qr_flutter.dart';
 import '../controllers/app_controller.dart';
 import '../../application/recipient_service.dart';
 import '../../core/identity/local_identity.dart';
-import '../../l10n/app_localizations.dart';
 import '../dialogs/local_file_dialogs.dart';
 import '../widgets/read_only_snapshot.dart';
 
@@ -60,33 +59,6 @@ Future<void> showRecipientQr(
       ),
     ),
   );
-}
-
-/// 解锁页与引导页的接收者入口：已有身份时打开只读资料库，没有身份时提供
-/// 创建入口。内部监听接收者服务，创建完成后无需重新进入页面即可切换文案。
-class RecipientEntryButton extends StatelessWidget {
-  const RecipientEntryButton({super.key});
-  @override
-  Widget build(BuildContext context) {
-    final service = context.watch<AppController>().recipient;
-    if (service == null) return const SizedBox.shrink();
-    return ListenableBuilder(
-      listenable: service,
-      builder: (context, _) => TextButton.icon(
-        onPressed: () => openRecipientEntry(context),
-        icon: Icon(
-          service.exists
-              ? Icons.mark_email_read_outlined
-              : Icons.person_add_alt_1_outlined,
-        ),
-        label: Text(
-          service.exists
-              ? AppLocalizations.of(context).recipientEntry
-              : AppLocalizations.of(context).recipientCreate,
-        ),
-      ),
-    );
-  }
 }
 
 class RecipientPage extends StatefulWidget {
