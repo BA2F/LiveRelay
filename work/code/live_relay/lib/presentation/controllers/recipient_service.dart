@@ -9,10 +9,23 @@ import '../../core/identity/local_identity.dart';
 /// Flutter notification and local file-selection adaptation only.
 class RecipientService extends ChangeNotifier {
   RecipientService(this.runtime) {
-    _subscription = runtime.changes.listen((_) => notifyListeners());
+    _subscription = runtime.changes.listen((_) => _notifyLater());
   }
   final RecipientRuntime runtime;
   late final StreamSubscription<void> _subscription;
+  bool _notifyScheduled = false, _disposed = false;
+
+  /// The runtime emits synchronous changes. ChangeNotifier listeners may call
+  /// setState, so forward those changes after the current build/frame stack.
+  void _notifyLater() {
+    if (_disposed || _notifyScheduled) return;
+    _notifyScheduled = true;
+    scheduleMicrotask(() {
+      _notifyScheduled = false;
+      if (!_disposed) notifyListeners();
+    });
+  }
+
   LocalIdentity? get identity => runtime.identity;
   Map<String, Object?>? get snapshot => runtime.snapshot;
   bool get exists => runtime.exists;
@@ -41,6 +54,7 @@ class RecipientService extends ChangeNotifier {
   void lock() => runtime.lock();
   @override
   void dispose() {
+    _disposed = true;
     unawaited(_subscription.cancel());
     runtime.dispose();
     super.dispose();

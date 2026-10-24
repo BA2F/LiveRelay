@@ -212,8 +212,7 @@ Future<void> _openPickup(BuildContext context) async {
         ),
         ListTile(
           leading: const Icon(Icons.file_open_outlined),
-          title: const Text('打开交接包'),
-          subtitle: const Text('用邮件里的取件码打开'),
+          title: const Text('通过此软件打开交接包'),
           onTap: () {
             Navigator.pop(sheetContext);
             openHandoffPackage(context);

@@ -78,60 +78,8 @@ class _HandoffPageState extends State<HandoffPage> {
       setState(() => _deliveryError = '先到「设备间搬运」配置云端连接，再添加接收者');
       return;
     }
-    final label = TextEditingController();
-    final email = TextEditingController();
     try {
-      final input = await showDialog<(String, String)>(
-        context: context,
-        builder: (context) => StatefulBuilder(
-          builder: (context, refresh) {
-            final ready =
-                label.text.trim().isNotEmpty &&
-                email.text.contains('@') &&
-                email.text.length >= 3;
-            return AlertDialog(
-              title: const Text('添加接收者'),
-              content: SizedBox(
-                width: 420,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    TextField(
-                      controller: label,
-                      autofocus: true,
-                      onChanged: (_) => refresh(() {}),
-                      decoration: const InputDecoration(labelText: '称呼'),
-                    ),
-                    const SizedBox(height: 12),
-                    TextField(
-                      controller: email,
-                      keyboardType: TextInputType.emailAddress,
-                      onChanged: (_) => refresh(() {}),
-                      decoration: const InputDecoration(labelText: '邮箱'),
-                    ),
-                  ],
-                ),
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: const Text('取消'),
-                ),
-                FilledButton(
-                  onPressed: ready
-                      ? () => Navigator.pop(context, (
-                          label.text.trim(),
-                          email.text.trim(),
-                        ))
-                      : null,
-                  child: const Text('添加'),
-                ),
-              ],
-            );
-          },
-        ),
-      );
+      final input = await showAddRecipientDialog(context);
       if (input == null || !mounted) return;
       final scope = <ScopedRecord>[
         for (final card in controller.cards)
@@ -159,8 +107,6 @@ class _HandoffPageState extends State<HandoffPage> {
     } on Object catch (error) {
       if (mounted) setState(() => _deliveryError = '$error');
     } finally {
-      label.dispose();
-      email.dispose();
       if (mounted) setState(() => _deliveryBusy = false);
     }
   }
@@ -693,6 +639,81 @@ class _HandoffPageState extends State<HandoffPage> {
         FilledButton(
           onPressed: _busy ? null : _save,
           child: const Text('保存交接内容'),
+        ),
+      ],
+    );
+  }
+}
+
+@visibleForTesting
+Future<(String, String)?> showAddRecipientDialog(BuildContext context) =>
+    showDialog<(String, String)>(
+      context: context,
+      builder: (_) => const _AddRecipientDialog(),
+    );
+
+class _AddRecipientDialog extends StatefulWidget {
+  const _AddRecipientDialog();
+
+  @override
+  State<_AddRecipientDialog> createState() => _AddRecipientDialogState();
+}
+
+class _AddRecipientDialogState extends State<_AddRecipientDialog> {
+  final _label = TextEditingController();
+  final _email = TextEditingController();
+
+  bool get _ready =>
+      _label.text.trim().isNotEmpty &&
+      _email.text.contains('@') &&
+      _email.text.length >= 3;
+
+  @override
+  void dispose() {
+    _label.dispose();
+    _email.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('添加接收者'),
+      content: SizedBox(
+        width: 420,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            TextField(
+              controller: _label,
+              autofocus: true,
+              onChanged: (_) => setState(() {}),
+              decoration: const InputDecoration(labelText: '称呼'),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _email,
+              keyboardType: TextInputType.emailAddress,
+              onChanged: (_) => setState(() {}),
+              decoration: const InputDecoration(labelText: '邮箱'),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('取消'),
+        ),
+        FilledButton(
+          onPressed: _ready
+              ? () => Navigator.pop(context, (
+                  _label.text.trim(),
+                  _email.text.trim(),
+                ))
+              : null,
+          child: const Text('添加'),
         ),
       ],
     );
