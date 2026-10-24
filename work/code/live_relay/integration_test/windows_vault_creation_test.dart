@@ -178,8 +178,10 @@ void main() {
 
     await controller.lock();
     await tester.pumpAndSettle();
-    await until(() => find.text('查看交接内容').evaluate().isNotEmpty);
-    await tap(find.text('查看交接内容'));
+    await until(() => find.text('打开交接包').evaluate().isNotEmpty);
+    await tap(find.text('打开交接包'));
+    await until(() => find.text('查看本机交接内容').evaluate().isNotEmpty);
+    await tap(find.text('查看本机交接内容'));
     await tester.enterText(
       find.descendant(
         of: find.byType(AlertDialog),
