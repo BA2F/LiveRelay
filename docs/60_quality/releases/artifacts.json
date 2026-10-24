@@ -370,6 +370,53 @@
       },
       "verification": "Static analysis clean and 339 tests passed / 3 skipped; Android release built with the dedicated key, aapt2/apksigner verified package name, versionName 1.0.0-beta.5, versionCode 8, minSdk 24, targetSdk 36, arm64-only contents and the v2 certificate; Linux built in the isolated Ubuntu 22.04.5 rootfs via scripts/build_linux_ubuntu22.py, full-ELF ABI audit passed, and the final bundle stayed alive for 20s in an Xvfb smoke launch (Impeller and media_kit loaded; expected secret-service warning without a keyring); cradle service verified on ECS for plan v2 acceptance, test-result writing, request removal and a real SMTP send; all 3 uploaded asset sizes/digests match local files. Android runtime walkthrough on the x86_64 emulator was blocked by a startup hang in getTemporaryDirectory (path_provider Android JNI), unrelated to this change and not reproduced on a real device; ux_flow integration test still fails at the vault-creation wait; Windows manual walkthrough, real-device Android walkthrough and the in-app cradle test flow remain unverified.",
       "releaseAttestation": false
+    },
+    {
+      "tag": "v1.0.0-beta.7",
+      "name": "LiveRelay v1.0.0-beta.7 — 密码强度提示",
+      "url": "https://github.com/BA2F/LiveRelay/releases/tag/v1.0.0-beta.7",
+      "publishedAt": "2026-10-24T14:14:32Z",
+      "buildDate": "2026-10-24",
+      "sourceCommit": "c843dc9a4b6e85e5249367b1349061e333c5ca45",
+      "provenance": "Android and Linux release built from the working tree at application 1.0.0-beta.7+10; the tagged commit carries the same application source and only release notes and the README link were committed afterwards. Adds the password strength bar under the setup and change-password fields and includes the beta.6 Android startup fix. The Linux bundle no longer carries the 101 MB kernel_blob.bin that beta.6 shipped by mistake.",
+      "prerelease": true,
+      "packageName": "app.liverelay.live_relay",
+      "versionName": "1.0.0-beta.7",
+      "versionCode": 10,
+      "minSdk": 24,
+      "targetSdk": 36,
+      "signatureScheme": "v2",
+      "signingCertificate": "CN=LiveRelay (dedicated release key)",
+      "certificateSha256": "7dee1b1faa8904777869b634f5fc2e50cfe4acb32e09543201476d8e14531cc7",
+      "androidAbi": "arm64-v8a",
+      "apk": {
+        "fileName": "LiveRelay-v1.0.0-beta.7-Android.apk",
+        "bytes": 82900750,
+        "sha256": "e033f218038e50a7e0cb926c22e338b803bdcdcd3289d0c429a03eb702dc04bb",
+        "downloadUrl": "https://github.com/BA2F/LiveRelay/releases/download/v1.0.0-beta.7/LiveRelay-v1.0.0-beta.7-Android.apk"
+      },
+      "linux": {
+        "fileName": "LiveRelay-v1.0.0-beta.7-Linux-x86_64.tar.gz",
+        "bytes": 28614444,
+        "sha256": "6e51ba56e11ee508b878179699935955134f291f04091bf9fb0fd91ce482a4a3",
+        "downloadUrl": "https://github.com/BA2F/LiveRelay/releases/download/v1.0.0-beta.7/LiveRelay-v1.0.0-beta.7-Linux-x86_64.tar.gz"
+      },
+      "checksumFile": {
+        "fileName": "SHA256SUMS",
+        "bytes": 212,
+        "sha256": "f7826ecd1b2f988ac94c9d7740d1f403f5f54644ddb8463676a31a98ac67eb74",
+        "downloadUrl": "https://github.com/BA2F/LiveRelay/releases/download/v1.0.0-beta.7/SHA256SUMS"
+      },
+      "linuxArchitecture": "x86_64",
+      "linuxBuildDistribution": "Ubuntu22.04",
+      "linuxBuildGlibc": "2.35",
+      "linuxMaximumAbi": {
+        "GLIBC": "2.34",
+        "GLIBCXX": "3.4.29",
+        "CXXABI": "1.3.7"
+      },
+      "verification": "Static analysis clean and 347 tests passed / 3 skipped; Android release built with the dedicated key, aapt2/apksigner verified package name, versionName 1.0.0-beta.7, versionCode 10, minSdk 24, targetSdk 36, arm64-only contents and the v2 certificate, and the release plugin registrant is present in the dex; Linux built in the isolated Ubuntu 22.04.5 rootfs via scripts/build_linux_ubuntu22.py, full-ELF ABI audit passed, no kernel_blob.bin or native_assets.json in the bundle, and the final bundle stayed alive for 20s in an Xvfb smoke launch; the three strength levels were checked one by one on the emulator and the owner confirmed the bar on a physical phone; all 3 uploaded asset sizes/digests match local files. Full unlock and vault flows, Windows walkthrough and the ux_flow integration test remain unverified.",
+      "releaseAttestation": false
     }
   ]
 }
