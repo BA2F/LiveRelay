@@ -2,6 +2,16 @@
 
 记录对使用者有影响的版本变化。安装包、校验文件和最终发布说明以 [GitHub Releases](https://github.com/BA2F/LiveRelay/releases)为准；制品身份另见 [发布记录](docs/60_quality/releases/)。
 
+## v1.0.0-beta.5 — 交接界面稳定性与摇篮服务修复，2026-10-24
+
+[Release](https://github.com/BA2F/LiveRelay/releases/tag/v1.0.0-beta.5) · [完整版本说明](docs/60_quality/releases/v1.0.0-beta.5.md)
+
+- 修复交接页面的两处界面错误：打开接收者页不再在构建途中刷新界面；「添加接收者」对话框的文本框控制器改由对话框自己管理，退场动画期间不再访问已销毁的控制器。
+- 锁定页取件弹层的「打开交接包」改为「通过此软件打开交接包」，删掉「用邮件里的取件码打开」副标题。
+- 云端摇篮服务更新到含计划 v2 与测试邮件代码的版本，数据目录由只读改为可写。测试邮件现在能写回结果并删除请求，不再每 10 分钟重复发送。服务端代码不在安装包里。
+- `flutter analyze` 无问题；339 项测试通过、3 跳过、0 失败；Android Release APK（versionCode 8，arm64，v2，与 beta.1 到 beta.4 同证书）与 Ubuntu 22.04.5 隔离 rootfs 构建的 Linux 包已核对。
+- 限制：Android x86_64 模拟器启动卡在 `getTemporaryDirectory()`，真机待确认；`ux_flow` 集成测试在建库等待处失败；Windows 人工走查仍未做。
+
 ## v1.0.0-beta.4 — 取件码交接与摇篮邮件，2026-10-21
 
 [Release](https://github.com/BA2F/LiveRelay/releases/tag/v1.0.0-beta.4) · [完整版本说明](docs/60_quality/releases/v1.0.0-beta.4.md)
