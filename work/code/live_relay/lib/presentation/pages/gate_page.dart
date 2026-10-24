@@ -5,9 +5,11 @@ import 'package:provider/provider.dart';
 
 import '../controllers/app_controller.dart';
 import '../../core/security/chinese_passphrase.dart';
+import '../../core/security/password_strength.dart';
 import '../../core/security/vault_password_policy.dart';
 import '../../l10n/app_localizations.dart';
 import '../design_system/atoms.dart';
+import '../design_system/password_strength_bar.dart';
 import '../dialogs/backup_dialogs.dart';
 import '../dialogs/security_dialogs.dart';
 import '../dialogs/transfer_dialogs.dart';
@@ -319,6 +321,12 @@ class _SetupVaultPageState extends State<SetupVaultPage> {
               ),
             ),
           ),
+          if (!_useGenerator && _password.text.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            PasswordStrengthBar(
+              strength: PasswordStrengthEstimator.evaluate(_password.text),
+            ),
+          ],
           if (!_useGenerator && _passwordValid)
             _ValidationCheck(l10n.setupLengthOk),
           const SizedBox(height: 12),

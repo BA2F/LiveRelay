@@ -180,6 +180,15 @@ class AppLocalizationsEn extends AppLocalizations {
   String get setupLengthOk => 'Password length is fine';
 
   @override
+  String get passwordStrengthWeak => 'Weak';
+
+  @override
+  String get passwordStrengthMedium => 'Medium';
+
+  @override
+  String get passwordStrengthStrong => 'Strong';
+
+  @override
   String get setupConfirmLabel => 'Enter the master password again';
 
   @override

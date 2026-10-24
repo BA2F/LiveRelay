@@ -416,6 +416,24 @@ abstract class AppLocalizations {
   /// **'密码长度符合要求'**
   String get setupLengthOk;
 
+  /// No description provided for @passwordStrengthWeak.
+  ///
+  /// In zh, this message translates to:
+  /// **'弱'**
+  String get passwordStrengthWeak;
+
+  /// No description provided for @passwordStrengthMedium.
+  ///
+  /// In zh, this message translates to:
+  /// **'中'**
+  String get passwordStrengthMedium;
+
+  /// No description provided for @passwordStrengthStrong.
+  ///
+  /// In zh, this message translates to:
+  /// **'强'**
+  String get passwordStrengthStrong;
+
   /// No description provided for @setupConfirmLabel.
   ///
   /// In zh, this message translates to:

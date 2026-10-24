@@ -176,6 +176,15 @@ class AppLocalizationsZh extends AppLocalizations {
   String get setupLengthOk => '密码长度符合要求';
 
   @override
+  String get passwordStrengthWeak => '弱';
+
+  @override
+  String get passwordStrengthMedium => '中';
+
+  @override
+  String get passwordStrengthStrong => '强';
+
+  @override
   String get setupConfirmLabel => '再次输入主密码';
 
   @override

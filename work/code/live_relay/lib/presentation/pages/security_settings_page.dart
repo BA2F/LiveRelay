@@ -6,7 +6,9 @@ import 'package:provider/provider.dart';
 
 import '../controllers/app_controller.dart';
 import '../../core/security/owner_crypto.dart';
+import '../../core/security/password_strength.dart';
 import '../../core/security/vault_password_policy.dart';
+import '../design_system/password_strength_bar.dart';
 import '../dialogs/security_dialogs.dart';
 
 class SecuritySettingsPage extends StatefulWidget {
@@ -179,10 +181,19 @@ class _SecuritySettingsPageState extends State<SecuritySettingsPage> {
                   controller: password,
                   obscureText: true,
                   enabled: !busy,
+                  onChanged: (_) => setState(() {}),
                   decoration: const InputDecoration(
                     labelText: '新主密码（至少 8 个字符）',
                   ),
                 ),
+                if (password.text.isNotEmpty) ...[
+                  const SizedBox(height: 8),
+                  PasswordStrengthBar(
+                    strength: PasswordStrengthEstimator.evaluate(
+                      password.text,
+                    ),
+                  ),
+                ],
                 const SizedBox(height: 12),
                 TextField(
                   controller: confirmation,
