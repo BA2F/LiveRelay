@@ -2,6 +2,15 @@
 
 记录对使用者有影响的版本变化。安装包、校验文件和最终发布说明以 [GitHub Releases](https://github.com/BA2F/LiveRelay/releases)为准；制品身份另见 [发布记录](docs/60_quality/releases/)。
 
+## v1.0.0-beta.6 — 修复 Android 启动崩溃，2026-10-24
+
+[Release](https://github.com/BA2F/LiveRelay/releases/tag/v1.0.0-beta.6) · [完整版本说明](docs/60_quality/releases/v1.0.0-beta.6.md)
+
+- 修复 Android 启动崩溃。`path_provider_android` 2.3.x 用 JNI 读取 `Context.cacheDir`，启动阶段的临时目录清理触发时 JNI 尚未初始化，进程以 `SIGSEGV` 中止。已固定到 2.2.23（MethodChannel 实现），`jni` 与 `jni_flutter` 移出依赖树。
+- beta.5 及更早的 Android 包都带同一个 JNI 库，走同一条启动路径。请升级到本版本。
+- 验证：模拟器和小米 13（Android 13）均能冷启动到解锁页；`flutter analyze` 无问题；339 项测试通过、3 跳过、0 失败；Linux 在 Ubuntu 22.04.5 隔离 rootfs 构建并通过 ABI 审计与 Xvfb 冒烟。
+- 限制：解锁、建立资料库和交接流程未走查；`ux_flow` 集成测试仍在建库等待处失败；Windows 人工走查未做。
+
 ## v1.0.0-beta.5 — 交接界面稳定性与摇篮服务修复，2026-10-24
 
 [Release](https://github.com/BA2F/LiveRelay/releases/tag/v1.0.0-beta.5) · [完整版本说明](docs/60_quality/releases/v1.0.0-beta.5.md)
