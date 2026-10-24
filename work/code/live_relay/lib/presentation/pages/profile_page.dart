@@ -195,7 +195,7 @@ class _ProfilePageState extends State<ProfilePage> {
         ListTile(
           leading: const LiveRelayLogo(size: 24),
           title: const Text('留灯 LiveRelay'),
-          subtitle: const Text('1.0.0-beta.6'),
+          subtitle: const Text('1.0.0-beta.7'),
           onTap: () => versionTap(context.read<DevelopmentControls?>()),
         ),
       ],
