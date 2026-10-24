@@ -33,8 +33,8 @@ LiveRelay（留灯）用来记录那些需要长期保存、在关键时候又�
 
 安装包通过 [GitHub Releases](https://github.com/BA2F/LiveRelay/releases) 分发，不进入 Git 历史。
 
-- **Android**：7.0 / API 24 及以上，arm64。最新版本 [v1.0.0-beta.4](https://github.com/BA2F/LiveRelay/releases/tag/v1.0.0-beta.4)。
-- **Linux**：x86_64，glibc 2.35 及以上。最新版本 [v1.0.0-beta.4](https://github.com/BA2F/LiveRelay/releases/tag/v1.0.0-beta.4) 提供完整应用包。
+- **Android**：7.0 / API 24 及以上，arm64。最新版本 [v1.0.0-beta.5](https://github.com/BA2F/LiveRelay/releases/tag/v1.0.0-beta.5)。
+- **Linux**：x86_64，glibc 2.35 及以上。最新版本 [v1.0.0-beta.5](https://github.com/BA2F/LiveRelay/releases/tag/v1.0.0-beta.5) 提供完整应用包。
 - **Windows**：本版本提供源码支持（Windows 11 已验证构建、启动与首次建库），暂不提供 Windows 安装包。
 
 每个发布页同时提供 `SHA256SUMS`，下载后可校验：
