@@ -2,6 +2,15 @@
 
 记录对使用者有影响的版本变化。安装包、校验文件和最终发布说明以 [GitHub Releases](https://github.com/BA2F/LiveRelay/releases)为准；制品身份另见 [发布记录](docs/60_quality/releases/)。
 
+## v1.0.0-beta.7 — 密码强度提示，2026-10-24
+
+[Release](https://github.com/BA2F/LiveRelay/releases/tag/v1.0.0-beta.7) · [完整版本说明](docs/60_quality/releases/v1.0.0-beta.7.md)
+
+- 新增密码强度条：创建资料库页和更改密码页的密码框下方显示三段提示，弱为一条红色、中为两条黄色、强为三条绿色，右侧写「弱／中／强」。空密码和中文词组生成模式不显示。
+- 强度按字符类别估算，重复字符与顺序字符只计一次，包含常见口令时直接判弱；估算数字不显示。提示条不改变「至少 8 个字符」的现有规则。
+- 包含 beta.6 的 Android 启动崩溃修复。Linux 包不再混入 101 MB 的 `kernel_blob.bin`，体积从 58 MB 降到 29 MB。
+- 验证：`flutter analyze` 无问题；347 项测试通过、3 跳过、0 失败；模拟器逐档确认三档显示，本人手机确认可见；Linux 隔离构建通过 ABI 审计与 Xvfb 冒烟。
+
 ## v1.0.0-beta.6 — 修复 Android 启动崩溃，2026-10-24
 
 [Release](https://github.com/BA2F/LiveRelay/releases/tag/v1.0.0-beta.6) · [完整版本说明](docs/60_quality/releases/v1.0.0-beta.6.md)
