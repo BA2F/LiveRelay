@@ -11,7 +11,7 @@ App 把三样东西写进云端客户卷（`/srv/tttahzun/data/liverelay-drive/u
 - `liverelay-cradle-plan.json`：摇篮计划（周期／提前提醒／宽限期／提醒邮箱／接收者名单／每人的邮件草稿）
 - `liverelay-cradle-test.json`：App 请求发送的一封测试邮件（发完即删，结果写 `liverelay-cradle-test-result.json`）
 
-摇篮服务只读这些文件（数据目录只读挂载），按下面的规则发邮件：
+摇篮服务读取这些文件发邮件。数据目录以可写方式挂载，服务只写结果文件、删除测试请求，其余文件不动：
 
 | 距上次报平安 | 动作 |
 | --- | --- |
@@ -72,7 +72,18 @@ SMTP：`CRADLE_SMTP_MODE=ssl`（端口 465）或 `starttls`（端口 587）。�
 - 测试邮件：App 写 `liverelay-cradle-test.json`，服务端发送后写 `liverelay-cradle-test-result.json`（`requestedAt`／`sentAt`／`error`）并删除请求；不影响正式提醒和通知状态。
 - 取件码由 App 生成（12 位，分组显示），也可自定义（至少 12 位）。
 
+## 部署更新（2026-10-24）
+
+- 症状：App 点「发送测试邮件」后，云端一直不产生结果文件，App 显示「还没有留下测试结果」。
+- 原因有两层：
+  1. 容器镜像停在 2026-10-17，不含 2026-10-21 的计划 v2 与测试邮件代码，v2 计划每轮被拒（`invalid plan (kind/version)`）。
+  2. `/data` 按 2026-10-15 的设计只读挂载。新代码要写结果文件、删除请求文件，报 `[Errno 30] Read-only file system`。邮件在写结果前已经发出，请求文件删不掉，所以每 10 分钟重复发送。
+- 处理：上传仓库版 `cradle.py` 后 `docker compose up -d --build`；挂载由 `:ro` 改为 `:rw`。
+- 代价：摇篮进程现在可以写客户卷，取件包不被改动的保证从挂载层降到代码层。当前代码只写 `liverelay-cradle-test-result.json`，只删 `liverelay-cradle-test.json`。
+- 快照：`/srv/tttahzun/backups/20261024-174424-cradle-v2-update/`（含 `SHA256SUMS`、旧 `cradle.py`、改前 compose）。
+
 ## 待办
 
+- 结果文件写回依赖可写挂载。要恢复只读挂载，需要改成每人一个可写子目录，或取消结果文件协议。
 - 第二步安全收口：每人一个只读账号或一次性取件链接，避免把同一个 WebDAV 账号发给所有接收者；HTTPS；发送状态回写；服务端不存取件码。
 - 接收者当前需要手动下载 `.lrshare` 并用 App「打开交接包」打开；浏览器直接查看的取件页后置。
