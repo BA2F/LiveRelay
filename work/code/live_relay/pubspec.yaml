@@ -24,7 +24,7 @@ hooks:
 # https://developer.apple.com/library/archive/documentation/General/Reference/InfoPlistKeyReference/Articles/CoreFoundationKeys.html
 # In Windows, build-name is used as the major, minor, and patch parts
 # of the product and file versions while build-number is used as the build suffix.
-version: 1.0.0-beta.5+8
+version: 1.0.0-beta.6+9
 
 environment:
   sdk: ^3.13.2
@@ -91,6 +91,12 @@ dev_dependencies:
   flutter_lints: ^6.0.0
   drift_dev: ^2.35.0
   build_runner: ^2.16.1
+
+# path_provider_android 2.3.x reads Context.cacheDir through package:jni.
+# On Android the JNI runtime aborts the process on the first call at startup
+# ("JNI is not initialized"), so stay on the MethodChannel-based 2.2.x line.
+dependency_overrides:
+  path_provider_android: 2.2.23
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
